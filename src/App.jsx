@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { generateMicroLearning, generateSemesterReflection } from "./anthropic";
 
 const C = {
   navy: "#0F1F3D", navyMid: "#1A3260", navyLight: "#243D75",
@@ -28,6 +29,7 @@ const NAV = [
   { id: "Slide Studio", icon: "◫" },
   { id: "Micro-Learning", icon: "◉" },
   { id: "Think Tank", icon: "◈" },
+  { id: "Course Portfolio", icon: "◆" },
   { id: "Reports", icon: "☑" },
   { id: "Pricing", icon: "◇" },
 ];
@@ -204,10 +206,49 @@ export default function KlasUp() {
   const [selectedOutcomes, setSelectedOutcomes] = useState([]);
   const [milestones, setMilestones] = useState(["Draft submission", "Peer review"]);
   const [aiFeedback, setAiFeedback] = useState(null);
+  const [uploadText, setUploadText] = useState("");
+  const [aiMicro, setAiMicro] = useState([]);
+  const [aiMicroLoading, setAiMicroLoading] = useState(false);
+  const [aiMicroError, setAiMicroError] = useState(null);
+  const [microHistory, setMicroHistory] = useState({});
+  const [panelSections, setPanelSections] = useState({});
+  const [uploadLog, setUploadLog] = useState([]);
+  const [portfolioCourse, setPortfolioCourse] = useState("MKT 301");
+  const [portfolioWeek, setPortfolioWeek] = useState("All");
+  const [portfolioExpanded, setPortfolioExpanded] = useState({});
+  const [reflectionText, setReflectionText] = useState("");
+  const [reflectionLoading, setReflectionLoading] = useState(false);
+  const [reflectionError, setReflectionError] = useState(null);
+  const [reflectionEditing, setReflectionEditing] = useState(false);
+  const [microRatings, setMicroRatings] = useState({});
+  const [postUpvotes, setPostUpvotes] = useState({});
 
   const can = t => ["free", "pro", "institutional"].indexOf(tier) >= ["free", "pro", "institutional"].indexOf(t);
   const upgrade = () => setPage("Pricing");
   const cd = CAREER_DATA[course] || CAREER_DATA["MKT 301"];
+
+  const rateMicro = (key, stars) => setMicroRatings(p => ({ ...p, [key]: stars }));
+  const allRatings = Object.values(microRatings).filter(v => v > 0);
+  const avgRating = allRatings.length > 1 ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1) : null;
+
+  const StarRating = ({ ratingKey, dark }) => {
+    const current = microRatings[ratingKey] || 0;
+    return (
+      <div style={{ marginTop: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {[1, 2, 3, 4, 5].map(s => (
+            <span key={s} onClick={() => rateMicro(ratingKey, s)}
+              style={{ cursor: "pointer", fontSize: dark ? 14 : 16, color: s <= current ? C.tealBright : dark ? "rgba(255,255,255,0.2)" : C.ivoryDark, transition: "color 0.15s" }}>
+              ★
+            </span>
+          ))}
+          {current > 0 && <span style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, color: C.tealBright, marginLeft: 6 }}>{current}/5</span>}
+          {avgRating && <span style={{ fontSize: 10, fontFamily: F.accent, color: dark ? "rgba(255,255,255,0.3)" : C.muted, marginLeft: 6 }}>Avg {avgRating}</span>}
+        </div>
+        <div style={{ fontSize: 9, fontFamily: F.accent, color: dark ? "rgba(255,255,255,0.25)" : C.muted, marginTop: 3 }}>Your rating helps improve KlasUp.</div>
+      </div>
+    );
+  };
 
   const genFeedback = () => {
     if (!assignText) return;
@@ -275,7 +316,7 @@ export default function KlasUp() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: "2rem", overflowY: "auto", maxWidth: 900 }}>
+      <div style={{ flex: 1, padding: "2rem", overflowY: "auto", maxWidth: page === "My Course" || page === "Course Portfolio" ? 1200 : 900 }}>
 
         {/* Notification bar */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14, position: "relative" }}>
@@ -525,65 +566,240 @@ export default function KlasUp() {
         )}
 
         {/* ── MY COURSE ── */}
-        {page === "My Course" && (
-          <div>
-            <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>The more you put in, the more KlasUp gives back.</div>
-            </div>
-            <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
-              {UPLOADS.map((u, i) => {
-                const locked = !can(u.tier);
-                return (
-                  <div key={i} style={{ position: "relative", background: C.white, border: uploadOpen === u.label ? `1.5px solid ${C.tealBright}` : `0.5px solid ${C.border}`, borderRadius: 14, padding: "1rem", cursor: locked ? "default" : "pointer", overflow: "hidden" }}
-                    onClick={() => !locked && setUploadOpen(uploadOpen === u.label ? null : u.label)}>
-                    {locked && <LockOverlay onUpgrade={upgrade} />}
-                    <div style={{ fontSize: 18, marginBottom: 5 }}>{u.icon}</div>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{u.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{u.desc}</div>
-                    <div style={{ fontSize: 10, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>{course} · {week}</div>
-                    {uploaded[u.label] > 0 && <div style={{ fontSize: 11, color: C.sage, fontWeight: 700, marginTop: 4 }}>{uploaded[u.label]} added ✓</div>}
-                    {uploadOpen === u.label && (
-                      <div style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
-                        <textarea placeholder={`Add your ${u.label.toLowerCase()} here...`} rows={3}
-                          style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 12, resize: "none", boxSizing: "border-box", background: C.ivory }} />
-                        <button onClick={() => { setUploaded(p => ({ ...p, [u.label]: (p[u.label] || 0) + 1 })); setUploadOpen(null); }}
-                          style={{ marginTop: 6, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "6px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                          Submit to KlasUp
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <Card>
-              <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 14 }}>UP SCORE BREAKDOWN — {course} · {week}</div>
-              {DIMENSIONS.map((d, i) => {
-                const locked = !can(d.tier);
-                return (
-                  <div key={i} style={{ marginBottom: 12, position: "relative" }}>
-                    {locked && (
-                      <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,244,0.9)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", zIndex: 1 }}>
-                        <span style={{ fontSize: 12, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>🔒 {d.label}</span>
-                        <button onClick={upgrade} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 20, padding: "3px 12px", cursor: "pointer" }}>Pro ↗</button>
-                      </div>
-                    )}
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
-                      <span style={{ fontSize: 13, fontFamily: F.accent, color: d.color, fontWeight: 700 }}>{d.score}</span>
+        {page === "My Course" && (() => {
+          const hasMicro = Object.keys(microHistory).length > 0 || aiMicroLoading;
+          const TAG_COLORS = {
+            "Active Learning": { color: C.sage, bg: C.sageLight },
+            "Socratic Seminar": { color: C.teal, bg: C.tealLight },
+            "UDL": { color: C.rose, bg: C.roseLight },
+            "Reflection": { color: C.rose, bg: C.roseLight },
+            "Flipped Classroom": { color: C.sage, bg: C.sageLight },
+            "Student Voice": { color: C.gold, bg: C.goldLight },
+            "Assessment Design": { color: C.purple, bg: C.purpleLight },
+            "Scaffolding": { color: C.teal, bg: C.tealLight },
+            "Metacognition": { color: C.purple, bg: C.purpleLight },
+            "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
+          };
+          const allEntries = Object.entries(microHistory).flatMap(([cat, entries]) =>
+            entries.map(e => ({ ...e, category: cat }))
+          );
+          const newest = allEntries.length > 0
+            ? allEntries.reduce((a, b) => a.timestamp > b.timestamp ? a : b)
+            : null;
+          return (
+          <div style={{ display: "flex", gap: 20 }}>
+            {/* Left column — uploads + score breakdown */}
+            <div style={{ flex: hasMicro ? "0 0 55%" : "1 1 100%", minWidth: 0, transition: "flex 0.3s ease" }}>
+              <div style={{ marginBottom: "1.25rem" }}>
+                <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
+                <div style={{ color: C.muted, fontSize: 14 }}>The more you put in, the more KlasUp gives back.</div>
+              </div>
+              <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} />
+              <div style={{ display: "grid", gridTemplateColumns: hasMicro ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
+                {UPLOADS.map((u, i) => {
+                  const locked = !can(u.tier);
+                  return (
+                    <div key={i} style={{ position: "relative", background: C.white, border: uploadOpen === u.label ? `1.5px solid ${C.tealBright}` : `0.5px solid ${C.border}`, borderRadius: 14, padding: "1rem", cursor: locked ? "default" : "pointer", overflow: "hidden" }}
+                      onClick={() => !locked && setUploadOpen(uploadOpen === u.label ? null : u.label)}>
+                      {locked && <LockOverlay onUpgrade={upgrade} />}
+                      <div style={{ fontSize: 18, marginBottom: 5 }}>{u.icon}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{u.label}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{u.desc}</div>
+                      <div style={{ fontSize: 10, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>{course} · {week}</div>
+                      {uploaded[u.label] > 0 && <div style={{ fontSize: 11, color: C.sage, fontWeight: 700, marginTop: 4 }}>{uploaded[u.label]} added ✓</div>}
+                      {uploadOpen === u.label && (
+                        <div style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                          <textarea placeholder={`Add your ${u.label.toLowerCase()} here...`} rows={3}
+                            value={uploadText}
+                            onChange={e => setUploadText(e.target.value)}
+                            style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 12, resize: "none", boxSizing: "border-box", background: C.ivory }} />
+                          <button onClick={() => {
+                            const text = uploadText.trim();
+                            setUploaded(p => ({ ...p, [u.label]: (p[u.label] || 0) + 1 }));
+                            setUploadOpen(null);
+                            setUploadText("");
+                            if (text) {
+                              setUploadLog(prev => [{ content: text, category: u.label, course, week, timestamp: Date.now() }, ...prev]);
+                              setAiMicroLoading(true);
+                              setAiMicroError(null);
+                              generateMicroLearning({ content: text, category: u.label, course, week })
+                                .then(recs => {
+                                  setAiMicro(recs);
+                                  setAiMicroLoading(false);
+                                  setMicroHistory(prev => ({
+                                    ...prev,
+                                    [u.label]: [
+                                      { recs, week, course, timestamp: Date.now() },
+                                      ...(prev[u.label] || []),
+                                    ],
+                                  }));
+                                })
+                                .catch(err => { console.error(err); setAiMicroError(err.message); setAiMicroLoading(false); });
+                            }
+                          }}
+                            style={{ marginTop: 6, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "6px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            Submit to KlasUp
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ height: 6, background: C.ivoryDark, borderRadius: 4, overflow: "hidden", marginBottom: 3 }}>
-                      <div style={{ width: `${d.score}%`, height: "100%", background: d.score > 80 ? C.tealBright : d.score > 70 ? C.sage : C.rose, borderRadius: 4 }} />
+                  );
+                })}
+              </div>
+              <Card>
+                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 14 }}>UP SCORE BREAKDOWN — {course} · {week}</div>
+                {DIMENSIONS.map((d, i) => {
+                  const locked = !can(d.tier);
+                  return (
+                    <div key={i} style={{ marginBottom: 12, position: "relative" }}>
+                      {locked && (
+                        <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,244,0.9)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", zIndex: 1 }}>
+                          <span style={{ fontSize: 12, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>🔒 {d.label}</span>
+                          <button onClick={upgrade} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 20, padding: "3px 12px", cursor: "pointer" }}>Pro ↗</button>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
+                        <span style={{ fontSize: 13, fontFamily: F.accent, color: d.color, fontWeight: 700 }}>{d.score}</span>
+                      </div>
+                      <div style={{ height: 6, background: C.ivoryDark, borderRadius: 4, overflow: "hidden", marginBottom: 3 }}>
+                        <div style={{ width: `${d.score}%`, height: "100%", background: d.score > 80 ? C.tealBright : d.score > 70 ? C.sage : C.rose, borderRadius: 4 }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{d.note}</div>
                     </div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{d.note}</div>
+                  );
+                })}
+              </Card>
+            </div>
+
+            {/* Right column — live micro-learning panel */}
+            {hasMicro && (
+              <div style={{ flex: "0 0 42%", minWidth: 0 }}>
+                <div style={{ position: "sticky", top: 20 }}>
+                  <div style={{ background: C.navy, borderRadius: 14, overflow: "hidden" }}>
+                    {/* Panel header */}
+                    <div style={{ padding: "1rem 1.25rem", borderBottom: "0.5px solid rgba(255,255,255,0.1)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ display: "inline-block", width: 8, height: 8, background: C.tealBright, borderRadius: "50%", boxShadow: `0 0 6px ${C.tealBright}` }} />
+                        <span style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.tealBright, letterSpacing: "0.05em" }}>LIVE MICRO-LEARNING</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>AI recommendations update as you upload</div>
+                    </div>
+
+                    <div style={{ maxHeight: "calc(100vh - 140px)", overflowY: "auto" }}>
+                      {/* Loading state */}
+                      {aiMicroLoading && (
+                        <div style={{ padding: "1.25rem", textAlign: "center" }}>
+                          <div style={{ fontSize: 22, marginBottom: 8, animation: "spin 1.5s linear infinite", color: C.tealBright }}>◉</div>
+                          <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.tealBright, fontSize: 12, marginBottom: 4 }}>Analyzing your content...</div>
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Generating personalized recommendations</div>
+                          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                        </div>
+                      )}
+
+                      {/* Error state */}
+                      {aiMicroError && (
+                        <div style={{ margin: "0.75rem", background: "rgba(196,104,122,0.15)", border: `0.5px solid ${C.rose}`, borderRadius: 10, padding: "0.75rem 1rem" }}>
+                          <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 12, marginBottom: 3 }}>Could not generate recommendations</div>
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{aiMicroError}</div>
+                        </div>
+                      )}
+
+                      {/* Newest recommendation highlighted at top */}
+                      {newest && !aiMicroLoading && (
+                        <div style={{ padding: "0.75rem 1rem" }}>
+                          <div style={{ background: `${C.tealBright}18`, border: `1px solid ${C.tealBright}44`, borderRadius: 12, padding: "1rem", marginBottom: 4 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                              <span style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.tealBright, padding: "2px 8px", borderRadius: 20 }}>New · {newest.week}</span>
+                              <span style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.5)" }}>{newest.category} · {newest.course}</span>
+                            </div>
+                            {newest.recs.slice(0, 1).map((m, i) => {
+                              const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+                              return (
+                                <div key={i}>
+                                  <div style={{ marginBottom: 8 }}>
+                                    <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                                  </div>
+                                  <div style={{ fontFamily: F.display, fontSize: 15, color: C.white, marginBottom: 6 }}>{m.title}</div>
+                                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.55, marginBottom: 8 }}>{m.summary}</div>
+                                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "0.5rem 0.75rem", marginBottom: 8 }}>
+                                    <div style={{ fontSize: 9, fontFamily: F.accent, color: "rgba(255,255,255,0.35)", fontWeight: 700, marginBottom: 2 }}>RESEARCH</div>
+                                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>{m.article}</div>
+                                  </div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ width: 3, height: 24, background: C.tealBright, borderRadius: 2 }} />
+                                    <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 600 }}>Try this: <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.6)" }}>{m.action}</span></div>
+                                  </div>
+                                  <StarRating ratingKey={`newest-${i}`} dark />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Category sections */}
+                      {Object.entries(microHistory).map(([category, entries]) => {
+                        const isOpen = panelSections[category] !== false;
+                        const totalRecs = entries.reduce((sum, e) => sum + e.recs.length, 0);
+                        return (
+                          <div key={category}>
+                            <button onClick={() => setPanelSections(p => ({ ...p, [category]: !isOpen }))}
+                              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "rgba(255,255,255,0.04)", border: "none", borderTop: "0.5px solid rgba(255,255,255,0.08)", padding: "0.7rem 1.25rem", cursor: "pointer" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block" }}>▶</span>
+                                <span style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.white }}>{category}</span>
+                                <span style={{ fontSize: 10, fontFamily: F.accent, color: C.tealBright, fontWeight: 700, background: `${C.tealBright}22`, padding: "1px 7px", borderRadius: 10 }}>{totalRecs}</span>
+                              </div>
+                              <span style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.3)" }}>{entries.length} upload{entries.length !== 1 ? "s" : ""}</span>
+                            </button>
+                            {isOpen && (
+                              <div style={{ padding: "0.5rem 1rem 0.75rem" }}>
+                                {entries.map((entry, ei) => (
+                                  <div key={ei} style={{ marginBottom: ei < entries.length - 1 ? 10 : 0 }}>
+                                    <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.35)", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                      {ei === 0 && entry.timestamp === newest?.timestamp && <span style={{ width: 5, height: 5, background: C.tealBright, borderRadius: "50%", display: "inline-block" }} />}
+                                      {entry.course} · {entry.week}
+                                    </div>
+                                    {entry.recs.map((m, mi) => {
+                                      const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+                                      return (
+                                        <div key={mi} style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "0.75rem", marginBottom: 6 }}>
+                                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                            <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                                          </div>
+                                          <div style={{ fontFamily: F.display, fontSize: 13, color: C.white, marginBottom: 4 }}>{m.title}</div>
+                                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 1.5, marginBottom: 6 }}>{m.summary}</div>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <div style={{ width: 3, height: 18, background: tc.color, borderRadius: 2 }} />
+                                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{m.action}</div>
+                                          </div>
+                                          <StarRating ratingKey={`panel-${category}-${ei}-${mi}`} dark />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Empty state while loading first result */}
+                      {Object.keys(microHistory).length === 0 && aiMicroLoading && (
+                        <div style={{ padding: "0 1.25rem 1.25rem", fontSize: 11, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>
+                          Your first recommendations will appear here momentarily.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                );
-              })}
-            </Card>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ── ASSIGNMENT BUILDER ── */}
         {page === "Assignment Builder" && (
@@ -824,8 +1040,75 @@ export default function KlasUp() {
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Micro-Learning</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Surfaced from your course patterns · grounded in peer-reviewed research.</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>
+                {aiMicro.length > 0
+                  ? `AI-powered recommendations for ${course} · ${week} · grounded in peer-reviewed research.`
+                  : "Surfaced from your course patterns · grounded in peer-reviewed research."}
+              </div>
             </div>
+
+            {aiMicroLoading && (
+              <div style={{ background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "2rem", marginBottom: 14, textAlign: "center" }}>
+                <div style={{ fontSize: 24, marginBottom: 10, animation: "spin 1.5s linear infinite" }}>◉</div>
+                <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.teal, fontSize: 14, marginBottom: 4 }}>Analyzing your content with AI...</div>
+                <div style={{ fontSize: 12, color: C.muted }}>Generating personalized recommendations from peer-reviewed research</div>
+                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+              </div>
+            )}
+
+            {aiMicroError && (
+              <div style={{ background: C.roseLight, border: `0.5px solid ${C.rose}`, borderRadius: 14, padding: "1rem 1.25rem", marginBottom: 14 }}>
+                <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13, marginBottom: 4 }}>Could not generate AI recommendations</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{aiMicroError}</div>
+              </div>
+            )}
+
+            {aiMicro.length > 0 && (
+              <>
+                <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.teal, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "inline-block", width: 8, height: 8, background: C.tealBright, borderRadius: "50%" }} />
+                  AI-GENERATED — PERSONALIZED TO YOUR LATEST UPLOAD
+                </div>
+                {aiMicro.map((m, i) => {
+                  const TAG_COLORS = {
+                    "Active Learning": { color: C.sage, bg: C.sageLight },
+                    "Socratic Seminar": { color: C.teal, bg: C.tealLight },
+                    "UDL": { color: C.rose, bg: C.roseLight },
+                    "Reflection": { color: C.rose, bg: C.roseLight },
+                    "Flipped Classroom": { color: C.sage, bg: C.sageLight },
+                    "Student Voice": { color: C.gold, bg: C.goldLight },
+                    "Assessment Design": { color: C.purple, bg: C.purpleLight },
+                    "Scaffolding": { color: C.teal, bg: C.tealLight },
+                    "Metacognition": { color: C.purple, bg: C.purpleLight },
+                    "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
+                  };
+                  const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+                  return (
+                    <div key={i} style={{ background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "1.25rem", marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                        <span style={{ fontSize: 10, fontFamily: F.accent, color: C.tealBright, fontWeight: 700, background: C.tealLight, padding: "2px 8px", borderRadius: 20 }}>AI-Powered</span>
+                      </div>
+                      <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>{m.title}</div>
+                      <div style={{ fontSize: 14, color: C.text, marginBottom: 10, lineHeight: 1.6 }}>{m.summary}</div>
+                      <div style={{ background: C.ivory, borderRadius: 8, padding: "0.6rem 0.9rem", marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 2 }}>PEER-REVIEWED RESEARCH</div>
+                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{m.article}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 4, height: 32, background: tc.color, borderRadius: 2 }} />
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>Try this: <span style={{ fontWeight: 400 }}>{m.action}</span></div>
+                      </div>
+                      <StarRating ratingKey={`ai-${i}`} />
+                    </div>
+                  );
+                })}
+                <div style={{ borderTop: `0.5px solid ${C.border}`, marginTop: 10, paddingTop: 18, marginBottom: 8 }}>
+                  <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>DEFAULT RECOMMENDATIONS</div>
+                </div>
+              </>
+            )}
+
             {MICRO.map((m, i) => {
               const locked = !can(m.tier);
               return (
@@ -845,6 +1128,7 @@ export default function KlasUp() {
                     <div style={{ width: 4, height: 32, background: m.color, borderRadius: 2 }} />
                     <div style={{ fontSize: 13, fontWeight: 600 }}>Try this: <span style={{ fontWeight: 400 }}>{m.action}</span></div>
                   </div>
+                  <StarRating ratingKey={`default-${i}`} />
                 </div>
               );
             })}
@@ -886,41 +1170,62 @@ export default function KlasUp() {
                 <span key={t} style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, padding: "5px 14px", borderRadius: 20, background: t === "All" ? C.navy : C.ivoryDark, color: t === "All" ? C.white : C.muted, cursor: "pointer" }}>{t}</span>
               ))}
             </div>
-            {[
-              { author: "Faculty · New England", time: "2h ago", tag: "Socratic Seminar", text: "Tried seeding my forum with an unresolved question on Monday — response quality was noticeably richer. Anyone doing this consistently?", replies: 4, tier: "free" },
-              { author: "Faculty · Mid-Atlantic", time: "Yesterday", tag: "UDL", text: "Added a 4-minute audio summary alongside my reading. Students with long commutes said it was a game changer. Small lift, big impact.", replies: 7, tier: "pro" },
-              { author: "Faculty · Southeast", time: "2d ago", tag: "Flipped Classroom", text: "First full flip this semester. Pre-class video took 45 min to make but class time was the best session I've had in years.", replies: 11, tier: "pro" },
-              { author: "Faculty · Midwest", time: "3d ago", tag: "Reflection", text: "Exit tickets felt awkward at first but by week 4 students were writing genuinely reflective responses. Worth the investment.", replies: 6, tier: "pro" },
-            ].map((p, i) => {
-              const locked = !can(p.tier);
-              return (
-                <div key={i} style={{ position: "relative", background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "1.25rem", marginBottom: 12, overflow: "hidden" }}>
-                  {locked && <LockOverlay onUpgrade={upgrade} />}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.tealLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.teal }}>F</div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{p.author}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>{p.time}</div>
+            {(() => {
+              const posts = [
+                { id: 0, author: "Faculty · New England", time: "2h ago", tag: "Socratic Seminar", text: "Tried seeding my forum with an unresolved question on Monday — response quality was noticeably richer. Anyone doing this consistently?", replies: 4, posts: 6, totalReplies: 8, tier: "free", baseUpvotes: 5 },
+                { id: 1, author: "Faculty · Mid-Atlantic", time: "Yesterday", tag: "UDL", text: "Added a 4-minute audio summary alongside my reading. Students with long commutes said it was a game changer. Small lift, big impact.", replies: 7, posts: 2, totalReplies: 3, tier: "pro", baseUpvotes: 12 },
+                { id: 2, author: "Faculty · Southeast", time: "2d ago", tag: "Flipped Classroom", text: "First full flip this semester. Pre-class video took 45 min to make but class time was the best session I've had in years.", replies: 11, posts: 4, totalReplies: 6, tier: "pro", baseUpvotes: 18 },
+                { id: 3, author: "Faculty · Midwest", time: "3d ago", tag: "Reflection", text: "Exit tickets felt awkward at first but by week 4 students were writing genuinely reflective responses. Worth the investment.", replies: 6, posts: 1, totalReplies: 2, tier: "pro", baseUpvotes: 8 },
+              ];
+              const isExpert = (p) => p.totalReplies > 5 && p.posts > 3;
+              const topContributor = posts.reduce((best, p) => (p.posts + p.totalReplies) > (best.posts + best.totalReplies) ? p : best, posts[0]);
+              const sorted = [...posts].sort((a, b) => ((postUpvotes[b.id] || 0) + b.baseUpvotes) - ((postUpvotes[a.id] || 0) + a.baseUpvotes));
+              return sorted.map((p) => {
+                const locked = !can(p.tier);
+                const votes = (postUpvotes[p.id] || 0) + p.baseUpvotes;
+                const expert = isExpert(p);
+                const isTop = p.id === topContributor.id;
+                return (
+                  <div key={p.id} style={{ position: "relative", background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "1.25rem", marginBottom: 12, overflow: "hidden" }}>
+                    {locked && <LockOverlay onUpgrade={upgrade} />}
+                    {isTop && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                        <span style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, color: C.gold, background: C.goldLight, padding: "2px 10px", borderRadius: 20 }}>Top Contributor</span>
                       </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.tealLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: C.teal }}>F</div>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{p.author}</span>
+                            {expert && <span style={{ fontSize: 9, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.teal, padding: "1px 7px", borderRadius: 10 }}>Expert</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted }}>{p.time}</div>
+                        </div>
+                      </div>
+                      <Tag label={p.tag} color={C.teal} bg={C.tealLight} />
                     </div>
-                    <Tag label={p.tag} color={C.teal} bg={C.tealLight} />
-                  </div>
-                  <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>{p.text}</div>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: C.muted }}>{p.replies} replies</span>
-                    <button onClick={() => setReplyOpen(replyOpen === i ? null : i)} style={{ fontSize: 12, color: C.teal, fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: F.body }}>Reply</button>
-                  </div>
-                  {replyOpen === i && (
-                    <div style={{ marginTop: 10 }}>
-                      <textarea rows={2} placeholder="Share your experience..."
-                        style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory }} />
-                      <button onClick={() => setReplyOpen(null)} style={{ marginTop: 6, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "6px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Post Reply</button>
+                    <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>{p.text}</div>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <button onClick={() => setPostUpvotes(prev => ({ ...prev, [p.id]: (prev[p.id] || 0) + 1 }))}
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: postUpvotes[p.id] ? C.tealBright : C.muted, background: postUpvotes[p.id] ? C.tealLight : C.ivoryDark, border: "none", borderRadius: 20, padding: "4px 12px", cursor: "pointer", transition: "all 0.15s" }}>
+                        ▲ {votes}
+                      </button>
+                      <span style={{ fontSize: 12, color: C.muted }}>{p.replies} replies</span>
+                      <button onClick={() => setReplyOpen(replyOpen === p.id ? null : p.id)} style={{ fontSize: 12, color: C.teal, fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: F.body }}>Reply</button>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    {replyOpen === p.id && (
+                      <div style={{ marginTop: 10 }}>
+                        <textarea rows={2} placeholder="Share your experience..."
+                          style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory }} />
+                        <button onClick={() => setReplyOpen(null)} style={{ marginTop: 6, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "6px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Post Reply</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
           </div>
         )}
 
@@ -962,6 +1267,234 @@ export default function KlasUp() {
             {can("pro") && <button style={{ marginTop: 8, background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Export Accreditation Report ↓</button>}
           </div>
         )}
+
+        {/* ── COURSE PORTFOLIO ── */}
+        {page === "Course Portfolio" && (() => {
+          const TAG_COLORS = {
+            "Active Learning": { color: C.sage, bg: C.sageLight },
+            "Socratic Seminar": { color: C.teal, bg: C.tealLight },
+            "UDL": { color: C.rose, bg: C.roseLight },
+            "Reflection": { color: C.rose, bg: C.roseLight },
+            "Flipped Classroom": { color: C.sage, bg: C.sageLight },
+            "Student Voice": { color: C.gold, bg: C.goldLight },
+            "Assessment Design": { color: C.purple, bg: C.purpleLight },
+            "Scaffolding": { color: C.teal, bg: C.tealLight },
+            "Metacognition": { color: C.purple, bg: C.purpleLight },
+            "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
+          };
+          const CAT_ICONS = { Announcements: "◎", Assignments: "☑", Discussions: "◉", "Learning Outcomes": "◇", "Post-class notes": "✏", "Student Voice": "◈" };
+          const filteredLog = uploadLog
+            .filter(u => u.course === portfolioCourse)
+            .filter(u => portfolioWeek === "All" || u.week === portfolioWeek);
+          const weekGroups = {};
+          filteredLog.forEach(u => {
+            if (!weekGroups[u.week]) weekGroups[u.week] = [];
+            weekGroups[u.week].push(u);
+          });
+          const sortedWeeks = Object.keys(weekGroups).sort((a, b) => {
+            const na = parseInt(a.replace("Week ", ""));
+            const nb = parseInt(b.replace("Week ", ""));
+            return nb - na;
+          });
+          const getMicroForUpload = (u) => {
+            const catEntries = microHistory[u.category] || [];
+            return catEntries.find(e => e.course === u.course && e.week === u.week && Math.abs(e.timestamp - u.timestamp) < 60000);
+          };
+          const courseUploads = uploadLog.filter(u => u.course === portfolioCourse);
+          return (
+          <div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Course Portfolio</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Your complete semester record — uploads, AI insights, and reflective narrative.</div>
+            </div>
+
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+              <select value={portfolioCourse} onChange={e => setPortfolioCourse(e.target.value)}
+                style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
+                {COURSES.map(c => <option key={c}>{c}</option>)}
+              </select>
+              <select value={portfolioWeek} onChange={e => setPortfolioWeek(e.target.value)}
+                style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
+                <option value="All">All Weeks</option>
+                {WEEKS.map(w => <option key={w}>{w}</option>)}
+              </select>
+              <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, marginLeft: 4 }}>
+                {filteredLog.length} upload{filteredLog.length !== 1 ? "s" : ""} · {sortedWeeks.length} week{sortedWeeks.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+
+            {/* Empty state */}
+            {filteredLog.length === 0 && (
+              <Card style={{ textAlign: "center", padding: "3rem 2rem" }}>
+                <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.3 }}>◆</div>
+                <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 6, color: C.navy }}>No uploads yet</div>
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Head to <strong>My Course</strong> to upload content. Each submission and its AI-generated micro-learnings will appear here automatically.</div>
+                <button onClick={() => setPage("My Course")} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Go to My Course</button>
+              </Card>
+            )}
+
+            {/* Week-by-week upload timeline */}
+            {sortedWeeks.map(wk => (
+              <div key={wk} style={{ marginBottom: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 4, height: 20, background: C.tealBright, borderRadius: 2 }} />
+                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy }}>{wk}</div>
+                  <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted }}>{weekGroups[wk].length} upload{weekGroups[wk].length !== 1 ? "s" : ""}</div>
+                </div>
+                {weekGroups[wk].map((u, ui) => {
+                  const key = `${u.week}-${u.category}-${u.timestamp}`;
+                  const isOpen = portfolioExpanded[key];
+                  const micro = getMicroForUpload(u);
+                  return (
+                    <Card key={ui} style={{ marginBottom: 10, borderLeft: `3px solid ${C.tealBright}`, padding: 0, overflow: "hidden" }}>
+                      <button onClick={() => setPortfolioExpanded(p => ({ ...p, [key]: !isOpen }))}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", padding: "1rem 1.25rem", cursor: "pointer", textAlign: "left" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 16 }}>{CAT_ICONS[u.category] || "◎"}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: C.navy }}>{u.category}</div>
+                            <div style={{ fontSize: 11, color: C.muted }}>{u.course} · {new Date(u.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {micro && <span style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, color: C.tealBright, background: C.tealLight, padding: "2px 8px", borderRadius: 20 }}>{micro.recs.length} insights</span>}
+                          <span style={{ fontSize: 11, color: C.muted, transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block" }}>▶</span>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div style={{ borderTop: `0.5px solid ${C.border}` }}>
+                          {/* Upload content */}
+                          <div style={{ padding: "1rem 1.25rem", background: C.ivory }}>
+                            <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 6 }}>UPLOADED CONTENT</div>
+                            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{u.content}</div>
+                          </div>
+                          {/* Micro-learnings triggered */}
+                          {micro && (
+                            <div style={{ padding: "1rem 1.25rem" }}>
+                              <div style={{ fontSize: 10, fontFamily: F.accent, color: C.tealBright, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ width: 6, height: 6, background: C.tealBright, borderRadius: "50%", display: "inline-block" }} />
+                                AI MICRO-LEARNINGS TRIGGERED
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                {micro.recs.map((m, mi) => {
+                                  const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+                                  return (
+                                    <div key={mi} style={{ background: C.ivory, borderRadius: 10, padding: "0.75rem", border: `0.5px solid ${C.border}` }}>
+                                      <div style={{ marginBottom: 6 }}><Tag label={m.tag} color={tc.color} bg={tc.bg} /></div>
+                                      <div style={{ fontFamily: F.display, fontSize: 13, marginBottom: 4 }}>{m.title}</div>
+                                      <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, marginBottom: 6 }}>{m.summary}</div>
+                                      <div style={{ fontSize: 10, color: C.muted, fontStyle: "italic", marginBottom: 6 }}>{m.article}</div>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <div style={{ width: 3, height: 16, background: tc.color, borderRadius: 2 }} />
+                                        <div style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{m.action}</div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* ── End of Semester Reflection ── */}
+            <div style={{ marginTop: 30, background: C.navy, borderRadius: 16, overflow: "hidden" }}>
+              <div style={{ padding: "1.5rem 1.5rem 1rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontFamily: F.display, fontSize: 20, color: C.white, marginBottom: 4 }}>End of Semester Reflection</div>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 12 }}>
+                      AI-drafted narrative based on {courseUploads.length} upload{courseUploads.length !== 1 ? "s" : ""} for {portfolioCourse} — edit freely, then export.
+                    </div>
+                  </div>
+                  {reflectionText && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => setReflectionEditing(!reflectionEditing)}
+                        style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: reflectionEditing ? C.tealBright : "rgba(255,255,255,0.1)", color: reflectionEditing ? C.navy : "rgba(255,255,255,0.6)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
+                        {reflectionEditing ? "Done Editing" : "Edit"}
+                      </button>
+                      <button onClick={() => {
+                        const blob = new Blob([reflectionText], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${portfolioCourse.replace(/ /g, "_")}_Semester_Reflection.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                        style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
+                        Export ↓
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {!reflectionText && !reflectionLoading && (
+                  <button onClick={() => {
+                    if (courseUploads.length === 0) return;
+                    setReflectionLoading(true);
+                    setReflectionError(null);
+                    generateSemesterReflection({ course: portfolioCourse, uploadLog, microHistory })
+                      .then(text => { setReflectionText(text); setReflectionLoading(false); })
+                      .catch(err => { console.error(err); setReflectionError(err.message); setReflectionLoading(false); });
+                  }}
+                    style={{ background: courseUploads.length > 0 ? C.tealBright : "rgba(255,255,255,0.1)", color: courseUploads.length > 0 ? C.navy : "rgba(255,255,255,0.3)", border: "none", borderRadius: 10, padding: "12px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: courseUploads.length > 0 ? "pointer" : "default" }}>
+                    Generate Reflection
+                  </button>
+                )}
+
+                {reflectionLoading && (
+                  <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                    <div style={{ fontSize: 22, marginBottom: 8, animation: "spin 1.5s linear infinite", color: C.tealBright }}>◉</div>
+                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.tealBright, fontSize: 12, marginBottom: 4 }}>Drafting your semester reflection...</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Analyzing {courseUploads.length} uploads and their micro-learnings</div>
+                    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                  </div>
+                )}
+
+                {reflectionError && (
+                  <div style={{ background: "rgba(196,104,122,0.15)", border: `0.5px solid ${C.rose}`, borderRadius: 10, padding: "0.75rem 1rem", marginTop: 10 }}>
+                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 12, marginBottom: 3 }}>Could not generate reflection</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{reflectionError}</div>
+                    <button onClick={() => { setReflectionError(null); }}
+                      style={{ marginTop: 8, fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}>
+                      Try Again
+                    </button>
+                  </div>
+                )}
+
+                {reflectionText && (
+                  <div style={{ marginTop: 10 }}>
+                    {reflectionEditing ? (
+                      <textarea value={reflectionText} onChange={e => setReflectionText(e.target.value)}
+                        style={{ width: "100%", minHeight: 400, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.tealBright}44`, borderRadius: 10, padding: "1rem", fontFamily: F.body, fontSize: 13, color: C.white, lineHeight: 1.75, resize: "vertical", boxSizing: "border-box", outline: "none" }} />
+                    ) : (
+                      <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "1.25rem", fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+                        {reflectionText}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingBottom: 4 }}>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: F.accent }}>
+                        {reflectionText.split(/\s+/).length} words · Generated from {courseUploads.length} uploads
+                      </div>
+                      <button onClick={() => { setReflectionText(""); setReflectionEditing(false); }}
+                        style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "none", color: "rgba(255,255,255,0.3)", border: "none", cursor: "pointer" }}>
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          );
+        })()}
 
         {/* ── PRICING ── */}
         {page === "Pricing" && (
