@@ -185,11 +185,20 @@ const ScoreRing = ({ score, size = 70, color = C.tealBright }) => {
   );
 };
 
-const WCS = ({ course, setCourse, week, setWeek, courseList }) => (
+function formatCourseLabel(c) {
+  if (!c) return "—";
+  if (typeof c === "string") return c;
+  let label = c.course_code || "";
+  if (c.section) label += ` - ${c.section}`;
+  if (c.semester_code) label += ` | ${c.semester_code}`;
+  return label;
+}
+
+const WCS = ({ course, setCourse, week, setWeek, courses }) => (
   <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
     <select value={course} onChange={e => setCourse(e.target.value)}
       style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
-      {courseList.map(c => <option key={c}>{c}</option>)}
+      {courses.map(c => <option key={c.course_code} value={c.course_code}>{formatCourseLabel(c)}</option>)}
     </select>
     <select value={week} onChange={e => setWeek(e.target.value)}
       style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
@@ -283,6 +292,7 @@ export default function KlasUp() {
   const [settingsForm, setSettingsForm] = useState({});
 
   const courseNames = dbCourses.map(c => c.course_code);
+  const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
 
   const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Adjunct", "Dean", "Department Chair", "Other"];
   const LMS_OPTIONS = ["Canvas", "Blackboard", "D2L Brightspace", "Moodle", "Other"];
@@ -1061,7 +1071,7 @@ export default function KlasUp() {
             <Card style={{ marginBottom: 14, borderLeft: `4px solid ${C.tealBright}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 1 }}>{week} Snapshot — {course || courseNames[0] || "—"}</div>
+                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 1 }}>{week} Snapshot — {courseLabel(course || courseNames[0])}</div>
                   <div style={{ fontSize: 12, color: C.muted }}>Auto-generated · Updated Sunday night</div>
                 </div>
                 <Tag label="This Week" color={C.teal} bg={C.tealLight} />
@@ -1104,8 +1114,8 @@ export default function KlasUp() {
             </Card>
 
             {/* Course scores */}
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(courseNames.length, 3) || 1},minmax(0,1fr))`, gap: 12, marginBottom: 14 }}>
-              {(courseNames.length > 0 ? courseNames : ["—"]).map((name, i) => {
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(dbCourses.length, 3) || 1},minmax(0,1fr))`, gap: 12, marginBottom: 14 }}>
+              {(dbCourses.length > 0 ? dbCourses : [null]).map((cObj, i) => {
                 const demoScores = [83, 71, 67, 75, 60];
                 const demoTrends = ["+11", "+6", "+3", "+8", "+2"];
                 const sc = demoScores[i % demoScores.length];
@@ -1115,7 +1125,7 @@ export default function KlasUp() {
                   {i > 0 && !can("pro") && <LockOverlay onUpgrade={upgrade} />}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{name}</div>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{cObj ? formatCourseLabel(cObj) : "—"}</div>
                       <div style={{ fontFamily: F.display, fontSize: 28, color: C.teal }}>{sc}</div>
                       <div style={{ fontSize: 12, color: C.sage, fontWeight: 600 }}>{tr} this semester</div>
                     </div>
@@ -1129,7 +1139,7 @@ export default function KlasUp() {
             {/* Charts */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
               <Card>
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>WEEK OVER WEEK — {course || courseNames[0] || "—"}</div>
+                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>WEEK OVER WEEK — {courseLabel(course || courseNames[0])}</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 80 }}>
                   {healthData.map((s, i) => {
                     const h = ((s - 40) / 60) * 65, isL = i === healthData.length - 1;
@@ -1260,6 +1270,26 @@ export default function KlasUp() {
                 </div>
               </Card>
             )}
+            {/* Semester Overview */}
+            {dbCourses.length > 0 && (
+              <Card style={{ marginTop: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18 }}>Semester Overview</div>
+                  <button onClick={() => setPage("Settings")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: "none", cursor: "pointer" }}>Manage Courses</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  {dbCourses.map(c => (
+                    <div key={c.id} style={{ background: C.ivory, borderRadius: 10, padding: "12px 14px" }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: C.navy, marginBottom: 4 }}>{formatCourseLabel(c)}</div>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+                        {c.semester_start ? `Starts ${new Date(c.semester_start + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "No start date set"}<br />
+                        {c.num_weeks || 16} week semester
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
@@ -1292,7 +1322,7 @@ export default function KlasUp() {
                 <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
                 <div style={{ color: C.muted, fontSize: 14 }}>The more you put in, the more KlasUp gives back.</div>
               </div>
-              <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courseList={courseNames} />
+              <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
               <div style={{ display: "grid", gridTemplateColumns: hasMicro ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
                 {UPLOADS.map((u, i) => {
                   const locked = !can(u.tier);
@@ -1515,7 +1545,7 @@ export default function KlasUp() {
               </Card>
             ) : (
               <div>
-                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courseList={courseNames} />
+                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <Card>
@@ -1607,7 +1637,7 @@ export default function KlasUp() {
               </Card>
             ) : (
               <div>
-                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courseList={courseNames} />
+                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
                 {!deckUploaded ? (
                   <Card style={{ textAlign: "center", padding: "2.5rem", border: `1.5px dashed ${C.tealBright}` }}>
                     <div style={{ fontSize: 32, marginBottom: 8 }}>◫</div>
@@ -2010,7 +2040,7 @@ export default function KlasUp() {
             <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
               <select value={portfolioCourse} onChange={e => setPortfolioCourse(e.target.value)}
                 style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
-                {courseNames.map(c => <option key={c}>{c}</option>)}
+                {dbCourses.map(c => <option key={c.course_code} value={c.course_code}>{formatCourseLabel(c)}</option>)}
               </select>
               <select value={portfolioWeek} onChange={e => setPortfolioWeek(e.target.value)}
                 style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
@@ -2202,7 +2232,7 @@ export default function KlasUp() {
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Settings</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Manage your courses and semester information.</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Add, edit, or remove your courses. Semester overview is on your Dashboard.</div>
             </div>
 
             {/* Course list */}
@@ -2373,24 +2403,6 @@ export default function KlasUp() {
               )}
             </Card>
 
-            {/* Semester info summary */}
-            {dbCourses.length > 0 && (
-              <Card>
-                <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Semester Overview</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-                  {dbCourses.map(c => (
-                    <div key={c.id} style={{ background: C.ivory, borderRadius: 10, padding: "12px 14px" }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: C.navy, marginBottom: 4 }}>{c.course_code}</div>
-                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-                        {c.semester_code}<br />
-                        {c.semester_start ? `Starts ${new Date(c.semester_start + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "No start date set"}<br />
-                        {c.num_weeks || 16} week semester
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
             {/* FERPA Compliance Notice */}
             <Card style={{ marginTop: 16, borderLeft: `4px solid ${C.teal}` }}>
               <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>FERPA Compliance</div>
