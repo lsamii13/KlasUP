@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { generateMicroLearning, generateSemesterReflection } from "./anthropic";
+import { fetchCourses, insertCourse, updateCourse as updateCourseDB, deleteCourse as deleteCourseDB } from "./supabase";
 
 const C = {
   navy: "#0F1F3D", navyMid: "#1A3260", navyLight: "#243D75",
@@ -20,7 +21,6 @@ const F = {
   accent: "'Quicksand', 'Nunito', sans-serif",
 };
 
-const COURSES = ["MKT 301", "MKT 410", "BUS 201"];
 const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
 const NAV = [
   { id: "Dashboard", icon: "⊞" },
@@ -31,6 +31,7 @@ const NAV = [
   { id: "Think Tank", icon: "◈" },
   { id: "Course Portfolio", icon: "◆" },
   { id: "Reports", icon: "☑" },
+  { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
 ];
 
@@ -171,11 +172,11 @@ const ScoreRing = ({ score, size = 70, color = C.tealBright }) => {
   );
 };
 
-const WCS = ({ course, setCourse, week, setWeek }) => (
+const WCS = ({ course, setCourse, week, setWeek, courseList }) => (
   <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
     <select value={course} onChange={e => setCourse(e.target.value)}
       style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
-      {COURSES.map(c => <option key={c}>{c}</option>)}
+      {courseList.map(c => <option key={c}>{c}</option>)}
     </select>
     <select value={week} onChange={e => setWeek(e.target.value)}
       style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
@@ -188,7 +189,7 @@ const WCS = ({ course, setCourse, week, setWeek }) => (
 export default function KlasUp() {
   const [page, setPage] = useState("Dashboard");
   const [tier, setTier] = useState("free");
-  const [course, setCourse] = useState("MKT 301");
+  const [course, setCourse] = useState("");
   const [week, setWeek] = useState("Week 8");
   const [careerExpanded, setCareerExpanded] = useState(false);
   const [shareCardOpen, setShareCardOpen] = useState(false);
@@ -213,7 +214,7 @@ export default function KlasUp() {
   const [microHistory, setMicroHistory] = useState({});
   const [panelSections, setPanelSections] = useState({});
   const [uploadLog, setUploadLog] = useState([]);
-  const [portfolioCourse, setPortfolioCourse] = useState("MKT 301");
+  const [portfolioCourse, setPortfolioCourse] = useState("");
   const [portfolioWeek, setPortfolioWeek] = useState("All");
   const [portfolioExpanded, setPortfolioExpanded] = useState({});
   const [reflectionText, setReflectionText] = useState("");
@@ -223,9 +224,69 @@ export default function KlasUp() {
   const [microRatings, setMicroRatings] = useState({});
   const [postUpvotes, setPostUpvotes] = useState({});
 
+  // --- Supabase courses ---
+  const [dbCourses, setDbCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingForm, setOnboardingForm] = useState({ course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 });
+  const [onboardingCourses, setOnboardingCourses] = useState([]);
+  const [settingsEditing, setSettingsEditing] = useState(null);
+  const [settingsForm, setSettingsForm] = useState({});
+
+  const courseNames = dbCourses.map(c => c.course_code);
+
+  useEffect(() => {
+    fetchCourses()
+      .then(rows => {
+        setDbCourses(rows);
+        if (rows.length === 0) {
+          setShowOnboarding(true);
+        } else {
+          setCourse(rows[0].course_code);
+          setPortfolioCourse(rows[0].course_code);
+        }
+      })
+      .catch(err => console.error("Failed to load courses:", err))
+      .finally(() => setCoursesLoading(false));
+  }, []);
+
+  const addCourseFromForm = async (form) => {
+    const row = await insertCourse({
+      course_code: form.course_code.trim(),
+      course_name: form.course_name.trim(),
+      section: form.section.trim() || null,
+      semester_code: form.semester_code.trim(),
+      semester_start: form.semester_start || null,
+      num_weeks: parseInt(form.num_weeks) || 16,
+    });
+    setDbCourses(prev => [...prev, row]);
+    if (!course) setCourse(row.course_code);
+    if (!portfolioCourse) setPortfolioCourse(row.course_code);
+    return row;
+  };
+
+  const removeCourse = async (id) => {
+    await deleteCourseDB(id);
+    setDbCourses(prev => {
+      const next = prev.filter(c => c.id !== id);
+      const removed = prev.find(c => c.id === id);
+      if (removed && course === removed.course_code && next.length > 0) setCourse(next[0].course_code);
+      if (removed && portfolioCourse === removed.course_code && next.length > 0) setPortfolioCourse(next[0].course_code);
+      return next;
+    });
+  };
+
+  const editCourse = async (id, updates) => {
+    const row = await updateCourseDB(id, updates);
+    setDbCourses(prev => prev.map(c => c.id === id ? row : c));
+    const old = dbCourses.find(c => c.id === id);
+    if (old && course === old.course_code) setCourse(row.course_code);
+    if (old && portfolioCourse === old.course_code) setPortfolioCourse(row.course_code);
+  };
+
   const can = t => ["free", "pro", "institutional"].indexOf(tier) >= ["free", "pro", "institutional"].indexOf(t);
   const upgrade = () => setPage("Pricing");
-  const cd = CAREER_DATA[course] || CAREER_DATA["MKT 301"];
+  const cd = CAREER_DATA[course] || CAREER_DATA[courseNames[0]] || CAREER_DATA["MKT 301"] || { topic: "", intelligence: "", source: "", jobs: [], shareCard: { headline: "", roles: [], message: "" } };
 
   const rateMicro = (key, stars) => setMicroRatings(p => ({ ...p, [key]: stars }));
   const allRatings = Object.values(microRatings).filter(v => v > 0);
@@ -272,6 +333,110 @@ export default function KlasUp() {
     { label: "No metacognitive prompt this week", ok: false },
     { label: "Assignment milestone set", ok: true },
   ];
+
+  // Loading state
+  if (coursesLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 48, height: 48, background: C.tealBright, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 24, color: C.navy, fontWeight: 700, margin: "0 auto 16px" }}>K</div>
+          <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 6 }}>Loading KlasUp...</div>
+          <div style={{ fontSize: 13, color: C.muted }}>Connecting to your courses</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Onboarding — first-time course setup
+  if (showOnboarding) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 520, maxWidth: "95vw" }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 40, height: 40, background: C.tealBright, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 20, color: C.navy, fontWeight: 700 }}>K</div>
+              <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>KlasUp</div>
+            </div>
+            <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
+          </div>
+
+          <Card style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: F.display, fontSize: 22, marginBottom: 4 }}>Welcome! Let's set up your courses.</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Add the courses you're teaching this semester. You can always change these later in Settings.</div>
+
+            {/* Added courses list */}
+            {onboardingCourses.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                {onboardingCourses.map((c, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: C.tealLight, borderRadius: 10, marginBottom: 6 }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>{c.course_code}</span>
+                      <span style={{ fontSize: 13, color: C.muted, marginLeft: 8 }}>{c.course_name}</span>
+                      {c.section && <span style={{ fontSize: 11, color: C.teal, marginLeft: 8 }}>Sec {c.section}</span>}
+                    </div>
+                    <span style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>{c.semester_code}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add course form */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Code *</label>
+                <input value={onboardingForm.course_code} onChange={e => setOnboardingForm(p => ({ ...p, course_code: e.target.value }))}
+                  placeholder="e.g. MKT 301" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Name *</label>
+                <input value={onboardingForm.course_name} onChange={e => setOnboardingForm(p => ({ ...p, course_name: e.target.value }))}
+                  placeholder="e.g. Consumer Behavior" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Section</label>
+                <input value={onboardingForm.section} onChange={e => setOnboardingForm(p => ({ ...p, section: e.target.value }))}
+                  placeholder="e.g. 001" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Code *</label>
+                <input value={onboardingForm.semester_code} onChange={e => setOnboardingForm(p => ({ ...p, semester_code: e.target.value }))}
+                  placeholder="e.g. Fall 2025" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Start Date</label>
+                <input type="date" value={onboardingForm.semester_start} onChange={e => setOnboardingForm(p => ({ ...p, semester_start: e.target.value }))}
+                  style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Number of Weeks</label>
+                <input type="number" min={1} max={52} value={onboardingForm.num_weeks} onChange={e => setOnboardingForm(p => ({ ...p, num_weeks: e.target.value }))}
+                  style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+            </div>
+            <button
+              disabled={!onboardingForm.course_code.trim() || !onboardingForm.course_name.trim() || !onboardingForm.semester_code.trim()}
+              onClick={async () => {
+                try {
+                  const row = await addCourseFromForm(onboardingForm);
+                  setOnboardingCourses(prev => [...prev, row]);
+                  setOnboardingForm({ course_code: "", course_name: "", section: "", semester_code: onboardingForm.semester_code, semester_start: onboardingForm.semester_start, num_weeks: onboardingForm.num_weeks });
+                } catch (err) { alert("Error adding course: " + err.message); }
+              }}
+              style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", opacity: (!onboardingForm.course_code.trim() || !onboardingForm.course_name.trim() || !onboardingForm.semester_code.trim()) ? 0.4 : 1 }}>
+              + Add Course
+            </button>
+          </Card>
+
+          {onboardingCourses.length > 0 && (
+            <button onClick={() => setShowOnboarding(false)}
+              style={{ width: "100%", background: C.tealBright, color: C.white, border: "none", borderRadius: 12, padding: "14px", fontFamily: F.accent, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+              Get Started with {onboardingCourses.length} Course{onboardingCourses.length > 1 ? "s" : ""}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex" }}>
@@ -369,7 +534,7 @@ export default function KlasUp() {
             <Card style={{ marginBottom: 14, borderLeft: `4px solid ${C.tealBright}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 1 }}>Week 8 Snapshot — MKT 301</div>
+                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 1 }}>{week} Snapshot — {course || courseNames[0] || "—"}</div>
                   <div style={{ fontSize: 12, color: C.muted }}>Auto-generated · Updated Sunday night</div>
                 </div>
                 <Tag label="This Week" color={C.teal} bg={C.tealLight} />
@@ -400,7 +565,7 @@ export default function KlasUp() {
                   </div>
                   <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 10 }}>Composite score across all courses, uploads, engagement, and pedagogical growth.</div>
                   <div style={{ display: "flex", gap: 12 }}>
-                    {[{ label: "Uploads", val: "23" }, { label: "Weeks Active", val: "8" }, { label: "Dimensions Tracked", val: can("pro") ? "10" : "3" }, { label: "Courses", val: can("pro") ? "3" : "1" }].map((s, i) => (
+                    {[{ label: "Uploads", val: "23" }, { label: "Weeks Active", val: "8" }, { label: "Dimensions Tracked", val: can("pro") ? "10" : "3" }, { label: "Courses", val: String(can("pro") ? courseNames.length || 1 : 1) }].map((s, i) => (
                       <div key={i} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "6px 12px" }}>
                         <div style={{ fontSize: 9, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>{s.label}</div>
                         <div style={{ fontSize: 16, fontFamily: F.accent, fontWeight: 700, color: C.tealMid }}>{s.val}</div>
@@ -412,26 +577,32 @@ export default function KlasUp() {
             </Card>
 
             {/* Course scores */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 14 }}>
-              {[{ name: "MKT 301", score: 83, trend: "+11" }, { name: "MKT 410", score: 71, trend: "+6" }, { name: "BUS 201", score: 67, trend: "+3" }].map((c, i) => (
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(courseNames.length, 3) || 1},minmax(0,1fr))`, gap: 12, marginBottom: 14 }}>
+              {(courseNames.length > 0 ? courseNames : ["—"]).map((name, i) => {
+                const demoScores = [83, 71, 67, 75, 60];
+                const demoTrends = ["+11", "+6", "+3", "+8", "+2"];
+                const sc = demoScores[i % demoScores.length];
+                const tr = demoTrends[i % demoTrends.length];
+                return (
                 <Card key={i} style={{ position: "relative", overflow: "hidden" }}>
                   {i > 0 && !can("pro") && <LockOverlay onUpgrade={upgrade} />}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{c.name}</div>
-                      <div style={{ fontFamily: F.display, fontSize: 28, color: C.teal }}>{c.score}</div>
-                      <div style={{ fontSize: 12, color: C.sage, fontWeight: 600 }}>{c.trend} this semester</div>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{name}</div>
+                      <div style={{ fontFamily: F.display, fontSize: 28, color: C.teal }}>{sc}</div>
+                      <div style={{ fontSize: 12, color: C.sage, fontWeight: 600 }}>{tr} this semester</div>
                     </div>
-                    <ScoreRing score={c.score} />
+                    <ScoreRing score={sc} />
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
 
             {/* Charts */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
               <Card>
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>WEEK OVER WEEK — MKT 301</div>
+                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>WEEK OVER WEEK — {course || courseNames[0] || "—"}</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 80 }}>
                   {healthData.map((s, i) => {
                     const h = ((s - 40) / 60) * 65, isL = i === healthData.length - 1;
@@ -594,7 +765,7 @@ export default function KlasUp() {
                 <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
                 <div style={{ color: C.muted, fontSize: 14 }}>The more you put in, the more KlasUp gives back.</div>
               </div>
-              <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} />
+              <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courseList={courseNames} />
               <div style={{ display: "grid", gridTemplateColumns: hasMicro ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
                 {UPLOADS.map((u, i) => {
                   const locked = !can(u.tier);
@@ -817,7 +988,7 @@ export default function KlasUp() {
               </Card>
             ) : (
               <div>
-                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} />
+                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courseList={courseNames} />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <Card>
@@ -909,7 +1080,7 @@ export default function KlasUp() {
               </Card>
             ) : (
               <div>
-                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} />
+                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courseList={courseNames} />
                 {!deckUploaded ? (
                   <Card style={{ textAlign: "center", padding: "2.5rem", border: `1.5px dashed ${C.tealBright}` }}>
                     <div style={{ fontSize: 32, marginBottom: 8 }}>◫</div>
@@ -1312,7 +1483,7 @@ export default function KlasUp() {
             <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
               <select value={portfolioCourse} onChange={e => setPortfolioCourse(e.target.value)}
                 style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
-                {COURSES.map(c => <option key={c}>{c}</option>)}
+                {courseNames.map(c => <option key={c}>{c}</option>)}
               </select>
               <select value={portfolioWeek} onChange={e => setPortfolioWeek(e.target.value)}
                 style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
@@ -1492,6 +1663,207 @@ export default function KlasUp() {
                 )}
               </div>
             </div>
+          </div>
+          );
+        })()}
+
+        {/* ── SETTINGS ── */}
+        {page === "Settings" && (() => {
+          const emptyForm = { course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 };
+          const isAdding = settingsEditing === "new";
+          return (
+          <div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Settings</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Manage your courses and semester information.</div>
+            </div>
+
+            {/* Course list */}
+            <Card style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={{ fontFamily: F.display, fontSize: 18 }}>Your Courses</div>
+                {!isAdding && (
+                  <button onClick={() => { setSettingsEditing("new"); setSettingsForm(emptyForm); }}
+                    style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                    + Add Course
+                  </button>
+                )}
+              </div>
+
+              {dbCourses.length === 0 && !isAdding && (
+                <div style={{ textAlign: "center", padding: "2rem", color: C.muted }}>
+                  <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.3 }}>⚙</div>
+                  <div style={{ fontSize: 13 }}>No courses yet. Add your first course to get started.</div>
+                </div>
+              )}
+
+              {dbCourses.map(c => {
+                const isEdit = settingsEditing === c.id;
+                return (
+                  <div key={c.id} style={{ border: `0.5px solid ${C.border}`, borderRadius: 12, padding: "1rem", marginBottom: 10, background: isEdit ? C.ivory : C.white }}>
+                    {isEdit ? (
+                      <div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                          <div>
+                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Code</label>
+                            <input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Name</label>
+                            <input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Section</label>
+                            <input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Code</label>
+                            <input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Start</label>
+                            <input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Weeks</label>
+                            <input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))}
+                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={async () => {
+                            try {
+                              await editCourse(c.id, {
+                                course_code: settingsForm.course_code.trim(),
+                                course_name: settingsForm.course_name.trim(),
+                                section: settingsForm.section.trim() || null,
+                                semester_code: settingsForm.semester_code.trim(),
+                                semester_start: settingsForm.semester_start || null,
+                                num_weeks: parseInt(settingsForm.num_weeks) || 16,
+                              });
+                              setSettingsEditing(null);
+                            } catch (err) { alert("Error: " + err.message); }
+                          }}
+                            style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            Save
+                          </button>
+                          <button onClick={() => setSettingsEditing(null)}
+                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                            <span style={{ fontFamily: F.display, fontSize: 16, color: C.navy }}>{c.course_code}</span>
+                            <span style={{ fontSize: 13, color: C.muted }}>{c.course_name}</span>
+                            {c.section && <Tag label={`Sec ${c.section}`} color={C.teal} bg={C.tealLight} />}
+                          </div>
+                          <div style={{ display: "flex", gap: 12, fontSize: 12, color: C.muted }}>
+                            <span>{c.semester_code}</span>
+                            {c.semester_start && <span>Starts {new Date(c.semester_start + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                            <span>{c.num_weeks || 16} weeks</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => { setSettingsEditing(c.id); setSettingsForm({ course_code: c.course_code, course_name: c.course_name, section: c.section || "", semester_code: c.semester_code, semester_start: c.semester_start || "", num_weeks: c.num_weeks || 16 }); }}
+                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                            Edit
+                          </button>
+                          <button onClick={async () => { if (confirm(`Remove ${c.course_code}?`)) { try { await removeCourse(c.id); } catch (err) { alert("Error: " + err.message); } } }}
+                            style={{ background: C.roseLight, color: C.rose, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Add new course form */}
+              {isAdding && (
+                <div style={{ border: `1.5px solid ${C.tealBright}`, borderRadius: 12, padding: "1rem", marginBottom: 10, background: C.ivory }}>
+                  <div style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.teal, marginBottom: 10 }}>New Course</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Code *</label>
+                      <input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))}
+                        placeholder="e.g. MKT 301" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Name *</label>
+                      <input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))}
+                        placeholder="e.g. Consumer Behavior" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Section</label>
+                      <input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))}
+                        placeholder="e.g. 001" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Code *</label>
+                      <input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))}
+                        placeholder="e.g. Fall 2025" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Start</label>
+                      <input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))}
+                        style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Weeks</label>
+                      <input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))}
+                        style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      disabled={!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()}
+                      onClick={async () => {
+                        try {
+                          await addCourseFromForm(settingsForm);
+                          setSettingsEditing(null);
+                          setSettingsForm({});
+                        } catch (err) { alert("Error: " + err.message); }
+                      }}
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()) ? 0.4 : 1 }}>
+                      Save Course
+                    </button>
+                    <button onClick={() => { setSettingsEditing(null); setSettingsForm({}); }}
+                      style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Semester info summary */}
+            {dbCourses.length > 0 && (
+              <Card>
+                <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Semester Overview</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  {dbCourses.map(c => (
+                    <div key={c.id} style={{ background: C.ivory, borderRadius: 10, padding: "12px 14px" }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: C.navy, marginBottom: 4 }}>{c.course_code}</div>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+                        {c.semester_code}<br />
+                        {c.semester_start ? `Starts ${new Date(c.semester_start + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "No start date set"}<br />
+                        {c.num_weeks || 16} week semester
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
           </div>
           );
         })()}
