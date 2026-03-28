@@ -1,6 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { generateMicroLearning, generateSemesterReflection } from "./anthropic";
-import { fetchCourses, insertCourse, updateCourse as updateCourseDB, deleteCourse as deleteCourseDB } from "./supabase";
+import {
+  supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
+  fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
+  checkSubscriptionStatus, downgradeExpiredUser,
+  fetchCourses, insertCourse, updateCourse as updateCourseDB, deleteCourse as deleteCourseDB,
+  resetPassword, updatePassword,
+  trackEvent, logSecurityEvent,
+  fetchActiveAnnouncements, dismissAnnouncement,
+  adminFetchAllUsers, adminUpdateUserRole, adminSetSubscription,
+  adminCreateTestUser, adminResetTestUser, adminCreateAnnouncement,
+  adminFetchUsageStats, adminFetchFunnel,
+  requestDataDeletion,
+} from "./supabase";
 
 const C = {
   navy: "#0F1F3D", navyMid: "#1A3260", navyLight: "#243D75",
@@ -33,6 +45,7 @@ const NAV = [
   { id: "Reports", icon: "☑" },
   { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
+  { id: "Admin", icon: "⛨", adminOnly: true },
 ];
 
 const CAREER_DATA = {
@@ -187,8 +200,44 @@ const WCS = ({ course, setCourse, week, setWeek, courseList }) => (
 );
 
 export default function KlasUp() {
+  // --- Auth state ---
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState(null);
+  const [authSuccess, setAuthSuccess] = useState(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState(null);
+
+  // --- Profile state ---
+  const [profile, setProfile] = useState(null);
+  const [profileSetup, setProfileSetup] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(1); // 1=profile, 2=courses
+  const [profileForm, setProfileForm] = useState({ name: "", institution: "", job_title: "", lms: "" });
+
+  // --- Subscription state ---
+  const [subStatus, setSubStatus] = useState({ tier: "free", trialActive: false, trialExpiringSoon: false, trialExpired: false, daysLeft: 0 });
+  const [dismissedTrialBanner, setDismissedTrialBanner] = useState(false);
+
+  // --- Announcements ---
+  const [announcements, setAnnouncements] = useState([]);
+
+  // --- Admin state ---
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminStats, setAdminStats] = useState(null);
+  const [adminFunnelData, setAdminFunnelData] = useState(null);
+  const [adminAnnouncementForm, setAdminAnnouncementForm] = useState({ title: "", body: "" });
+  const [adminTestForm, setAdminTestForm] = useState({ email: "", password: "", name: "" });
+  const [adminLoading, setAdminLoading] = useState(false);
+
   const [page, setPage] = useState("Dashboard");
-  const [tier, setTier] = useState("free");
+  // tier now comes from the database — no more demo toggle
+  const tier = subStatus.tier;
   const [course, setCourse] = useState("");
   const [week, setWeek] = useState("Week 8");
   const [careerExpanded, setCareerExpanded] = useState(false);
@@ -235,20 +284,107 @@ export default function KlasUp() {
 
   const courseNames = dbCourses.map(c => c.course_code);
 
+  const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Adjunct", "Dean", "Department Chair", "Other"];
+  const LMS_OPTIONS = ["Canvas", "Blackboard", "D2L Brightspace", "Moodle", "Other"];
+
+  // --- Auth listener ---
   useEffect(() => {
-    fetchCourses()
-      .then(rows => {
+    getSession().then(s => {
+      setSession(s);
+      setAuthLoading(false);
+    }).catch(() => setAuthLoading(false));
+
+    const { data: { subscription } } = onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- Session timeout (24h inactivity) ---
+  useEffect(() => {
+    if (!session) return;
+    let timeout;
+    const resetTimer = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => { signOut(); }, 24 * 60 * 60 * 1000);
+    };
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+    resetTimer();
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+    };
+  }, [session]);
+
+  // --- Load profile + courses + check subscription when session is available ---
+  useEffect(() => {
+    if (!session?.user) return;
+    const userId = session.user.id;
+    setCoursesLoading(true);
+
+    (async () => {
+      try {
+        // Fetch profile first — don't touch other tables until we know if profile exists
+        let p = null;
+        try {
+          p = await fetchProfile(userId);
+        } catch (fetchErr) {
+          // Profile query failed (RLS, network, missing columns) — treat as no profile
+          console.warn("fetchProfile failed, treating as new user:", fetchErr);
+        }
+        setProfile(p);
+
+        if (!p) {
+          // New user — show profile setup (Step 1 of onboarding)
+          setProfileSetup(true);
+          setOnboardingStep(1);
+          setProfileForm({ name: "", institution: "", job_title: "", lms: "" });
+          setCoursesLoading(false);
+          return;
+        }
+
+        // Profile exists — safe to update last_active
+        updateLastActive(userId).catch(() => {});
+
+        // Check subscription and auto-downgrade
+        const status = checkSubscriptionStatus(p);
+        if (status.tier === "free" && status.trialExpired && p.role !== "free") {
+          await downgradeExpiredUser(userId);
+          p.role = "free";
+        }
+        setSubStatus(status);
+
+        // Fetch courses
+        const rows = await fetchCourses(userId);
         setDbCourses(rows);
         if (rows.length === 0) {
           setShowOnboarding(true);
+          setOnboardingStep(2);
         } else {
           setCourse(rows[0].course_code);
           setPortfolioCourse(rows[0].course_code);
         }
-      })
-      .catch(err => console.error("Failed to load courses:", err))
-      .finally(() => setCoursesLoading(false));
-  }, []);
+
+        // Fetch announcements (non-critical)
+        fetchActiveAnnouncements(userId)
+          .then(anns => setAnnouncements(anns))
+          .catch(() => {});
+
+      } catch (err) {
+        console.error("Failed to load:", err);
+        // If we got here without a profile, show profile setup as fallback
+        if (!profile) {
+          setProfileSetup(true);
+          setOnboardingStep(1);
+          setProfileForm({ name: "", institution: "", job_title: "", lms: "" });
+        }
+      } finally {
+        setCoursesLoading(false);
+      }
+    })();
+  }, [session]);
 
   const addCourseFromForm = async (form) => {
     const row = await insertCourse({
@@ -258,12 +394,129 @@ export default function KlasUp() {
       semester_code: form.semester_code.trim(),
       semester_start: form.semester_start || null,
       num_weeks: parseInt(form.num_weeks) || 16,
-    });
+    }, session.user.id);
     setDbCourses(prev => [...prev, row]);
     if (!course) setCourse(row.course_code);
     if (!portfolioCourse) setPortfolioCourse(row.course_code);
     return row;
   };
+
+  // --- Auth handlers ---
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccess(null);
+
+    // Rate limiting — lock after 5 failed attempts for 15 minutes
+    if (lockoutUntil && Date.now() < lockoutUntil) {
+      const mins = Math.ceil((lockoutUntil - Date.now()) / 60000);
+      setAuthError(`Too many failed attempts. Try again in ${mins} minute${mins !== 1 ? "s" : ""}.`);
+      return;
+    }
+
+    if (authMode === "forgot") {
+      setAuthSubmitting(true);
+      try {
+        await resetPassword(authEmail);
+        setAuthSuccess("Password reset email sent! Check your inbox.");
+      } catch (err) { setAuthError(err.message); }
+      finally { setAuthSubmitting(false); }
+      return;
+    }
+
+    if (authMode === "signup" && !tosAccepted) {
+      setAuthError("You must accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      if (authMode === "signup") {
+        const data = await signUp(authEmail, authPassword);
+        await logSecurityEvent(data.user?.id || null, "signup", { email: authEmail });
+        setAuthSuccess("Check your email to verify your account before logging in.");
+        setAuthMode("login");
+      } else {
+        await signIn(authEmail, authPassword);
+        setLoginAttempts(0);
+        setLockoutUntil(null);
+      }
+      setAuthEmail("");
+      setAuthPassword("");
+    } catch (err) {
+      if (authMode === "login") {
+        const attempts = loginAttempts + 1;
+        setLoginAttempts(attempts);
+        if (attempts >= 5) {
+          const until = Date.now() + 15 * 60 * 1000;
+          setLockoutUntil(until);
+          setAuthError("Account locked for 15 minutes due to too many failed attempts.");
+          await logSecurityEvent(null, "account_locked", { email: authEmail });
+        } else {
+          setAuthError(err.message);
+        }
+      } else {
+        setAuthError(err.message);
+      }
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (session?.user) await logSecurityEvent(session.user.id, "logout");
+    await signOut();
+    setSession(null);
+    setProfile(null);
+    setSubStatus({ tier: "free", trialActive: false, trialExpiringSoon: false, trialExpired: false, daysLeft: 0 });
+    setDbCourses([]);
+    setShowOnboarding(false);
+    setProfileSetup(false);
+    setAnnouncements([]);
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    if (!profileForm.name.trim()) return;
+    setAuthError(null);
+    try {
+      const p = await upsertProfile(session.user.id, {
+        name: profileForm.name.trim(),
+        email: session.user.email,
+        institution: profileForm.institution.trim() || null,
+        job_title: profileForm.job_title || null,
+        lms: profileForm.lms || null,
+        tos_accepted_at: new Date().toISOString(),
+        tos_version: "1.0",
+      });
+      setProfile(p);
+      const status = checkSubscriptionStatus(p);
+      setSubStatus(status);
+      await trackEvent(session.user.id, "profile_completed");
+      setProfileSetup(false);
+      setShowOnboarding(true);
+      setOnboardingStep(2);
+    } catch (err) {
+      setAuthError(err.message);
+    }
+  };
+
+  // --- Admin panel loader ---
+  const loadAdminData = useCallback(async () => {
+    if (profile?.role !== "admin") return;
+    setAdminLoading(true);
+    try {
+      const [users, stats, funnel] = await Promise.all([
+        adminFetchAllUsers(),
+        adminFetchUsageStats(),
+        adminFetchFunnel(),
+      ]);
+      setAdminUsers(users);
+      setAdminStats(stats);
+      setAdminFunnelData(funnel);
+    } catch (err) { console.error("Admin load error:", err); }
+    finally { setAdminLoading(false); }
+  }, [profile?.role]);
 
   const removeCourse = async (id) => {
     await deleteCourseDB(id);
@@ -284,8 +537,9 @@ export default function KlasUp() {
     if (old && portfolioCourse === old.course_code) setPortfolioCourse(row.course_code);
   };
 
-  const can = t => ["free", "pro", "institutional"].indexOf(tier) >= ["free", "pro", "institutional"].indexOf(t);
-  const upgrade = () => setPage("Pricing");
+  const TIER_RANK = { free: 0, pro: 1, institutional: 2, admin: 3 };
+  const can = t => (TIER_RANK[tier] || 0) >= (TIER_RANK[t] || 0);
+  const upgrade = () => { setPage("Pricing"); if (session?.user) trackEvent(session.user.id, "upgrade_prompt_shown"); };
   const cd = CAREER_DATA[course] || CAREER_DATA[courseNames[0]] || CAREER_DATA["MKT 301"] || { topic: "", intelligence: "", source: "", jobs: [], shareCard: { headline: "", roles: [], message: "" } };
 
   const rateMicro = (key, stars) => setMicroRatings(p => ({ ...p, [key]: stars }));
@@ -334,7 +588,217 @@ export default function KlasUp() {
     { label: "Assignment milestone set", ok: true },
   ];
 
-  // Loading state
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 48, height: 48, background: C.tealBright, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 24, color: C.navy, fontWeight: 700, margin: "0 auto 16px" }}>K</div>
+          <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 6 }}>Loading KlasUp...</div>
+          <div style={{ fontSize: 13, color: C.muted }}>Checking your session</div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Login / Signup / Forgot Password screen ---
+  if (!session) {
+    const isForgot = authMode === "forgot";
+    const inputStyle = { width: "100%", padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 10, fontFamily: F.body, fontSize: 14, boxSizing: "border-box", outline: "none", transition: "border-color 0.2s" };
+    return (
+      <div style={{ minHeight: "100vh", background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 50%, ${C.teal} 100%)`, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 420, maxWidth: "92vw" }}>
+          {/* Logo & tagline */}
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              <div style={{ width: 52, height: 52, background: C.tealBright, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 26, color: C.navy, fontWeight: 700 }}>K</div>
+              <div style={{ fontFamily: F.display, fontSize: 36, color: C.white }}>KlasUp</div>
+            </div>
+            <div style={{ fontSize: 15, color: C.tealMid, fontStyle: "italic" }}>Where every class gets better.</div>
+          </div>
+
+          {/* Auth card */}
+          <div style={{ background: C.white, borderRadius: 18, padding: "2rem 2rem 1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            {isForgot ? (
+              <div style={{ fontFamily: F.display, fontSize: 20, marginBottom: 4, color: C.navy }}>Reset Your Password</div>
+            ) : (
+              /* Toggle */
+              <div style={{ display: "flex", background: C.ivoryDark, borderRadius: 10, padding: 3, marginBottom: 24 }}>
+                {[["login", "Log In"], ["signup", "Sign Up"]].map(([k, v]) => (
+                  <button key={k} onClick={() => { setAuthMode(k); setAuthError(null); setAuthSuccess(null); }}
+                    style={{ flex: 1, padding: "10px", border: "none", borderRadius: 8, fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer",
+                      background: authMode === k ? C.white : "transparent", color: authMode === k ? C.navy : C.muted,
+                      boxShadow: authMode === k ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.2s" }}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {isForgot && <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Enter your email and we'll send a reset link.</div>}
+
+            <form onSubmit={handleAuth}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Email</label>
+                <input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                  placeholder="you@university.edu" style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = C.teal} onBlur={e => e.target.style.borderColor = C.border} />
+              </div>
+
+              {!isForgot && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Password</label>
+                  <input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                    placeholder={authMode === "signup" ? "Create a password (min 6 characters)" : "Enter your password"}
+                    minLength={6} style={inputStyle}
+                    onFocus={e => e.target.style.borderColor = C.teal} onBlur={e => e.target.style.borderColor = C.border} />
+                </div>
+              )}
+
+              {/* Remember me & Forgot password (login only) */}
+              {authMode === "login" && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, fontSize: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: C.muted }}>
+                    <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                      style={{ accentColor: C.teal }} />
+                    Remember me
+                  </label>
+                  <span onClick={() => { setAuthMode("forgot"); setAuthError(null); setAuthSuccess(null); }}
+                    style={{ color: C.teal, fontWeight: 700, cursor: "pointer" }}>Forgot password?</span>
+                </div>
+              )}
+
+              {/* Terms of Service checkbox (signup only) */}
+              {authMode === "signup" && (
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 20, fontSize: 12, color: C.muted, cursor: "pointer" }}>
+                  <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)}
+                    style={{ accentColor: C.teal, marginTop: 2 }} />
+                  <span>I agree to the <span style={{ color: C.teal, fontWeight: 700 }}>Terms of Service</span> and <span style={{ color: C.teal, fontWeight: 700 }}>Privacy Policy</span>. KlasUp is FERPA-compliant and does not store student personally identifiable information.</span>
+                </label>
+              )}
+
+              {authError && (
+                <div style={{ background: C.roseLight, color: C.rose, fontSize: 13, padding: "10px 14px", borderRadius: 10, marginBottom: 16, fontWeight: 600 }}>
+                  {authError}
+                </div>
+              )}
+
+              {authSuccess && (
+                <div style={{ background: C.sageLight, color: C.sage, fontSize: 13, padding: "10px 14px", borderRadius: 10, marginBottom: 16, fontWeight: 600 }}>
+                  {authSuccess}
+                </div>
+              )}
+
+              <button type="submit" disabled={authSubmitting}
+                style={{ width: "100%", padding: "14px", background: C.teal, color: C.white, border: "none", borderRadius: 12, fontFamily: F.accent, fontWeight: 700, fontSize: 15, cursor: authSubmitting ? "wait" : "pointer", opacity: authSubmitting ? 0.7 : 1, transition: "opacity 0.2s" }}>
+                {authSubmitting ? "Please wait..." : isForgot ? "Send Reset Link" : authMode === "signup" ? "Get Started" : "Log In"}
+              </button>
+            </form>
+
+            <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: C.muted }}>
+              {isForgot ? (
+                <span>Remember your password? <span onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccess(null); }} style={{ color: C.teal, fontWeight: 700, cursor: "pointer" }}>Back to login</span></span>
+              ) : authMode === "login" ? (
+                <span>New to KlasUp? <span onClick={() => { setAuthMode("signup"); setAuthError(null); setAuthSuccess(null); }} style={{ color: C.teal, fontWeight: 700, cursor: "pointer" }}>Create an account</span></span>
+              ) : (
+                <span>Already have an account? <span onClick={() => { setAuthMode("login"); setAuthError(null); setAuthSuccess(null); }} style={{ color: C.teal, fontWeight: 700, cursor: "pointer" }}>Log in</span></span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            AI-powered pedagogical intelligence for faculty.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Profile setup (after first signup) — Step 1 of onboarding ---
+  if (profileSetup) {
+    const fld = { width: "100%", padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 10, fontFamily: F.body, fontSize: 14, boxSizing: "border-box" };
+    return (
+      <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 520, maxWidth: "92vw" }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 40, height: 40, background: C.tealBright, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 20, color: C.navy, fontWeight: 700 }}>K</div>
+              <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>KlasUp</div>
+            </div>
+            <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
+          </div>
+
+          {/* Progress indicator */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24 }}>
+            {["Your Profile", "Your Courses"].map((label, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, fontFamily: F.accent,
+                  background: i + 1 <= onboardingStep ? C.tealBright : C.ivoryDark, color: i + 1 <= onboardingStep ? C.white : C.muted }}>
+                  {i + 1}
+                </div>
+                <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 600, color: i + 1 === onboardingStep ? C.navy : C.muted }}>{label}</span>
+                {i === 0 && <div style={{ width: 40, height: 2, background: onboardingStep > 1 ? C.tealBright : C.ivoryDark, borderRadius: 1 }} />}
+              </div>
+            ))}
+          </div>
+
+          <Card style={{ padding: "2rem" }}>
+            <div style={{ fontFamily: F.display, fontSize: 22, marginBottom: 4 }}>Welcome! Tell us about yourself.</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>We'll use this to personalize your experience.</div>
+            <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 600, marginBottom: 24 }}>You're starting with a 14-day free Pro trial!</div>
+
+            <form onSubmit={handleProfileSubmit}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Your Name *</label>
+                  <input required value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. Dr. Sarah Chen" style={fld} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Institution</label>
+                  <input value={profileForm.institution} onChange={e => setProfileForm(p => ({ ...p, institution: e.target.value }))}
+                    placeholder="e.g. Boston University" style={fld} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Job Title</label>
+                  <select value={profileForm.job_title} onChange={e => setProfileForm(p => ({ ...p, job_title: e.target.value }))}
+                    style={{ ...fld, color: profileForm.job_title ? C.text : C.muted }}>
+                    <option value="">Select title...</option>
+                    {JOB_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Which LMS do you use?</label>
+                  <select value={profileForm.lms} onChange={e => setProfileForm(p => ({ ...p, lms: e.target.value }))}
+                    style={{ ...fld, color: profileForm.lms ? C.text : C.muted }}>
+                    <option value="">Select LMS...</option>
+                    {LMS_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>
+                Fields marked with * are required. You can update other fields later in Settings.
+              </div>
+
+              {authError && (
+                <div style={{ background: C.roseLight, color: C.rose, fontSize: 13, padding: "10px 14px", borderRadius: 10, marginBottom: 16, fontWeight: 600 }}>
+                  {authError}
+                </div>
+              )}
+
+              <button type="submit" disabled={!profileForm.name.trim()}
+                style={{ width: "100%", padding: "14px", background: C.tealBright, color: C.white, border: "none", borderRadius: 12, fontFamily: F.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", opacity: profileForm.name.trim() ? 1 : 0.4 }}>
+                Continue to Course Setup
+              </button>
+            </form>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading courses
   if (coursesLoading) {
     return (
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -347,7 +811,7 @@ export default function KlasUp() {
     );
   }
 
-  // Onboarding — first-time course setup
+  // Onboarding — first-time course setup (Step 2)
   if (showOnboarding) {
     return (
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -358,6 +822,20 @@ export default function KlasUp() {
               <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>KlasUp</div>
             </div>
             <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
+          </div>
+
+          {/* Progress indicator */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 24 }}>
+            {["Your Profile", "Your Courses"].map((label, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, fontFamily: F.accent,
+                  background: C.tealBright, color: C.white }}>
+                  {i === 0 ? "✓" : "2"}
+                </div>
+                <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 600, color: i === 1 ? C.navy : C.muted }}>{label}</span>
+                {i === 0 && <div style={{ width: 40, height: 2, background: C.tealBright, borderRadius: 1 }} />}
+              </div>
+            ))}
           </div>
 
           <Card style={{ marginBottom: 20 }}>
@@ -428,7 +906,7 @@ export default function KlasUp() {
           </Card>
 
           {onboardingCourses.length > 0 && (
-            <button onClick={() => setShowOnboarding(false)}
+            <button onClick={() => { setShowOnboarding(false); if (session?.user) trackEvent(session.user.id, "onboarding_completed"); }}
               style={{ width: "100%", background: C.tealBright, color: C.white, border: "none", borderRadius: 12, padding: "14px", fontFamily: F.accent, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
               Get Started with {onboardingCourses.length} Course{onboardingCourses.length > 1 ? "s" : ""}
             </button>
@@ -453,20 +931,25 @@ export default function KlasUp() {
           <div style={{ fontSize: 11, color: C.tealMid, fontStyle: "italic", paddingLeft: 42 }}>Where every class gets better.</div>
         </div>
 
-        {/* Tier switcher */}
-        <div style={{ margin: "0.75rem 0.75rem 0.5rem", background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "0.5rem" }}>
-          <div style={{ fontSize: 9, fontFamily: F.accent, color: "rgba(255,255,255,0.35)", fontWeight: 700, marginBottom: 4, paddingLeft: 2, letterSpacing: "0.05em" }}>DEMO — VIEWING AS</div>
-          {[["free", "Free"], ["pro", "Pro"], ["institutional", "Institutional"]].map(([k, v]) => (
-            <button key={k} onClick={() => setTier(k)} style={{ display: "block", width: "100%", textAlign: "left", background: tier === k ? `${C.tealBright}22` : "none", border: "none", color: tier === k ? C.tealBright : "rgba(255,255,255,0.4)", fontFamily: F.accent, fontWeight: tier === k ? 700 : 400, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer", marginBottom: 1 }}>
-              {tier === k ? "● " : "○ "}{v}
-            </button>
-          ))}
+        {/* Account info */}
+        <div style={{ margin: "0.75rem 0.75rem 0.5rem", background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "0.5rem 0.75rem" }}>
+          <div style={{ fontSize: 12, color: C.white, fontWeight: 600, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {profile?.name || "Faculty"}
+          </div>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {profile?.institution || session?.user?.email}
+          </div>
+          <div style={{ display: "inline-block", fontSize: 10, fontFamily: F.accent, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+            background: tier === "admin" ? `${C.rose}33` : tier === "institutional" ? `${C.gold}33` : tier === "pro" ? `${C.tealBright}22` : "rgba(255,255,255,0.08)",
+            color: tier === "admin" ? C.rose : tier === "institutional" ? C.gold : tier === "pro" ? C.tealBright : "rgba(255,255,255,0.45)" }}>
+            {tier === "admin" ? "Admin" : tier.charAt(0).toUpperCase() + tier.slice(1)}{subStatus.trialActive ? " Trial" : ""}
+          </div>
         </div>
 
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
-          {NAV.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer" }}>
+          {NAV.filter(n => !n.adminOnly || profile?.role === "admin").map(n => (
+            <button key={n.id} onClick={() => { setPage(n.id); if (n.id === "Admin") loadAdminData(); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer" }}>
               <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
             </button>
           ))}
@@ -478,6 +961,14 @@ export default function KlasUp() {
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginBottom: 1 }}>23 items · 8 weeks of data</div>
           <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 700 }}>Health score +31 pts ↑</div>
         </div>
+
+        {/* Logout */}
+        <button onClick={handleSignOut}
+          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", borderTop: "0.5px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)", fontFamily: F.body, fontSize: 12, padding: "0.75rem 1.25rem", cursor: "pointer", transition: "color 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}
+          onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.35)"}>
+          <span style={{ fontSize: 14 }}>⎋</span> Sign Out
+        </button>
       </div>
 
       {/* Content */}
@@ -522,11 +1013,47 @@ export default function KlasUp() {
           )}
         </div>
 
+        {/* ── SUBSCRIPTION BANNERS ── */}
+        {subStatus.trialExpired && !dismissedTrialBanner && (
+          <div style={{ background: C.roseLight, border: `1px solid ${C.rose}44`, borderRadius: 12, padding: "1rem 1.25rem", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.rose, marginBottom: 2 }}>Your Pro trial has ended</div>
+              <div style={{ fontSize: 13, color: C.muted }}>Upgrade to Pro to unlock all features, unlimited courses, and AI-powered insights.</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button onClick={upgrade} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 18px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade Now</button>
+              <button onClick={() => setDismissedTrialBanner(true)} style={{ background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer", padding: "4px" }}>×</button>
+            </div>
+          </div>
+        )}
+
+        {subStatus.trialExpiringSoon && !subStatus.trialExpired && (
+          <div style={{ background: C.goldLight, border: `1px solid ${C.gold}44`, borderRadius: 12, padding: "1rem 1.25rem", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.gold, marginBottom: 2 }}>Your Pro access expires in {subStatus.daysLeft} day{subStatus.daysLeft !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 13, color: C.muted }}>Upgrade now to keep all your Pro features.</div>
+            </div>
+            <button onClick={upgrade} style={{ background: C.gold, color: C.white, border: "none", borderRadius: 8, padding: "8px 18px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>Upgrade</button>
+          </div>
+        )}
+
+        {/* Announcements from admin */}
+        {announcements.map(a => (
+          <div key={a.id} style={{ background: C.tealLight, border: `1px solid ${C.tealBright}44`, borderRadius: 12, padding: "1rem 1.25rem", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 13, color: C.teal, marginBottom: 4 }}>{a.title}</div>
+              <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{a.body}</div>
+            </div>
+            <button onClick={() => { dismissAnnouncement(session.user.id, a.id); setAnnouncements(prev => prev.filter(x => x.id !== a.id)); }}
+              style={{ background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer", padding: "4px", flexShrink: 0 }}>×</button>
+          </div>
+        ))}
+
         {/* ── DASHBOARD ── */}
         {page === "Dashboard" && (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ fontFamily: F.display, fontSize: 28, marginBottom: 2 }}>Good morning, Dr. Chen</div>
+              <div style={{ fontFamily: F.display, fontSize: 28, marginBottom: 2 }}>Good morning{profile?.name ? `, ${profile.name}` : ""}</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Week 8 of Fall 2025 · {can("pro") ? "8 insights" : "2 insights"} ready for you</div>
             </div>
 
@@ -1864,6 +2391,232 @@ export default function KlasUp() {
                 </div>
               </Card>
             )}
+            {/* FERPA Compliance Notice */}
+            <Card style={{ marginTop: 16, borderLeft: `4px solid ${C.teal}` }}>
+              <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>FERPA Compliance</div>
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
+                KlasUp is designed with FERPA compliance in mind. We do <strong>not</strong> collect, store, or process any student personally identifiable information (PII).
+                All data in KlasUp relates to faculty teaching practices, course design, and pedagogical improvement — not individual student records.
+                Faculty who upload course content should ensure that any submitted text does not contain student names, IDs, grades, or other PII.
+              </div>
+              <div style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>Your institution's FERPA obligations are not affected by using KlasUp.</div>
+            </Card>
+
+            {/* Account & Data */}
+            <Card style={{ marginTop: 16 }}>
+              <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>Account & Data</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
+                Under GDPR and CCPA, you have the right to request deletion of your account and all associated data.
+                This action is permanent and cannot be undone.
+              </div>
+              <button onClick={async () => {
+                if (confirm("Are you sure you want to request deletion of your account and all data? This cannot be undone.")) {
+                  try {
+                    await requestDataDeletion(session.user.id);
+                    alert("Deletion request submitted. Your account will be permanently deleted within 30 days. You will receive a confirmation email.");
+                  } catch (err) { alert("Error: " + err.message); }
+                }
+              }}
+                style={{ background: C.roseLight, color: C.rose, border: `1px solid ${C.rose}44`, borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                Request Account Deletion
+              </button>
+            </Card>
+          </div>
+          );
+        })()}
+
+        {/* ── ADMIN PANEL ── */}
+        {page === "Admin" && profile?.role === "admin" && (() => {
+          const ROLE_COLORS = { free: C.muted, pro: C.tealBright, institutional: C.gold, admin: C.rose };
+          return (
+          <div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Admin Panel</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Manage users, view analytics, and send announcements.</div>
+            </div>
+
+            {/* Usage Stats */}
+            {adminStats && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: "Total Users", value: adminStats.total_users, color: C.navy },
+                  { label: "Active This Week", value: adminStats.active_this_week, color: C.tealBright },
+                  { label: "Pro Users", value: adminStats.pro_users, color: C.teal },
+                  { label: "Institutional", value: adminStats.institutional_users, color: C.gold },
+                  { label: "Total Uploads", value: adminStats.total_uploads, color: C.sage },
+                  { label: "Micro-Learnings", value: adminStats.total_micro_learnings, color: C.purple },
+                  { label: "Active Trials", value: adminStats.active_trials, color: C.tealBright },
+                ].map((s, i) => (
+                  <Card key={i} style={{ textAlign: "center", padding: "1rem" }}>
+                    <div style={{ fontFamily: F.display, fontSize: 28, color: s.color }}>{s.value ?? "—"}</div>
+                    <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Funnel */}
+            {adminFunnelData && (
+              <Card style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 14 }}>Conversion Funnel</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                  {[
+                    { label: "Signups", value: adminFunnelData.signups },
+                    { label: "First Upload", value: adminFunnelData.first_uploads },
+                    { label: "First Micro-Learning", value: adminFunnelData.first_micro_learnings },
+                    { label: "Upgrade Prompt", value: adminFunnelData.upgrade_prompts_shown },
+                  ].map((step, i) => {
+                    const max = Math.max(adminFunnelData.signups || 1, 1);
+                    const pct = Math.max(((step.value || 0) / max) * 100, 8);
+                    return (
+                      <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                        <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy, marginBottom: 6 }}>{step.value ?? 0}</div>
+                        <div style={{ height: 80, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                          <div style={{ width: "60%", height: `${pct}%`, background: `${C.tealBright}${i === 0 ? "" : "88"}`, borderRadius: "6px 6px 0 0" }} />
+                        </div>
+                        <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 600, marginTop: 6 }}>{step.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Send Announcement */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Send Announcement</div>
+              <input value={adminAnnouncementForm.title} onChange={e => setAdminAnnouncementForm(p => ({ ...p, title: e.target.value }))}
+                placeholder="Announcement title"
+                style={{ width: "100%", padding: "10px 12px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box", marginBottom: 8 }} />
+              <textarea value={adminAnnouncementForm.body} onChange={e => setAdminAnnouncementForm(p => ({ ...p, body: e.target.value }))}
+                placeholder="Announcement message — visible to all users"
+                rows={3}
+                style={{ width: "100%", padding: "10px 12px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box", resize: "vertical", marginBottom: 10 }} />
+              <button disabled={!adminAnnouncementForm.title.trim() || !adminAnnouncementForm.body.trim()}
+                onClick={async () => {
+                  try {
+                    await adminCreateAnnouncement(session.user.id, adminAnnouncementForm.title, adminAnnouncementForm.body);
+                    setAdminAnnouncementForm({ title: "", body: "" });
+                    alert("Announcement sent!");
+                  } catch (err) { alert("Error: " + err.message); }
+                }}
+                style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer",
+                  opacity: (!adminAnnouncementForm.title.trim() || !adminAnnouncementForm.body.trim()) ? 0.4 : 1 }}>
+                Send to All Users
+              </button>
+            </Card>
+
+            {/* Create Test Account */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Create Test Account</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <input value={adminTestForm.name} onChange={e => setAdminTestForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Name" style={{ padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13 }} />
+                <input value={adminTestForm.email} onChange={e => setAdminTestForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder="Email" type="email" style={{ padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13 }} />
+                <input value={adminTestForm.password} onChange={e => setAdminTestForm(p => ({ ...p, password: e.target.value }))}
+                  placeholder="Password" type="password" style={{ padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13 }} />
+              </div>
+              <button disabled={!adminTestForm.email || !adminTestForm.password || !adminTestForm.name}
+                onClick={async () => {
+                  try {
+                    await adminCreateTestUser(adminTestForm.email, adminTestForm.password, adminTestForm.name);
+                    setAdminTestForm({ email: "", password: "", name: "" });
+                    loadAdminData();
+                    alert("Test account created with Pro access.");
+                  } catch (err) { alert("Error: " + err.message); }
+                }}
+                style={{ background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "8px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer",
+                  opacity: (!adminTestForm.email || !adminTestForm.password || !adminTestForm.name) ? 0.4 : 1 }}>
+                Create Test Account
+              </button>
+            </Card>
+
+            {/* All Users Table */}
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: F.display, fontSize: 18 }}>All Users ({adminUsers.length})</div>
+                <button onClick={loadAdminData} disabled={adminLoading}
+                  style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                  {adminLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: F.body }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${C.border}`, textAlign: "left" }}>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Name</th>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Email</th>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Institution</th>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Role</th>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Last Active</th>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Expires</th>
+                      <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsers.map(u => (
+                      <tr key={u.id} style={{ borderBottom: `0.5px solid ${C.border}`, background: u.test_user ? C.goldLight : "none" }}>
+                        <td style={{ padding: "10px" }}>
+                          <div style={{ fontWeight: 600, color: C.navy }}>{u.name || "—"}</div>
+                          {u.test_user && <span style={{ fontSize: 9, fontFamily: F.accent, fontWeight: 700, color: C.gold, background: C.goldLight, padding: "1px 6px", borderRadius: 4 }}>TEST</span>}
+                        </td>
+                        <td style={{ padding: "10px", color: C.muted }}>{u.email}</td>
+                        <td style={{ padding: "10px", color: C.muted }}>{u.institution || "—"}</td>
+                        <td style={{ padding: "10px" }}>
+                          <select value={u.role} onChange={async (e) => {
+                            try {
+                              await adminUpdateUserRole(u.id, e.target.value, session.user.id);
+                              setAdminUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: e.target.value } : x));
+                            } catch (err) { alert("Error: " + err.message); }
+                          }}
+                            style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, padding: "3px 6px", borderRadius: 6, border: `1px solid ${C.border}`, color: ROLE_COLORS[u.role] || C.muted, background: C.white }}>
+                            {["free", "pro", "institutional", "admin"].map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: "10px", fontSize: 11, color: C.muted }}>
+                          {u.last_active_at ? new Date(u.last_active_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Never"}
+                        </td>
+                        <td style={{ padding: "10px", fontSize: 11, color: C.muted }}>
+                          {u.subscription_expires_at ? new Date(u.subscription_expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                        </td>
+                        <td style={{ padding: "10px" }}>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            <button onClick={async () => {
+                              const days = prompt("Extend subscription by how many days?", "30");
+                              if (!days) return;
+                              const base = u.subscription_expires_at ? new Date(u.subscription_expires_at) : new Date();
+                              const exp = new Date(Math.max(base.getTime(), Date.now()) + parseInt(days) * 86400000);
+                              try {
+                                await adminSetSubscription(u.id, exp.toISOString());
+                                setAdminUsers(prev => prev.map(x => x.id === u.id ? { ...x, subscription_expires_at: exp.toISOString() } : x));
+                              } catch (err) { alert("Error: " + err.message); }
+                            }}
+                              style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, background: C.tealLight, color: C.teal, border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>
+                              Extend
+                            </button>
+                            {u.test_user && (
+                              <button onClick={async () => {
+                                if (confirm(`Reset all data for test user ${u.name}?`)) {
+                                  try {
+                                    await adminResetTestUser(u.id);
+                                    alert("Test user data reset.");
+                                  } catch (err) { alert("Error: " + err.message); }
+                                }
+                              }}
+                                style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, background: C.roseLight, color: C.rose, border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </div>
           );
         })()}
