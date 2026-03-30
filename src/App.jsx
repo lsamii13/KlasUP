@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import Landing from "./Landing";
+import Terms from "./Terms";
+import Logo, { LogoMark } from "./Logo";
 import { generateMicroLearning, generateSemesterReflection } from "./anthropic";
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
@@ -28,9 +31,9 @@ const C = {
 };
 
 const F = {
-  display: "'DM Serif Display', Georgia, serif",
-  body: "'Nunito', 'Segoe UI', sans-serif",
-  accent: "'Quicksand', 'Nunito', sans-serif",
+  display: "'Fredoka One', cursive",
+  body: "'Nunito', sans-serif",
+  accent: "'Nunito', sans-serif",
 };
 
 const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
@@ -212,6 +215,8 @@ export default function KlasUp() {
   // --- Auth state ---
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showLanding, setShowLanding] = useState(true);
+  const [showTerms, setShowTerms] = useState(null); // null | "terms" | "privacy"
   const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -301,11 +306,17 @@ export default function KlasUp() {
   useEffect(() => {
     getSession().then(s => {
       setSession(s);
+      // If user arrives already authenticated (e.g. email verification redirect), skip landing
+      if (s) setShowLanding(false);
       setAuthLoading(false);
     }).catch(() => setAuthLoading(false));
 
-    const { data: { subscription } } = onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = onAuthStateChange((event, s) => {
       setSession(s);
+      // Auto-login after email verification — skip landing page
+      if (s && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        setShowLanding(false);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -483,6 +494,7 @@ export default function KlasUp() {
     setShowOnboarding(false);
     setProfileSetup(false);
     setAnnouncements([]);
+    setShowLanding(true);
   };
 
   const handleProfileSubmit = async (e) => {
@@ -598,16 +610,38 @@ export default function KlasUp() {
     { label: "Assignment milestone set", ok: true },
   ];
 
+  // --- Terms & Privacy page ---
+  if (showTerms) {
+    return (
+      <Terms
+        initialTab={showTerms}
+        onBack={() => setShowTerms(null)}
+      />
+    );
+  }
+
   // Auth loading
   if (authLoading) {
     return (
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ width: 48, height: 48, background: C.tealBright, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 24, color: C.navy, fontWeight: 700, margin: "0 auto 16px" }}>K</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LogoMark size={48} /></div>
           <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 6 }}>Loading KlasUp...</div>
           <div style={{ fontSize: 13, color: C.muted }}>Checking your session</div>
         </div>
       </div>
+    );
+  }
+
+  // --- Landing page for first-time visitors ---
+  if (!session && showLanding) {
+    return (
+      <Landing
+        onSignIn={() => { setShowLanding(false); setAuthMode("login"); }}
+        onGetStarted={() => { setShowLanding(false); setAuthMode("signup"); }}
+        onTerms={() => setShowTerms("terms")}
+        onPrivacy={() => setShowTerms("privacy")}
+      />
     );
   }
 
@@ -620,9 +654,8 @@ export default function KlasUp() {
         <div style={{ width: 420, maxWidth: "92vw" }}>
           {/* Logo & tagline */}
           <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <div style={{ width: 52, height: 52, background: C.tealBright, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 26, color: C.navy, fontWeight: 700 }}>K</div>
-              <div style={{ fontFamily: F.display, fontSize: 36, color: C.white }}>KlasUp</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+              <Logo size="md" dark />
             </div>
             <div style={{ fontSize: 15, color: C.tealMid, fontStyle: "italic" }}>Where every class gets better.</div>
           </div>
@@ -683,7 +716,7 @@ export default function KlasUp() {
                 <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 20, fontSize: 12, color: C.muted, cursor: "pointer" }}>
                   <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)}
                     style={{ accentColor: C.teal, marginTop: 2 }} />
-                  <span>I agree to the <span style={{ color: C.teal, fontWeight: 700 }}>Terms of Service</span> and <span style={{ color: C.teal, fontWeight: 700 }}>Privacy Policy</span>. KlasUp is FERPA-compliant and does not store student personally identifiable information.</span>
+                  <span>I agree to the <span onClick={(e) => { e.preventDefault(); setShowTerms("terms"); }} style={{ color: C.teal, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Terms of Service</span> and <span onClick={(e) => { e.preventDefault(); setShowTerms("privacy"); }} style={{ color: C.teal, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>Privacy Policy</span>. KlasUp is FERPA-compliant and does not store student personally identifiable information.</span>
                 </label>
               )}
 
@@ -731,9 +764,8 @@ export default function KlasUp() {
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ width: 520, maxWidth: "92vw" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <div style={{ width: 40, height: 40, background: C.tealBright, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 20, color: C.navy, fontWeight: 700 }}>K</div>
-              <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>KlasUp</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+              <Logo size="sm" />
             </div>
             <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
           </div>
@@ -813,7 +845,7 @@ export default function KlasUp() {
     return (
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ width: 48, height: 48, background: C.tealBright, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 24, color: C.navy, fontWeight: 700, margin: "0 auto 16px" }}>K</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LogoMark size={48} /></div>
           <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 6 }}>Loading KlasUp...</div>
           <div style={{ fontSize: 13, color: C.muted }}>Connecting to your courses</div>
         </div>
@@ -827,9 +859,8 @@ export default function KlasUp() {
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ width: 520, maxWidth: "95vw" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <div style={{ width: 40, height: 40, background: C.tealBright, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 20, color: C.navy, fontWeight: 700 }}>K</div>
-              <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>KlasUp</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+              <Logo size="sm" />
             </div>
             <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
           </div>
@@ -934,9 +965,8 @@ export default function KlasUp() {
 
         {/* Logo */}
         <div style={{ padding: "1.5rem 1.25rem 1rem", borderBottom: "0.5px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <div style={{ width: 32, height: 32, background: C.tealBright, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.display, fontSize: 16, color: C.navy, fontWeight: 700 }}>K</div>
-            <div style={{ fontFamily: F.display, fontSize: 22, color: C.white }}>KlasUp</div>
+          <div style={{ marginBottom: 4 }}>
+            <Logo size="sm" dark />
           </div>
           <div style={{ fontSize: 11, color: C.tealMid, fontStyle: "italic", paddingLeft: 42 }}>Where every class gets better.</div>
         </div>

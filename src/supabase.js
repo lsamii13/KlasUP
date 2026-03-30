@@ -15,7 +15,13 @@ function sanitize(str) {
 // ── Auth helpers ──────────────────────────────────────────
 
 export async function signUp(email, password) {
-  const { data, error } = await supabase.auth.signUp({ email, password })
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: 'https://klasup.com',
+    },
+  })
   if (error) throw error
   return data
 }
@@ -42,8 +48,11 @@ export function onAuthStateChange(callback) {
 }
 
 export async function resetPassword(email) {
+  const siteUrl = window.location.hostname === 'localhost'
+    ? window.location.origin
+    : 'https://klasup.com'
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/#reset-password`,
+    redirectTo: `${siteUrl}/#reset-password`,
   })
   if (error) throw error
 }
