@@ -36,3 +36,23 @@ export async function generateSemesterReflection({ course, uploadLog, microHisto
   const data = await callEdgeFunction({ type: 'reflection', course, uploadLog, microHistory })
   return data.reflection
 }
+
+export async function generateAssignmentDoc({ description, course, semesterStart, numWeeks, outcomes }) {
+  const data = await callEdgeFunction({ type: 'assignment-doc', description, course, semesterStart, numWeeks, outcomes })
+  return data.document
+}
+
+export async function updateAssignmentDoc({ currentDoc, instruction }) {
+  const data = await callEdgeFunction({ type: 'assignment-doc-update', currentDoc, instruction })
+  return data.document
+}
+
+export async function generatePptPlan({ description, course, week }) {
+  const data = await callEdgeFunction({ type: 'ppt-plan', description, course, week })
+  return data.slides
+}
+
+export async function updatePptPlan({ currentSlides, instruction }) {
+  const data = await callEdgeFunction({ type: 'ppt-plan-update', currentSlides, instruction })
+  return data.slides
+}

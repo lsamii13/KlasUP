@@ -179,7 +179,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
       <div style={{ textAlign: "center", maxWidth: 780, position: "relative", zIndex: 1 }}>
         {/* Hero brand moment — stacked mark + wordmark */}
         <div style={{ marginBottom: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <LogoMark size={120} />
+          <LogoMark size={144} />
           <div style={{ fontFamily: F.display, fontSize: "clamp(40px, 5vw, 56px)", lineHeight: 1 }}>
             <span style={{ color: "#FFFFFF" }}>Klas</span>
             <span style={{ color: "#0FB5B5" }}>Up</span>
@@ -516,7 +516,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
               <Logo size="sm" dark />
             </div>
             <p style={{ fontFamily: F.body, fontSize: 13, color: "rgba(255,255,255,0.4)", margin: 0, maxWidth: 280 }}>
-              AI-powered pedagogical intelligence.<br />Teach smarter. Not harder.
+              Teach smarter. Not harder.
             </p>
           </div>
 

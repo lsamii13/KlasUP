@@ -39,6 +39,73 @@ The reflection should:
 
 Output ONLY the reflection text — no markdown headers, no JSON, no commentary.`
 
+const ASSIGNMENT_DOC_PROMPT = `You are KlasUp's Assignment Document Generator — an AI assistant for higher-education faculty.
+
+Given a faculty member's plain-English description of an assignment, their semester calendar information, and their course learning outcomes, generate a complete, professionally formatted assignment document.
+
+The document MUST include ALL of these sections:
+1. ASSIGNMENT TITLE — a clear, descriptive title
+2. COURSE & SEMESTER — course name and semester info
+3. OVERVIEW — 2-3 sentence summary of what students will do and why
+4. LEARNING OBJECTIVES — 3-5 specific objectives this assignment addresses (drawn from the provided course outcomes)
+5. DETAILED INSTRUCTIONS — step-by-step instructions for completing the assignment, written clearly for students
+6. TIMELINE & DEADLINES — auto-calculate REAL calendar dates from the semester start date and week numbers mentioned in the description. Format dates as "Day, Month Date, Year" (e.g., "Thursday, February 13, 2025"). If the class meets on a specific day, use that day for deadlines.
+7. GRADING RUBRIC — a detailed rubric with criteria, point values, and descriptions for each performance level (Excellent, Proficient, Developing, Beginning)
+8. SUBMISSION GUIDELINES — format, file type, where to submit, naming conventions
+
+Use any client names, company names, or specific details the faculty member mentions — weave them throughout the document naturally.
+
+Write in a professional but warm academic tone. Format with clear headers and spacing. Do NOT use markdown — use plain text with ALL-CAPS headers and line breaks for formatting.
+
+Output ONLY the assignment document text — no JSON, no code blocks, no commentary.`
+
+const ASSIGNMENT_DOC_UPDATE_PROMPT = `You are KlasUp's Assignment Document Editor — an AI assistant for higher-education faculty.
+
+You will receive an existing assignment document and a plain-English instruction for how to change it. Apply the requested change throughout the entire document — updating dates, names, instructions, rubric, and any other affected sections to maintain internal consistency.
+
+Rules:
+1. Preserve the overall structure and formatting of the document
+2. If a date change is requested, recalculate ALL affected dates downstream
+3. If a name/company change is requested, replace it EVERYWHERE in the document
+4. If a structural change is requested (add a section, remove a requirement), update the rubric and instructions accordingly
+5. Keep the same professional academic tone
+
+Output ONLY the updated assignment document — no explanation, no JSON, no code blocks.`
+
+const PPT_PLAN_PROMPT = `You are KlasUp's PowerPoint Planner — an AI assistant for higher-education faculty.
+
+Given a faculty member's plain-English description of a slide deck they want to create, generate a complete slide-by-slide outline.
+
+Respond with a JSON array of slide objects. Each object must have these fields:
+- "title": the slide title (concise, clear)
+- "points": an array of 3-4 key talking points for the slide (strings)
+- "visual": a suggested visual, activity, or interaction for the slide (string) — e.g., "Chart showing market share trends", "Think-pair-share activity", "Poll: Which brand resonates most?"
+- "time": estimated time for this slide in minutes (string, e.g., "3 min")
+- "notes": speaker notes — 1-2 sentences of guidance for the presenter (string)
+
+Design principles:
+1. Open with an engaging hook or overview, close with a synthesis or exit ticket
+2. Include at least 2 active learning moments (discussions, polls, activities) distributed throughout
+3. Vary slide types — don't make every slide a bullet-point lecture
+4. Keep text density reasonable — suggest visuals over text walls
+5. Include a case study or real-world example if the topic allows
+6. Match the tone and level the faculty member describes
+
+Only output the JSON array — no markdown, no commentary.`
+
+const PPT_PLAN_UPDATE_PROMPT = `You are KlasUp's PowerPoint Editor — an AI assistant for higher-education faculty.
+
+You will receive an existing slide deck outline (as a JSON array) and a plain-English instruction for how to change it. Apply the requested change and return the complete updated slide array.
+
+Rules:
+1. Preserve slides that are not affected by the change
+2. If asked to add a slide, insert it at the logical position and renumber
+3. If asked to make a slide "more interactive", replace lecture-style content with activities, polls, or discussions
+4. If asked to change tone, update talking points and speaker notes accordingly
+5. Return the COMPLETE slide array (all slides, not just changed ones)
+
+Respond with ONLY the JSON array — same format as the original (title, points, visual, time, notes). No markdown, no commentary.`
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -61,14 +128,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { type, content, category, course, week, uploadLog, microHistory } = await req.json()
+    const body = await req.json()
+    const { type } = body
 
     let systemPrompt: string
     let userMessage: string
     let maxTokens: number
 
     if (type === 'reflection') {
-      // Semester reflection request
+      const { course, uploadLog, microHistory } = body
       systemPrompt = REFLECTION_PROMPT
       maxTokens = 2500
 
@@ -96,8 +164,80 @@ AI MICRO-LEARNING RECOMMENDATIONS GENERATED:
 ${microSummary || '(No recommendations generated)'}
 
 Based on this complete semester record, draft a reflective semester narrative for this faculty member's teaching portfolio.`
+
+    } else if (type === 'assignment-doc') {
+      const { description, course, semesterStart, numWeeks, outcomes } = body
+      systemPrompt = ASSIGNMENT_DOC_PROMPT
+      maxTokens = 4000
+
+      const calendarInfo = semesterStart
+        ? `Semester starts: ${semesterStart}. Total weeks: ${numWeeks || 16}.`
+        : `Total weeks in semester: ${numWeeks || 16}. (No specific start date provided — use relative week numbers for dates.)`
+
+      const outcomesText = (outcomes || []).map((o: string, i: number) => `${i + 1}. ${o}`).join('\n')
+
+      userMessage = `Faculty member teaching ${course}.
+
+SEMESTER CALENDAR:
+${calendarInfo}
+
+COURSE LEARNING OUTCOMES:
+${outcomesText || '(No outcomes provided)'}
+
+ASSIGNMENT DESCRIPTION (plain English):
+---
+${description}
+---
+
+Generate a complete, professionally formatted assignment document based on this description. Auto-calculate real calendar dates from the semester start date and week references.`
+
+    } else if (type === 'assignment-doc-update') {
+      const { currentDoc, instruction } = body
+      systemPrompt = ASSIGNMENT_DOC_UPDATE_PROMPT
+      maxTokens = 4000
+
+      userMessage = `CURRENT ASSIGNMENT DOCUMENT:
+---
+${currentDoc}
+---
+
+REQUESTED CHANGE:
+${instruction}
+
+Apply this change throughout the entire document, maintaining consistency in dates, names, and all affected sections.`
+
+    } else if (type === 'ppt-plan') {
+      const { description, course, week } = body
+      systemPrompt = PPT_PLAN_PROMPT
+      maxTokens = 3000
+
+      userMessage = `Faculty member teaching ${course}, ${week}.
+
+DECK DESCRIPTION (plain English):
+---
+${description}
+---
+
+Generate a complete slide-by-slide outline for this presentation.`
+
+    } else if (type === 'ppt-plan-update') {
+      const { currentSlides, instruction } = body
+      systemPrompt = PPT_PLAN_UPDATE_PROMPT
+      maxTokens = 3000
+
+      const slidesJson = JSON.stringify(currentSlides, null, 2)
+
+      userMessage = `CURRENT SLIDE DECK OUTLINE:
+${slidesJson}
+
+REQUESTED CHANGE:
+${instruction}
+
+Apply this change and return the complete updated slide array.`
+
     } else {
       // Micro-learning request (default)
+      const { content, category, course, week } = body
       systemPrompt = MICRO_LEARNING_PROMPT
       maxTokens = 1500
 
@@ -137,12 +277,22 @@ Based on this content, identify pedagogical gaps and opportunities, then generat
     const data = await anthropicRes.json()
     const text = data.content[0].text
 
+    // Route response by type
     if (type === 'reflection') {
       return new Response(JSON.stringify({ reflection: text }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    } else if (type === 'assignment-doc' || type === 'assignment-doc-update') {
+      return new Response(JSON.stringify({ document: text }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    } else if (type === 'ppt-plan' || type === 'ppt-plan-update') {
+      const slides = JSON.parse(text)
+      return new Response(JSON.stringify({ slides }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     } else {
-      // Parse the JSON array for micro-learning
+      // Micro-learning
       const recommendations = JSON.parse(text)
       return new Response(JSON.stringify({ recommendations }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import Landing from "./Landing";
 import Terms from "./Terms";
 import Logo, { LogoMark } from "./Logo";
-import { generateMicroLearning, generateSemesterReflection } from "./anthropic";
+import VoiceMic from "./VoiceMic";
+import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan } from "./anthropic";
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
@@ -130,13 +131,63 @@ const MICRO = [
 ];
 
 const UPLOADS = [
-  { label: "Announcements", icon: "◎", desc: "Posted announcements", tier: "free" },
-  { label: "Assignments", icon: "☑", desc: "Assignment sheets & rubrics", tier: "pro" },
-  { label: "Discussions", icon: "◉", desc: "Discussion prompts & threads", tier: "pro" },
-  { label: "Learning Outcomes", icon: "◇", desc: "Syllabus & course outcomes", tier: "pro" },
   { label: "Post-class notes", icon: "✏", desc: "Reflections after each session", tier: "free" },
-  { label: "Student Voice", icon: "◈", desc: "Anonymized mid-semester themes", tier: "pro" },
+  { label: "Announcements", icon: "📢", desc: "Posted announcements", tier: "free" },
+  { label: "Assignments", icon: "📝", desc: "Assignment sheets & rubrics", tier: "pro" },
+  { label: "Discussions", icon: "💬", desc: "Discussion prompts & threads", tier: "pro" },
+  { label: "Learning Outcomes", icon: "🎯", desc: "Syllabus & course outcomes", tier: "pro" },
+  { label: "Student Voice", icon: "🗣", desc: "Anonymized mid-semester themes", tier: "pro" },
+  { label: "PowerPoints", icon: "📊", desc: "Slide content & topics", tier: "pro" },
 ];
+
+const UPLOAD_PLACEHOLDERS = {
+  "Post-class notes": "What worked well today? What fell flat? Where did students seem lost or disengaged?",
+  "Announcements": "Paste your announcement here, or describe what you communicated to students this week.",
+  "Assignments": "Paste your assignment instructions. What are students supposed to produce? What does success look like?",
+  "Discussions": "Paste your discussion prompt here, or describe what you posted and how students responded.",
+  "Learning Outcomes": "Paste your course learning outcomes or syllabus goals here.",
+  "Student Voice": "Share anonymized themes from student feedback — what are they saying about the course?",
+  "PowerPoints": "Describe or paste the key topics and content from your slides this week.",
+};
+
+const WRITING_PROMPTS = {
+  "Post-class notes": [
+    "What moment in class today surprised you — either positively or negatively?",
+    "If you could re-teach one part of today's session, what would you change?",
+    "Were there any questions from students that made you rethink your approach?",
+    "What percentage of students seemed actively engaged today? What were the rest doing?",
+  ],
+  "Announcements": [
+    "What's the most important thing students need to know this week?",
+    "Is there a deadline, resource, or change in schedule to communicate?",
+    "How are you framing upcoming expectations — tone matters.",
+  ],
+  "Assignments": [
+    "What exactly should students submit? Be specific about format and length.",
+    "What does an A-level submission look like vs. a C-level one?",
+    "Are there checkpoints or drafts before the final due date?",
+  ],
+  "Discussions": [
+    "What's the open-ended question students are wrestling with?",
+    "How many replies are you expecting, and what counts as substantive?",
+    "Are students building on each other's posts or just posting in isolation?",
+  ],
+  "Learning Outcomes": [
+    "What should students be able to DO (not just know) by the end of the course?",
+    "Which outcomes are assessed by which assignments?",
+    "Are there outcomes that aren't being addressed in the current course design?",
+  ],
+  "Student Voice": [
+    "What are students consistently praising about the course?",
+    "What complaints or confusion patterns are you seeing?",
+    "Have you noticed any themes about pacing, workload, or clarity?",
+  ],
+  "PowerPoints": [
+    "What are the 3-5 key concepts covered in this week's slides?",
+    "Are there any activities, polls, or discussion breaks embedded in the deck?",
+    "How much text vs. visuals are on each slide?",
+  ],
+};
 
 const SLIDES = [
   { title: "Course Overview & Objectives", flags: [], udl: 92, active: true, reused: false, text: "light" },
@@ -287,6 +338,32 @@ export default function KlasUp() {
   const [microRatings, setMicroRatings] = useState({});
   const [postUpvotes, setPostUpvotes] = useState({});
 
+  // --- My Course redesign state ---
+  const [myCourseCategory, setMyCourseCategory] = useState("Post-class notes");
+  const [myCourseFeedback, setMyCourseFeedback] = useState(null);
+  const [myCourseFeedbackLoading, setMyCourseFeedbackLoading] = useState(false);
+  const [promptHelperOpen, setPromptHelperOpen] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState({});
+  const [upScoreOpen, setUpScoreOpen] = useState(false);
+
+  // --- Assignment Document Generator state ---
+  const [assignDocDesc, setAssignDocDesc] = useState("");
+  const [assignDocResult, setAssignDocResult] = useState(null);
+  const [assignDocLoading, setAssignDocLoading] = useState(false);
+  const [assignDocError, setAssignDocError] = useState(null);
+  const [assignDocEditing, setAssignDocEditing] = useState(false);
+  const [assignDocUpdateText, setAssignDocUpdateText] = useState("");
+  const [assignDocUpdating, setAssignDocUpdating] = useState(false);
+
+  // --- PowerPoint Planner state ---
+  const [pptDesc, setPptDesc] = useState("");
+  const [pptSlides, setPptSlides] = useState(null);
+  const [pptLoading, setPptLoading] = useState(false);
+  const [pptError, setPptError] = useState(null);
+  const [pptEditing, setPptEditing] = useState(null);
+  const [pptUpdateText, setPptUpdateText] = useState("");
+  const [pptUpdating, setPptUpdating] = useState(false);
+
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
@@ -299,7 +376,7 @@ export default function KlasUp() {
   const courseNames = dbCourses.map(c => c.course_code);
   const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
 
-  const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Adjunct", "Dean", "Department Chair", "Other"];
+  const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Lecturer", "Adjunct", "Dean", "Department Chair", "Other"];
   const LMS_OPTIONS = ["Canvas", "Blackboard", "D2L Brightspace", "Moodle", "Other"];
 
   // --- Auth listener ---
@@ -625,7 +702,7 @@ export default function KlasUp() {
     return (
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LogoMark size={48} /></div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LogoMark size={58} /></div>
           <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 6 }}>Loading KlasUp...</div>
           <div style={{ fontSize: 13, color: C.muted }}>Checking your session</div>
         </div>
@@ -657,7 +734,7 @@ export default function KlasUp() {
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
               <Logo size="md" dark />
             </div>
-            <div style={{ fontSize: 15, color: C.tealMid, fontStyle: "italic" }}>Where every class gets better.</div>
+            <div style={{ fontSize: 15, color: C.tealMid, fontStyle: "italic" }}>Teach smarter. Not harder.</div>
           </div>
 
           {/* Auth card */}
@@ -750,7 +827,7 @@ export default function KlasUp() {
           </div>
 
           <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
-            AI-powered pedagogical intelligence for faculty.
+            Teach smarter. Not harder.
           </div>
         </div>
       </div>
@@ -767,7 +844,7 @@ export default function KlasUp() {
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
               <Logo size="sm" />
             </div>
-            <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
+            <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Teach smarter. Not harder.</div>
           </div>
 
           {/* Progress indicator */}
@@ -845,7 +922,7 @@ export default function KlasUp() {
     return (
       <div style={{ minHeight: "100vh", background: C.ivory, fontFamily: F.body, color: C.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LogoMark size={48} /></div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LogoMark size={58} /></div>
           <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 6 }}>Loading KlasUp...</div>
           <div style={{ fontSize: 13, color: C.muted }}>Connecting to your courses</div>
         </div>
@@ -862,7 +939,7 @@ export default function KlasUp() {
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
               <Logo size="sm" />
             </div>
-            <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Where every class gets better.</div>
+            <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Teach smarter. Not harder.</div>
           </div>
 
           {/* Progress indicator */}
@@ -968,7 +1045,7 @@ export default function KlasUp() {
           <div style={{ marginBottom: 4 }}>
             <Logo size="sm" dark />
           </div>
-          <div style={{ fontSize: 11, color: C.tealMid, fontStyle: "italic", paddingLeft: 42 }}>Where every class gets better.</div>
+          <div style={{ fontSize: 11, color: C.tealMid, fontStyle: "italic", paddingLeft: 42 }}>Teach smarter. Not harder.</div>
         </div>
 
         {/* Account info */}
@@ -1325,7 +1402,6 @@ export default function KlasUp() {
 
         {/* ── MY COURSE ── */}
         {page === "My Course" && (() => {
-          const hasMicro = Object.keys(microHistory).length > 0 || aiMicroLoading;
           const TAG_COLORS = {
             "Active Learning": { color: C.sage, bg: C.sageLight },
             "Socratic Seminar": { color: C.teal, bg: C.tealLight },
@@ -1338,223 +1414,270 @@ export default function KlasUp() {
             "Metacognition": { color: C.purple, bg: C.purpleLight },
             "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
           };
-          const allEntries = Object.entries(microHistory).flatMap(([cat, entries]) =>
-            entries.map(e => ({ ...e, category: cat }))
-          );
-          const newest = allEntries.length > 0
-            ? allEntries.reduce((a, b) => a.timestamp > b.timestamp ? a : b)
-            : null;
+          const courseLog = uploadLog.filter(e => e.course === course);
+          const weekGroups = {};
+          courseLog.forEach(e => { if (!weekGroups[e.week]) weekGroups[e.week] = []; weekGroups[e.week].push(e); });
+          const weekOrder = Object.keys(weekGroups).sort((a, b) => {
+            const na = parseInt(a.replace(/\D/g, "")) || 0, nb = parseInt(b.replace(/\D/g, "")) || 0;
+            return nb - na;
+          });
+          const currentCat = UPLOADS.find(u => u.label === myCourseCategory) || UPLOADS[0];
+
+          const handleSubmit = () => {
+            const text = uploadText.trim();
+            if (!text) return;
+            setUploaded(p => ({ ...p, [myCourseCategory]: (p[myCourseCategory] || 0) + 1 }));
+            setUploadLog(prev => [{ content: text, category: myCourseCategory, course, week, timestamp: Date.now() }, ...prev]);
+            setUploadText("");
+            setMyCourseFeedbackLoading(true);
+            setMyCourseFeedback(null);
+            setAiMicroError(null);
+            generateMicroLearning({ content: text, category: myCourseCategory, course, week })
+              .then(recs => {
+                setAiMicro(recs);
+                setMyCourseFeedbackLoading(false);
+                const fb = recs && recs.length > 0 ? recs[0] : null;
+                setMyCourseFeedback(fb);
+                setMicroHistory(prev => ({
+                  ...prev,
+                  [myCourseCategory]: [
+                    { recs, week, course, timestamp: Date.now() },
+                    ...(prev[myCourseCategory] || []),
+                  ],
+                }));
+              })
+              .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
+          };
+
           return (
-          <div style={{ display: "flex", gap: 20 }}>
-            {/* Left column — uploads + score breakdown */}
-            <div style={{ flex: hasMicro ? "0 0 55%" : "1 1 100%", minWidth: 0, transition: "flex 0.3s ease" }}>
-              <div style={{ marginBottom: "1.25rem" }}>
-                <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
-                <div style={{ color: C.muted, fontSize: 14 }}>The more you put in, the more KlasUp gives back.</div>
-              </div>
-              <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
-              <div style={{ display: "grid", gridTemplateColumns: hasMicro ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
-                {UPLOADS.map((u, i) => {
-                  const locked = !can(u.tier);
-                  return (
-                    <div key={i} style={{ position: "relative", background: C.white, border: uploadOpen === u.label ? `1.5px solid ${C.tealBright}` : `0.5px solid ${C.border}`, borderRadius: 14, padding: "1rem", cursor: locked ? "default" : "pointer", overflow: "hidden" }}
-                      onClick={() => !locked && setUploadOpen(uploadOpen === u.label ? null : u.label)}>
-                      {locked && <LockOverlay onUpgrade={upgrade} />}
-                      <div style={{ fontSize: 18, marginBottom: 5 }}>{u.icon}</div>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{u.label}</div>
-                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{u.desc}</div>
-                      <div style={{ fontSize: 10, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>{course} · {week}</div>
-                      {uploaded[u.label] > 0 && <div style={{ fontSize: 11, color: C.sage, fontWeight: 700, marginTop: 4 }}>{uploaded[u.label]} added ✓</div>}
-                      {uploadOpen === u.label && (
-                        <div style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
-                          <textarea placeholder={`Add your ${u.label.toLowerCase()} here...`} rows={3}
-                            value={uploadText}
-                            onChange={e => setUploadText(e.target.value)}
-                            style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 12, resize: "none", boxSizing: "border-box", background: C.ivory }} />
-                          <button onClick={() => {
-                            const text = uploadText.trim();
-                            setUploaded(p => ({ ...p, [u.label]: (p[u.label] || 0) + 1 }));
-                            setUploadOpen(null);
-                            setUploadText("");
-                            if (text) {
-                              setUploadLog(prev => [{ content: text, category: u.label, course, week, timestamp: Date.now() }, ...prev]);
-                              setAiMicroLoading(true);
-                              setAiMicroError(null);
-                              generateMicroLearning({ content: text, category: u.label, course, week })
-                                .then(recs => {
-                                  setAiMicro(recs);
-                                  setAiMicroLoading(false);
-                                  setMicroHistory(prev => ({
-                                    ...prev,
-                                    [u.label]: [
-                                      { recs, week, course, timestamp: Date.now() },
-                                      ...(prev[u.label] || []),
-                                    ],
-                                  }));
-                                })
-                                .catch(err => { console.error(err); setAiMicroError(err.message); setAiMicroLoading(false); });
-                            }
-                          }}
-                            style={{ marginTop: 6, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "6px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                            Submit to KlasUp
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <Card>
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 14 }}>UP SCORE BREAKDOWN — {course} · {week}</div>
-                {DIMENSIONS.map((d, i) => {
-                  const locked = !can(d.tier);
-                  return (
-                    <div key={i} style={{ marginBottom: 12, position: "relative" }}>
-                      {locked && (
-                        <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,244,0.9)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", zIndex: 1 }}>
-                          <span style={{ fontSize: 12, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>🔒 {d.label}</span>
-                          <button onClick={upgrade} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 20, padding: "3px 12px", cursor: "pointer" }}>Pro ↗</button>
-                        </div>
-                      )}
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
-                        <span style={{ fontSize: 13, fontFamily: F.accent, color: d.color, fontWeight: 700 }}>{d.score}</span>
-                      </div>
-                      <div style={{ height: 6, background: C.ivoryDark, borderRadius: 4, overflow: "hidden", marginBottom: 3 }}>
-                        <div style={{ width: `${d.score}%`, height: "100%", background: d.score > 80 ? C.tealBright : d.score > 70 ? C.sage : C.rose, borderRadius: 4 }} />
-                      </div>
-                      <div style={{ fontSize: 11, color: C.muted }}>{d.note}</div>
-                    </div>
-                  );
-                })}
-              </Card>
+          <div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Share what's happening in your classroom. KlasUp turns it into growth.</div>
             </div>
+            <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
 
-            {/* Right column — live micro-learning panel */}
-            {hasMicro && (
-              <div style={{ flex: "0 0 42%", minWidth: 0 }}>
-                <div style={{ position: "sticky", top: 20 }}>
-                  <div style={{ background: C.navy, borderRadius: 14, overflow: "hidden" }}>
-                    {/* Panel header */}
-                    <div style={{ padding: "1rem 1.25rem", borderBottom: "0.5px solid rgba(255,255,255,0.1)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{ display: "inline-block", width: 8, height: 8, background: C.tealBright, borderRadius: "50%", boxShadow: `0 0 6px ${C.tealBright}` }} />
-                        <span style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.tealBright, letterSpacing: "0.05em" }}>LIVE MICRO-LEARNING</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>AI recommendations update as you upload</div>
-                    </div>
-
-                    <div style={{ maxHeight: "calc(100vh - 140px)", overflowY: "auto" }}>
-                      {/* Loading state */}
-                      {aiMicroLoading && (
-                        <div style={{ padding: "1.25rem", textAlign: "center" }}>
-                          <div style={{ fontSize: 22, marginBottom: 8, animation: "spin 1.5s linear infinite", color: C.tealBright }}>◉</div>
-                          <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.tealBright, fontSize: 12, marginBottom: 4 }}>Analyzing your content...</div>
-                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Generating personalized recommendations</div>
-                          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-                        </div>
-                      )}
-
-                      {/* Error state */}
-                      {aiMicroError && (
-                        <div style={{ margin: "0.75rem", background: "rgba(196,104,122,0.15)", border: `0.5px solid ${C.rose}`, borderRadius: 10, padding: "0.75rem 1rem" }}>
-                          <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 12, marginBottom: 3 }}>Could not generate recommendations</div>
-                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{aiMicroError}</div>
-                        </div>
-                      )}
-
-                      {/* Newest recommendation highlighted at top */}
-                      {newest && !aiMicroLoading && (
-                        <div style={{ padding: "0.75rem 1rem" }}>
-                          <div style={{ background: `${C.tealBright}18`, border: `1px solid ${C.tealBright}44`, borderRadius: 12, padding: "1rem", marginBottom: 4 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                              <span style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.tealBright, padding: "2px 8px", borderRadius: 20 }}>New · {newest.week}</span>
-                              <span style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.5)" }}>{newest.category} · {newest.course}</span>
-                            </div>
-                            {newest.recs.slice(0, 1).map((m, i) => {
-                              const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
-                              return (
-                                <div key={i}>
-                                  <div style={{ marginBottom: 8 }}>
-                                    <Tag label={m.tag} color={tc.color} bg={tc.bg} />
-                                  </div>
-                                  <div style={{ fontFamily: F.display, fontSize: 15, color: C.white, marginBottom: 6 }}>{m.title}</div>
-                                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.55, marginBottom: 8 }}>{m.summary}</div>
-                                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "0.5rem 0.75rem", marginBottom: 8 }}>
-                                    <div style={{ fontSize: 9, fontFamily: F.accent, color: "rgba(255,255,255,0.35)", fontWeight: 700, marginBottom: 2 }}>RESEARCH</div>
-                                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>{m.article}</div>
-                                  </div>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ width: 3, height: 24, background: C.tealBright, borderRadius: 2 }} />
-                                    <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 600 }}>Try this: <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.6)" }}>{m.action}</span></div>
-                                  </div>
-                                  <StarRating ratingKey={`newest-${i}`} dark />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Category sections */}
-                      {Object.entries(microHistory).map(([category, entries]) => {
-                        const isOpen = panelSections[category] !== false;
-                        const totalRecs = entries.reduce((sum, e) => sum + e.recs.length, 0);
-                        return (
-                          <div key={category}>
-                            <button onClick={() => setPanelSections(p => ({ ...p, [category]: !isOpen }))}
-                              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "rgba(255,255,255,0.04)", border: "none", borderTop: "0.5px solid rgba(255,255,255,0.08)", padding: "0.7rem 1.25rem", cursor: "pointer" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block" }}>▶</span>
-                                <span style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.white }}>{category}</span>
-                                <span style={{ fontSize: 10, fontFamily: F.accent, color: C.tealBright, fontWeight: 700, background: `${C.tealBright}22`, padding: "1px 7px", borderRadius: 10 }}>{totalRecs}</span>
-                              </div>
-                              <span style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.3)" }}>{entries.length} upload{entries.length !== 1 ? "s" : ""}</span>
-                            </button>
-                            {isOpen && (
-                              <div style={{ padding: "0.5rem 1rem 0.75rem" }}>
-                                {entries.map((entry, ei) => (
-                                  <div key={ei} style={{ marginBottom: ei < entries.length - 1 ? 10 : 0 }}>
-                                    <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.35)", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                                      {ei === 0 && entry.timestamp === newest?.timestamp && <span style={{ width: 5, height: 5, background: C.tealBright, borderRadius: "50%", display: "inline-block" }} />}
-                                      {entry.course} · {entry.week}
-                                    </div>
-                                    {entry.recs.map((m, mi) => {
-                                      const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
-                                      return (
-                                        <div key={mi} style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "0.75rem", marginBottom: 6 }}>
-                                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                                            <Tag label={m.tag} color={tc.color} bg={tc.bg} />
-                                          </div>
-                                          <div style={{ fontFamily: F.display, fontSize: 13, color: C.white, marginBottom: 4 }}>{m.title}</div>
-                                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 1.5, marginBottom: 6 }}>{m.summary}</div>
-                                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <div style={{ width: 3, height: 18, background: tc.color, borderRadius: 2 }} />
-                                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{m.action}</div>
-                                          </div>
-                                          <StarRating ratingKey={`panel-${category}-${ei}-${mi}`} dark />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* Empty state while loading first result */}
-                      {Object.keys(microHistory).length === 0 && aiMicroLoading && (
-                        <div style={{ padding: "0 1.25rem 1.25rem", fontSize: 11, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>
-                          Your first recommendations will appear here momentarily.
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            {/* ── 1. FOCUSED INPUT AREA ── */}
+            <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
+              {/* Category dropdown */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>WHAT ARE YOU SHARING?</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {UPLOADS.map(u => {
+                    const locked = !can(u.tier);
+                    const active = myCourseCategory === u.label;
+                    return (
+                      <button key={u.label} onClick={() => !locked && setMyCourseCategory(u.label)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: F.accent,
+                          fontWeight: active ? 700 : 500, padding: "7px 14px", borderRadius: 20,
+                          border: active ? `1.5px solid ${C.tealBright}` : `1px solid ${C.border}`,
+                          background: active ? C.tealLight : locked ? C.ivoryDark : C.white,
+                          color: active ? C.teal : locked ? C.lock : C.muted,
+                          cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1,
+                          transition: "all 0.2s",
+                        }}>
+                        <span style={{ fontSize: 14 }}>{u.icon}</span> {u.label}
+                        {locked && <span style={{ fontSize: 9 }}>🔒</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Textarea */}
+              <div style={{ position: "relative" }}>
+                <textarea
+                  value={uploadText}
+                  onChange={e => setUploadText(e.target.value)}
+                  placeholder={UPLOAD_PLACEHOLDERS[myCourseCategory] || "Share what happened in class..."}
+                  rows={6}
+                  style={{
+                    width: "100%", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14,
+                    fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
+                    background: C.ivory, lineHeight: 1.65,
+                    transition: "border-color 0.2s",
+                  }}
+                  onFocus={e => e.target.style.borderColor = C.tealBright}
+                  onBlur={e => e.target.style.borderColor = C.border}
+                />
+                <VoiceMic onTranscript={t => setUploadText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
+              </div>
+
+              {/* Submit + helper */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                <button onClick={() => setPromptHelperOpen(!promptHelperOpen)}
+                  style={{ background: "none", border: "none", fontSize: 12, color: C.muted, cursor: "pointer", fontFamily: F.body, padding: 0 }}>
+                  {promptHelperOpen ? "Hide prompts ↑" : "Not sure what to write? Here are some prompts ↓"}
+                </button>
+                <button onClick={handleSubmit} disabled={!uploadText.trim() || myCourseFeedbackLoading}
+                  style={{
+                    background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
+                    padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                    cursor: !uploadText.trim() || myCourseFeedbackLoading ? "default" : "pointer",
+                    opacity: !uploadText.trim() ? 0.5 : 1, transition: "opacity 0.2s",
+                  }}>
+                  Submit to KlasUp ↗
+                </button>
+              </div>
+
+              {/* Writing prompts */}
+              {promptHelperOpen && (
+                <div style={{ marginTop: 12, padding: 14, background: C.ivoryDark, borderRadius: 10 }}>
+                  <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8 }}>WRITING PROMPTS FOR {myCourseCategory.toUpperCase()}</div>
+                  {(WRITING_PROMPTS[myCourseCategory] || []).map((p, i) => (
+                    <div key={i} onClick={() => { setUploadText(p); setPromptHelperOpen(false); }}
+                      style={{ fontSize: 13, color: C.text, padding: "8px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 4, background: C.white, border: `0.5px solid ${C.border}`, transition: "background 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.background = C.tealLight}
+                      onMouseLeave={e => e.currentTarget.style.background = C.white}>
+                      {p}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Course/week tag */}
+              <div style={{ marginTop: 8, fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>
+                {currentCat.icon} {myCourseCategory} · {course} · {week}
+              </div>
+            </Card>
+
+            {/* ── 2. INSTANT AI FEEDBACK ── */}
+            {myCourseFeedbackLoading && (
+              <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.tealBright}`, background: C.white }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 10, height: 10, background: C.tealBright, borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
+                  <div>
+                    <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 2 }}>KlasUp is thinking...</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>Generating a personalized recommendation from your content</div>
+                  </div>
+                </div>
+                <style>{`@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }`}</style>
+              </Card>
             )}
+
+            {aiMicroError && !myCourseFeedbackLoading && (
+              <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.rose}`, background: C.roseLight }}>
+                <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13, marginBottom: 3 }}>Could not generate recommendations</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{aiMicroError}</div>
+              </Card>
+            )}
+
+            {myCourseFeedback && !myCourseFeedbackLoading && (() => {
+              const m = myCourseFeedback;
+              const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+              return (
+                <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.tealBright}`, animation: "slideIn 0.4s ease-out" }}>
+                  <style>{`@keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                    <span style={{ fontSize: 10, fontFamily: F.accent, color: C.muted }}>Just now · {myCourseCategory}</span>
+                  </div>
+                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 6 }}>{m.title}</div>
+                  <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.summary}</div>
+                  <div style={{ background: C.ivoryDark, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 3 }}>RESEARCH</div>
+                    <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{m.article}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 4, height: 28, background: C.tealBright, borderRadius: 2 }} />
+                    <div style={{ fontSize: 13 }}>
+                      <span style={{ color: C.tealBright, fontWeight: 700 }}>Try this: </span>
+                      <span style={{ color: C.text }}>{m.action}</span>
+                    </div>
+                  </div>
+                  <StarRating ratingKey={`feedback-${Date.now()}`} />
+                </Card>
+              );
+            })()}
+
+            {/* ── 3. SUBMISSION HISTORY ── */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 14 }}>SUBMISSION HISTORY — {course}</div>
+              {weekOrder.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>✏</div>
+                  <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>Nothing uploaded yet this week — start by sharing<br />what happened in class today.</div>
+                </div>
+              ) : (
+                weekOrder.map(wk => (
+                  <div key={wk} style={{ marginBottom: 16 }}>
+                    <div style={{ fontFamily: F.display, fontSize: 14, color: C.navy, marginBottom: 8, paddingBottom: 6, borderBottom: `1px solid ${C.border}` }}>{wk}</div>
+                    {weekGroups[wk].map((entry, ei) => {
+                      const eKey = `${wk}-${ei}`;
+                      const isExp = historyExpanded[eKey];
+                      const catObj = UPLOADS.find(u => u.label === entry.category) || UPLOADS[0];
+                      const catHistory = microHistory[entry.category];
+                      const matchEntry = catHistory?.find(h => Math.abs(h.timestamp - entry.timestamp) < 5000);
+                      return (
+                        <div key={ei} style={{ marginBottom: 8 }}>
+                          <div onClick={() => setHistoryExpanded(p => ({ ...p, [eKey]: !isExp }))}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, cursor: "pointer", background: isExp ? C.tealLight : C.ivory, transition: "background 0.15s" }}>
+                            <span style={{ fontSize: 16, flexShrink: 0 }}>{catObj.icon}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{entry.category}</div>
+                              <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.content.slice(0, 80)}{entry.content.length > 80 ? "..." : ""}</div>
+                            </div>
+                            <div style={{ fontSize: 10, color: C.muted, flexShrink: 0 }}>{new Date(entry.timestamp).toLocaleDateString()}</div>
+                            <span style={{ fontSize: 10, color: C.muted }}>{isExp ? "▲" : "▼"}</span>
+                          </div>
+                          {isExp && (
+                            <div style={{ padding: "12px 10px 12px 36px", animation: "slideIn 0.3s ease-out" }}>
+                              <div style={{ fontSize: 13, color: C.text, lineHeight: 1.65, marginBottom: 12, whiteSpace: "pre-wrap" }}>{entry.content}</div>
+                              {matchEntry && matchEntry.recs.map((m, mi) => {
+                                const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+                                return (
+                                  <div key={mi} style={{ borderLeft: `3px solid ${tc.color}`, paddingLeft: 12, marginBottom: 10 }}>
+                                    <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                                    <div style={{ fontFamily: F.display, fontSize: 14, color: C.navy, margin: "6px 0 4px" }}>{m.title}</div>
+                                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{m.summary}</div>
+                                    <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 600, marginTop: 6 }}>→ {m.action}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </Card>
+
+            {/* ── 4. UP SCORE BREAKDOWN (collapsible) ── */}
+            <Card>
+              <button onClick={() => setUpScoreOpen(!upScoreOpen)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>UP SCORE BREAKDOWN — {course} · {week}</div>
+                <span style={{ fontSize: 12, color: C.muted }}>{upScoreOpen ? "▲" : "▼"}</span>
+              </button>
+              {upScoreOpen && (
+                <div style={{ marginTop: 14 }}>
+                  {DIMENSIONS.map((d, i) => {
+                    const locked = !can(d.tier);
+                    return (
+                      <div key={i} style={{ marginBottom: 12, position: "relative" }}>
+                        {locked && (
+                          <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,244,0.9)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", zIndex: 1 }}>
+                            <span style={{ fontSize: 12, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>🔒 {d.label}</span>
+                            <button onClick={upgrade} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 20, padding: "3px 12px", cursor: "pointer" }}>Pro ↗</button>
+                          </div>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
+                          <span style={{ fontSize: 13, fontFamily: F.accent, color: d.color, fontWeight: 700 }}>{d.score}</span>
+                        </div>
+                        <div style={{ height: 6, background: C.ivoryDark, borderRadius: 4, overflow: "hidden", marginBottom: 3 }}>
+                          <div style={{ width: `${d.score}%`, height: "100%", background: d.score > 80 ? C.tealBright : d.score > 70 ? C.sage : C.rose, borderRadius: 4 }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{d.note}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
           </div>
           );
         })()}
@@ -1564,132 +1687,450 @@ export default function KlasUp() {
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Assignment Builder</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Write, scaffold, and align — with AI feedback as you go.</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Describe your assignment in plain English. KlasUp generates the full document.</div>
             </div>
             {!can("pro") ? (
               <Card style={{ textAlign: "center", padding: "3rem" }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
                 <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 8 }}>Assignment Builder is a Pro feature</div>
-                <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Build assignments with AI feedback on Bloom's level, scaffolding, clarity, and outcome alignment.</div>
+                <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Generate complete, beautifully formatted assignments with real dates from your calendar.</div>
                 <button onClick={upgrade} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Upgrade to Pro ↗</button>
               </Card>
             ) : (
               <div>
                 <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <Card>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT TYPE</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {["Case Study", "Team Project", "Group Work", "Socratic Seminar", "Active Learning", "Individual Essay", "Research Paper", "Presentation", "Reflection", "Discussion Post"].map(t => (
-                          <button key={t} onClick={() => setAssignType(assignType === t ? "" : t)}
-                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: assignType === t ? 700 : 400, padding: "5px 12px", borderRadius: 20, border: assignType === t ? `1.5px solid ${C.tealBright}` : `0.5px solid ${C.border}`, background: assignType === t ? C.tealLight : C.ivory, color: assignType === t ? C.teal : C.muted, cursor: "pointer" }}>
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                    </Card>
-                    <Card>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT PROMPT</div>
-                      <textarea value={assignText} onChange={e => setAssignText(e.target.value)} placeholder="Write your assignment prompt here. Be specific about what students should produce, how they should think, and what success looks like..." rows={6}
-                        style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory, lineHeight: 1.6 }} />
-                    </Card>
-                    <Card>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>LEARNING OUTCOME ALIGNMENT</div>
-                      {OUTCOMES.map((o, i) => (
-                        <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
-                          <input type="checkbox" checked={selectedOutcomes.includes(i)} onChange={() => setSelectedOutcomes(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])} style={{ marginTop: 2 }} />
-                          <span>{o}</span>
-                        </label>
-                      ))}
-                    </Card>
-                    <Card>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>MILESTONES & CHECKPOINTS</div>
-                      {milestones.map((m, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                          <span style={{ fontSize: 12, color: C.sage, fontWeight: 700 }}>✓</span>
-                          <input value={m} onChange={e => setMilestones(p => p.map((x, j) => j === i ? e.target.value : x))}
-                            style={{ flex: 1, border: `0.5px solid ${C.border}`, borderRadius: 6, padding: "5px 8px", fontFamily: F.body, fontSize: 12, background: C.ivory }} />
-                          <button onClick={() => setMilestones(p => p.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: C.rose, cursor: "pointer", fontSize: 16 }}>×</button>
-                        </div>
-                      ))}
-                      <button onClick={() => setMilestones(p => [...p, "New milestone"])} style={{ fontSize: 12, color: C.teal, fontWeight: 700, background: "none", border: "none", cursor: "pointer", fontFamily: F.body }}>+ Add milestone</button>
-                    </Card>
-                    <button onClick={genFeedback} style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Get AI Feedback ↗</button>
+
+                {/* Smart Document Generator Input */}
+                <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
+                  <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>DESCRIBE YOUR ASSIGNMENT IN PLAIN ENGLISH</div>
+                  <div style={{ position: "relative" }}>
+                    <textarea value={assignDocDesc} onChange={e => setAssignDocDesc(e.target.value)}
+                      placeholder={"My class meets every Thursday. Spring break is week 4. I want the first draft due week 5, peer review week 6, and final submission week 7. The client is Fidelity Investments and students need to create a full marketing plan."}
+                      rows={6}
+                      style={{
+                        width: "100%", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14,
+                        fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
+                        background: C.ivory, lineHeight: 1.65,
+                      }}
+                      onFocus={e => e.target.style.borderColor = C.tealBright}
+                      onBlur={e => e.target.style.borderColor = C.border}
+                    />
+                    <VoiceMic onTranscript={t => setAssignDocDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
                   </div>
-                  <Card style={{ background: C.navy, border: "none" }}>
-                    <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 12 }}>AI FEEDBACK PANEL</div>
-                    {!aiFeedback ? (
-                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "2.5rem 0", textAlign: "center" }}>Write your prompt and click "Get AI Feedback" to see your analysis.</div>
-                    ) : (
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+                    Include your schedule, deadlines, client names, assignment type, and any specifics. KlasUp will auto-calculate real dates from your semester calendar.
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button onClick={() => {
+                      if (!assignDocDesc.trim()) return;
+                      const courseObj = dbCourses.find(c => c.course_code === course);
+                      setAssignDocLoading(true);
+                      setAssignDocError(null);
+                      setAssignDocResult(null);
+                      generateAssignmentDoc({
+                        description: assignDocDesc,
+                        course,
+                        semesterStart: courseObj?.semester_start || null,
+                        numWeeks: courseObj?.num_weeks || 16,
+                        outcomes: OUTCOMES,
+                      }).then(doc => {
+                        setAssignDocResult(doc);
+                        setAssignDocLoading(false);
+                      }).catch(err => { setAssignDocError(err.message); setAssignDocLoading(false); });
+                    }}
+                      disabled={!assignDocDesc.trim() || assignDocLoading}
+                      style={{
+                        background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
+                        padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                        cursor: !assignDocDesc.trim() || assignDocLoading ? "default" : "pointer",
+                        opacity: !assignDocDesc.trim() ? 0.5 : 1,
+                      }}>
+                      {assignDocLoading ? "Generating..." : "Generate Assignment Document ↗"}
+                    </button>
+                  </div>
+                </Card>
+
+                {/* Loading state */}
+                {assignDocLoading && (
+                  <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.tealBright}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 10, height: 10, background: C.tealBright, borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
                       <div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                          {[
-                            { label: "Bloom's Level", val: aiFeedback.blooms, color: C.tealMid },
-                            { label: "Scaffolding", val: `${aiFeedback.scaffold}/100`, color: aiFeedback.scaffold > 70 ? C.tealMid : "#F4C0D1" },
-                            { label: "Outcomes Mapped", val: `${aiFeedback.outcomes}`, color: aiFeedback.outcomes > 0 ? C.tealMid : "#F4C0D1" },
-                            { label: "Clarity Score", val: `${aiFeedback.clarity}/100`, color: aiFeedback.clarity > 70 ? C.tealMid : "#F4C0D1" },
-                          ].map((s, i) => (
-                            <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
-                              <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
-                              <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
+                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 2 }}>Generating your assignment document...</div>
+                        <div style={{ fontSize: 12, color: C.muted }}>Reading your semester calendar and building a complete document with real dates</div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {assignDocError && (
+                  <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.rose}`, background: C.roseLight }}>
+                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13 }}>Error: {assignDocError}</div>
+                  </Card>
+                )}
+
+                {/* Generated Document */}
+                {assignDocResult && !assignDocLoading && (
+                  <Card style={{ marginBottom: 20 }} id="assign-doc-printable">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>GENERATED ASSIGNMENT DOCUMENT</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setAssignDocEditing(!assignDocEditing)}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: assignDocEditing ? C.rose : C.teal, background: "none", border: `1px solid ${assignDocEditing ? C.rose : C.teal}44`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          {assignDocEditing ? "Done Editing" : "Edit"}
+                        </button>
+                        <button onClick={() => {
+                          const blob = new Blob([assignDocResult], { type: "text/plain" });
+                          const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                          a.download = `${course}-assignment.txt`; a.click();
+                        }}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Export .txt
+                        </button>
+                        <button onClick={() => {
+                          const printWin = window.open("", "_blank");
+                          printWin.document.write(`<html><head><title>${course} Assignment</title><style>body{font-family:'Nunito',sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;color:#0F1F3D}h1,h2,h3{font-family:'Fredoka One',cursive}pre{white-space:pre-wrap;font-family:'Nunito',sans-serif;font-size:14px}</style></head><body><pre>${assignDocResult}</pre></body></html>`);
+                          printWin.document.close(); printWin.print();
+                        }}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Export PDF
+                        </button>
+                      </div>
+                    </div>
+                    {assignDocEditing ? (
+                      <div style={{ position: "relative" }}>
+                        <textarea value={assignDocResult} onChange={e => setAssignDocResult(e.target.value)}
+                          style={{ width: "100%", minHeight: 400, border: `1px solid ${C.tealBright}44`, borderRadius: 10, padding: 16, fontFamily: F.body, fontSize: 14, resize: "vertical", boxSizing: "border-box", background: C.ivory, lineHeight: 1.7 }} />
+                        <VoiceMic onTranscript={t => setAssignDocResult(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: F.body, fontSize: 14, color: C.text, lineHeight: 1.75, whiteSpace: "pre-wrap", padding: "8px 0" }}>
+                        {assignDocResult}
+                      </div>
+                    )}
+
+                    {/* Plain English Update */}
+                    <div style={{ marginTop: 20, padding: 16, background: C.ivoryDark, borderRadius: 12 }}>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>UPDATE WITH PLAIN ENGLISH</div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                        <div style={{ flex: 1, position: "relative" }}>
+                          <textarea value={assignDocUpdateText} onChange={e => setAssignDocUpdateText(e.target.value)}
+                            placeholder={'e.g., "Move the deadline to week 8" or "Change the client to Nike"'}
+                            rows={2}
+                            style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.white, lineHeight: 1.5 }} />
+                          <VoiceMic onTranscript={t => setAssignDocUpdateText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
+                        </div>
+                        <button onClick={() => {
+                          if (!assignDocUpdateText.trim()) return;
+                          setAssignDocUpdating(true);
+                          updateAssignmentDoc({ currentDoc: assignDocResult, instruction: assignDocUpdateText })
+                            .then(doc => { setAssignDocResult(doc); setAssignDocUpdateText(""); setAssignDocUpdating(false); })
+                            .catch(err => { setAssignDocError(err.message); setAssignDocUpdating(false); });
+                        }}
+                          disabled={!assignDocUpdateText.trim() || assignDocUpdating}
+                          style={{
+                            background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
+                            padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13,
+                            cursor: assignDocUpdating ? "wait" : "pointer", whiteSpace: "nowrap",
+                          }}>
+                          {assignDocUpdating ? "Updating..." : "Update ↗"}
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Legacy: Assignment Type + Feedback Panel */}
+                <Card style={{ marginTop: 20, borderTop: `3px solid ${C.ivoryDark}` }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 4 }}>Quick Assignment Feedback</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Or get instant AI feedback on an existing assignment prompt.</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div>
+                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT TYPE</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {["Case Study", "Team Project", "Group Work", "Socratic Seminar", "Active Learning", "Individual Essay", "Research Paper", "Presentation", "Reflection", "Discussion Post"].map(t => (
+                            <button key={t} onClick={() => setAssignType(assignType === t ? "" : t)}
+                              style={{ fontSize: 12, fontFamily: F.accent, fontWeight: assignType === t ? 700 : 400, padding: "5px 12px", borderRadius: 20, border: assignType === t ? `1.5px solid ${C.tealBright}` : `0.5px solid ${C.border}`, background: assignType === t ? C.tealLight : C.ivory, color: assignType === t ? C.teal : C.muted, cursor: "pointer" }}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT PROMPT</div>
+                        <div style={{ position: "relative" }}>
+                          <textarea value={assignText} onChange={e => setAssignText(e.target.value)} placeholder="Paste your existing assignment prompt here for instant feedback..." rows={5}
+                            style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory, lineHeight: 1.6 }} />
+                          <VoiceMic onTranscript={t => setAssignText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
+                        </div>
+                      </div>
+                      <button onClick={genFeedback} style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Get AI Feedback ↗</button>
+                    </div>
+                    <div style={{ background: C.navy, borderRadius: 14, padding: "1rem" }}>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 12 }}>AI FEEDBACK PANEL</div>
+                      {!aiFeedback ? (
+                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "2rem 0", textAlign: "center" }}>Write your prompt and click "Get AI Feedback" to see analysis.</div>
+                      ) : (
+                        <div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                            {[
+                              { label: "Bloom's Level", val: aiFeedback.blooms, color: C.tealMid },
+                              { label: "Scaffolding", val: `${aiFeedback.scaffold}/100`, color: aiFeedback.scaffold > 70 ? C.tealMid : "#F4C0D1" },
+                              { label: "Outcomes Mapped", val: `${aiFeedback.outcomes}`, color: aiFeedback.outcomes > 0 ? C.tealMid : "#F4C0D1" },
+                              { label: "Clarity Score", val: `${aiFeedback.clarity}/100`, color: aiFeedback.clarity > 70 ? C.tealMid : "#F4C0D1" },
+                            ].map((s, i) => (
+                              <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
+                                <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
+                                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 8 }}>SUGGESTIONS</div>
+                          {aiFeedback.suggestions.map((s, i) => (
+                            <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 10, lineHeight: 1.5 }}>
+                              <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
                             </div>
                           ))}
                         </div>
-                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 8 }}>SUGGESTIONS</div>
-                        {aiFeedback.suggestions.map((s, i) => (
-                          <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 10, lineHeight: 1.5 }}>
-                            <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Card>
-                </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
               </div>
             )}
           </div>
         )}
 
-        {/* ── SLIDE STUDIO ── */}
+        {/* ── SLIDE STUDIO (PowerPoint Planner) ── */}
         {page === "Slide Studio" && (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Slide Studio</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Upload your deck — KlasUp analyses UDL, alignment, and active learning opportunities.</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Plan your deck or upload an existing one for AI analysis.</div>
             </div>
             {!can("pro") ? (
               <Card style={{ textAlign: "center", padding: "3rem" }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
                 <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 8 }}>Slide Studio is a Pro feature</div>
-                <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Upload your decks for UDL scoring, text density flags, reuse detection, and active learning analysis.</div>
+                <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Plan slide decks with AI, get UDL scoring, or upload existing decks for analysis.</div>
                 <button onClick={upgrade} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Upgrade to Pro ↗</button>
               </Card>
             ) : (
               <div>
                 <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
-                {!deckUploaded ? (
-                  <Card style={{ textAlign: "center", padding: "2.5rem", border: `1.5px dashed ${C.tealBright}` }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>◫</div>
-                    <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 4 }}>Upload your deck for {course} · {week}</div>
-                    <div style={{ fontSize: 13, color: C.muted, marginBottom: 14 }}>Accepts .pptx, .ppt, .pdf, and .key files</div>
-                    <label style={{ display: "inline-block", background: C.tealBright, color: C.white, borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                      Choose File
-                      <input type="file" accept=".pptx,.ppt,.pdf,.key" style={{ display: "none" }} onChange={(e) => { if (e.target.files.length > 0) setDeckUploaded(true); }} />
-                    </label>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>or drag and drop here</div>
+
+                {/* ── POWERPOINT PLANNER ── */}
+                <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 18 }}>📊</span>
+                    <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy }}>PowerPoint Planner</div>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.muted, marginBottom: 14 }}>Describe your deck in plain English. KlasUp generates a complete slide-by-slide outline.</div>
+
+                  <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>DESCRIBE YOUR DECK</div>
+                  <div style={{ position: "relative" }}>
+                    <textarea value={pptDesc} onChange={e => setPptDesc(e.target.value)}
+                      placeholder={"A 12-slide deck on consumer behavior for a junior marketing class. Include a case study activity in slide 6 and an exit ticket in the last slide. The tone should be engaging and visual."}
+                      rows={5}
+                      style={{
+                        width: "100%", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14,
+                        fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
+                        background: C.ivory, lineHeight: 1.65,
+                      }}
+                      onFocus={e => e.target.style.borderColor = C.tealBright}
+                      onBlur={e => e.target.style.borderColor = C.border}
+                    />
+                    <VoiceMic onTranscript={t => setPptDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button onClick={() => {
+                      if (!pptDesc.trim()) return;
+                      setPptLoading(true); setPptError(null); setPptSlides(null);
+                      generatePptPlan({ description: pptDesc, course, week })
+                        .then(slides => { setPptSlides(slides); setPptLoading(false); })
+                        .catch(err => { setPptError(err.message); setPptLoading(false); });
+                    }}
+                      disabled={!pptDesc.trim() || pptLoading}
+                      style={{
+                        background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
+                        padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                        cursor: !pptDesc.trim() || pptLoading ? "default" : "pointer",
+                        opacity: !pptDesc.trim() ? 0.5 : 1,
+                      }}>
+                      {pptLoading ? "Planning slides..." : "Generate Slide Outline ↗"}
+                    </button>
+                  </div>
+                </Card>
+
+                {/* PPT Loading */}
+                {pptLoading && (
+                  <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.tealBright}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 10, height: 10, background: C.tealBright, borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
+                      <div>
+                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 2 }}>Planning your slide deck...</div>
+                        <div style={{ fontSize: 12, color: C.muted }}>Building slide-by-slide outline with talking points and activities</div>
+                      </div>
+                    </div>
                   </Card>
-                ) : (
-                  <div>
-                    <Card style={{ marginBottom: 14 }}>
+                )}
+
+                {pptError && (
+                  <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.rose}`, background: C.roseLight }}>
+                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13 }}>Error: {pptError}</div>
+                  </Card>
+                )}
+
+                {/* Generated Slide Outline */}
+                {pptSlides && !pptLoading && (
+                  <Card style={{ marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>SLIDE-BY-SLIDE OUTLINE — {pptSlides.length} SLIDES</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => {
+                          let text = `${course} — ${week} Slide Deck Outline\n${"=".repeat(50)}\n\n`;
+                          pptSlides.forEach((s, i) => {
+                            text += `SLIDE ${i + 1}: ${s.title}\n`;
+                            if (s.time) text += `Estimated time: ${s.time}\n`;
+                            text += `\nKey Talking Points:\n`;
+                            (s.points || []).forEach(p => { text += `  • ${p}\n`; });
+                            if (s.visual) text += `\nSuggested Visual/Activity: ${s.visual}\n`;
+                            if (s.notes) text += `\nSpeaker Notes: ${s.notes}\n`;
+                            text += `\n${"—".repeat(40)}\n\n`;
+                          });
+                          const blob = new Blob([text], { type: "text/plain" });
+                          const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                          a.download = `${course}-${week}-slides.txt`; a.click();
+                        }}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Export .txt
+                        </button>
+                        <button onClick={() => {
+                          let html = `<html><head><title>${course} ${week} Slides</title><style>body{font-family:'Nunito',sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;color:#0F1F3D}h1,h2{font-family:'Fredoka One',cursive}.slide{border:1px solid #ddd;border-radius:12px;padding:20px;margin:16px 0;page-break-inside:avoid}.slide-num{background:#0FB5B5;color:#fff;display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700}ul{margin:8px 0}li{margin:4px 0}.visual{background:#E6F4E8;padding:8px 12px;border-radius:8px;font-size:13px;margin:8px 0}.notes{background:#F0EDE6;padding:8px 12px;border-radius:8px;font-size:12px;color:#4A5568;margin:8px 0}</style></head><body>`;
+                          html += `<h1>${course} — ${week} Slide Deck</h1>`;
+                          pptSlides.forEach((s, i) => {
+                            html += `<div class="slide"><span class="slide-num">Slide ${i + 1}</span>${s.time ? ` <span style="font-size:12px;color:#4A5568">~${s.time}</span>` : ""}<h2>${s.title}</h2><ul>`;
+                            (s.points || []).forEach(p => { html += `<li>${p}</li>`; });
+                            html += `</ul>`;
+                            if (s.visual) html += `<div class="visual">📎 ${s.visual}</div>`;
+                            if (s.notes) html += `<div class="notes">🗒 ${s.notes}</div>`;
+                            html += `</div>`;
+                          });
+                          html += `</body></html>`;
+                          const w = window.open("", "_blank"); w.document.write(html); w.document.close(); w.print();
+                        }}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Export PDF
+                        </button>
+                      </div>
+                    </div>
+
+                    {pptSlides.map((s, i) => {
+                      const isEditing = pptEditing === i;
+                      return (
+                        <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 10, background: isEditing ? C.ivory : C.white, transition: "background 0.2s" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                            <div style={{ background: C.tealBright, color: C.white, fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 12, fontFamily: F.accent }}>Slide {i + 1}</div>
+                            {s.time && <span style={{ fontSize: 11, color: C.muted }}>~{s.time}</span>}
+                            <div style={{ flex: 1 }} />
+                            <button onClick={() => setPptEditing(isEditing ? null : i)}
+                              style={{ fontSize: 11, color: isEditing ? C.rose : C.teal, background: "none", border: "none", cursor: "pointer", fontFamily: F.accent, fontWeight: 700 }}>
+                              {isEditing ? "Done" : "Edit"}
+                            </button>
+                          </div>
+                          {isEditing ? (
+                            <div>
+                              <input value={s.title} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, title: e.target.value } : sl))}
+                                style={{ width: "100%", fontFamily: F.display, fontSize: 16, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", marginBottom: 8, boxSizing: "border-box", background: C.white }} />
+                              {(s.points || []).map((p, pi) => (
+                                <div key={pi} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                                  <span style={{ color: C.tealBright, fontSize: 12, marginTop: 6 }}>•</span>
+                                  <input value={p} onChange={e => setPptSlides(prev => prev.map((sl, j) => j === i ? { ...sl, points: sl.points.map((pt, k) => k === pi ? e.target.value : pt) } : sl))}
+                                    style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", fontSize: 13, fontFamily: F.body, background: C.white }} />
+                                </div>
+                              ))}
+                              {s.visual && <textarea value={s.visual} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, visual: e.target.value } : sl))}
+                                rows={2} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, fontFamily: F.body, resize: "none", marginTop: 8, boxSizing: "border-box", background: C.white }} />}
+                              {s.notes && <textarea value={s.notes} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, notes: e.target.value } : sl))}
+                                rows={2} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, fontFamily: F.body, resize: "none", marginTop: 6, boxSizing: "border-box", background: C.white }} />}
+                            </div>
+                          ) : (
+                            <div>
+                              <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 8 }}>{s.title}</div>
+                              <ul style={{ margin: "0 0 8px", paddingLeft: 16 }}>
+                                {(s.points || []).map((p, pi) => (
+                                  <li key={pi} style={{ fontSize: 13, color: C.text, marginBottom: 4, lineHeight: 1.5 }}>{p}</li>
+                                ))}
+                              </ul>
+                              {s.visual && <div style={{ background: C.sageLight, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.sage, marginBottom: 6 }}>📎 {s.visual}</div>}
+                              {s.notes && <div style={{ background: C.ivoryDark, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.muted }}>🗒 {s.notes}</div>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Plain English Update */}
+                    <div style={{ marginTop: 16, padding: 16, background: C.ivoryDark, borderRadius: 12 }}>
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>UPDATE WITH PLAIN ENGLISH</div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                        <div style={{ flex: 1, position: "relative" }}>
+                          <textarea value={pptUpdateText} onChange={e => setPptUpdateText(e.target.value)}
+                            placeholder={'e.g., "Make slide 4 more interactive" or "Add a poll after slide 7"'}
+                            rows={2}
+                            style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.white, lineHeight: 1.5 }} />
+                          <VoiceMic onTranscript={t => setPptUpdateText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
+                        </div>
+                        <button onClick={() => {
+                          if (!pptUpdateText.trim()) return;
+                          setPptUpdating(true);
+                          updatePptPlan({ currentSlides: pptSlides, instruction: pptUpdateText })
+                            .then(slides => { setPptSlides(slides); setPptUpdateText(""); setPptUpdating(false); })
+                            .catch(err => { setPptError(err.message); setPptUpdating(false); });
+                        }}
+                          disabled={!pptUpdateText.trim() || pptUpdating}
+                          style={{
+                            background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
+                            padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13,
+                            cursor: pptUpdating ? "wait" : "pointer", whiteSpace: "nowrap",
+                          }}>
+                          {pptUpdating ? "Updating..." : "Update ↗"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 16, padding: "10px 14px", background: C.tealLight, borderRadius: 10, fontSize: 12, color: C.teal, textAlign: "center" }}>
+                      📋 Full .pptx export coming soon
+                    </div>
+                  </Card>
+                )}
+
+                {/* ── EXISTING DECK UPLOAD + ANALYSIS ── */}
+                <Card style={{ marginTop: 8, borderTop: `3px solid ${C.ivoryDark}` }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 4 }}>Deck Upload & Analysis</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Upload an existing deck for UDL scoring, text density, and active learning analysis.</div>
+
+                  {!deckUploaded ? (
+                    <div style={{ textAlign: "center", padding: "2rem", border: `1.5px dashed ${C.tealBright}`, borderRadius: 14, background: C.ivory }}>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}>◫</div>
+                      <div style={{ fontFamily: F.accent, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Upload your deck for {course} · {week}</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>Accepts .pptx, .ppt, .pdf, and .key files</div>
+                      <label style={{ display: "inline-block", background: C.tealBright, color: C.white, borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        Choose File
+                        <input type="file" accept=".pptx,.ppt,.pdf,.key" style={{ display: "none" }} onChange={(e) => { if (e.target.files.length > 0) setDeckUploaded(true); }} />
+                      </label>
+                    </div>
+                  ) : (
+                    <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                         <div>
-                          <div style={{ fontFamily: F.display, fontSize: 18 }}>{course} — {week} Deck</div>
+                          <div style={{ fontFamily: F.display, fontSize: 16 }}>{course} — {week} Deck</div>
                           <div style={{ fontSize: 12, color: C.muted }}>7 slides · analysed today</div>
                         </div>
                         <button onClick={() => setDeckUploaded(false)} style={{ fontSize: 12, color: C.rose, background: "none", border: `0.5px solid ${C.rose}44`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>Replace deck</button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10, marginBottom: 14 }}>
                         {[{ label: "UDL Score", val: "71", color: C.sage }, { label: "Text Density", val: "High", color: C.rose }, { label: "Active Moments", val: "3/7", color: C.tealBright }, { label: "Outcome Alignment", val: "80%", color: C.sage }].map((s, i) => (
                           <div key={i} style={{ background: C.ivoryDark, borderRadius: 10, padding: "0.75rem" }}>
                             <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
@@ -1697,9 +2138,9 @@ export default function KlasUp() {
                           </div>
                         ))}
                       </div>
-                    </Card>
-                    <Card>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 12 }}>SLIDE-BY-SLIDE BREAKDOWN</div>
+
+                      {/* Slide-by-slide breakdown */}
+                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>SLIDE-BY-SLIDE BREAKDOWN</div>
                       {SLIDES.map((s, i) => (
                         <div key={i} style={{ borderBottom: i < SLIDES.length - 1 ? `0.5px solid ${C.border}` : "none" }}>
                           <div onClick={() => setSlideOpen(slideOpen === i ? null : i)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "0.7rem 0", cursor: "pointer" }}>
@@ -1725,69 +2166,52 @@ export default function KlasUp() {
                           )}
                         </div>
                       ))}
-                    </Card>
 
-                    {/* Learning Outcomes */}
-                    <Card style={{ marginTop: 14 }}>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>LEARNING OUTCOME ALIGNMENT</div>
-                      <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>Select which course outcomes this deck addresses — shared with Assignment Builder.</div>
-                      {OUTCOMES.map((o, i) => (
-                        <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
-                          <input type="checkbox" checked={slideOutcomes.includes(i)} onChange={() => setSlideOutcomes(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])} style={{ marginTop: 2 }} />
-                          <span>{o}</span>
-                        </label>
-                      ))}
-                      <div style={{ fontSize: 11, color: C.sage, fontWeight: 600, marginTop: 4 }}>{slideOutcomes.length} of {OUTCOMES.length} outcomes mapped</div>
-                    </Card>
-
-                    {/* AI Feedback */}
-                    <Card style={{ marginTop: 14, background: C.navy, border: "none" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700 }}>AI DECK ANALYSIS</div>
-                        <button onClick={() => setSlideFeedback({
-                          engagement: 68,
-                          cognitiveLoad: "Moderate-High",
-                          pacing: 74,
-                          outcomesCovered: slideOutcomes.length,
-                          suggestions: [
-                            "Slides 2 and 6 have high text density — consider breaking into two slides or adding a visual.",
-                            "Slide 4 is reused from Week 3 — review for currency and relevance to this week's theme.",
-                            slideOutcomes.length === 0 ? "No learning outcomes mapped yet — align slides to at least 2 outcomes for accreditation readiness." : `${slideOutcomes.length} outcome${slideOutcomes.length > 1 ? "s" : ""} mapped — strong alignment signal.`,
-                            "Consider adding a retrieval moment after Slide 3 to reinforce the case study before moving to models.",
-                            "Exit ticket on Slide 7 is excellent — this anchors metacognition at the end of the session.",
-                          ],
-                        })} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.tealBright, color: C.navy, border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer" }}>
-                          Analyse Deck
-                        </button>
-                      </div>
-                      {!slideFeedback ? (
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "2rem 0", textAlign: "center" }}>Click "Analyse Deck" to get AI-powered feedback on engagement, pacing, and outcome alignment.</div>
-                      ) : (
-                        <div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                            {[
-                              { label: "Engagement Score", val: `${slideFeedback.engagement}/100`, color: slideFeedback.engagement > 70 ? C.tealMid : "#F4C0D1" },
-                              { label: "Cognitive Load", val: slideFeedback.cognitiveLoad, color: slideFeedback.cognitiveLoad === "Moderate-High" ? "#F4C0D1" : C.tealMid },
-                              { label: "Pacing Score", val: `${slideFeedback.pacing}/100`, color: slideFeedback.pacing > 70 ? C.tealMid : "#F4C0D1" },
-                              { label: "Outcomes Covered", val: `${slideFeedback.outcomesCovered}/${OUTCOMES.length}`, color: slideFeedback.outcomesCovered > 0 ? C.tealMid : "#F4C0D1" },
-                            ].map((s, i) => (
-                              <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
-                                <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
-                                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
+                      {/* AI Deck Analysis */}
+                      <div style={{ marginTop: 14, background: C.navy, borderRadius: 14, padding: "1rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                          <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700 }}>AI DECK ANALYSIS</div>
+                          <button onClick={() => setSlideFeedback({
+                            engagement: 68, cognitiveLoad: "Moderate-High", pacing: 74, outcomesCovered: slideOutcomes.length,
+                            suggestions: [
+                              "Slides 2 and 6 have high text density — consider breaking into two slides or adding a visual.",
+                              "Slide 4 is reused from Week 3 — review for currency and relevance.",
+                              slideOutcomes.length === 0 ? "No learning outcomes mapped — align slides to at least 2 outcomes." : `${slideOutcomes.length} outcome${slideOutcomes.length > 1 ? "s" : ""} mapped — strong alignment.`,
+                              "Consider adding a retrieval moment after Slide 3.",
+                              "Exit ticket on Slide 7 is excellent — anchors metacognition.",
+                            ],
+                          })} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.tealBright, color: C.navy, border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer" }}>
+                            Analyse Deck
+                          </button>
+                        </div>
+                        {!slideFeedback ? (
+                          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "1.5rem 0", textAlign: "center" }}>Click "Analyse Deck" to get AI feedback.</div>
+                        ) : (
+                          <div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                              {[
+                                { label: "Engagement", val: `${slideFeedback.engagement}/100`, color: slideFeedback.engagement > 70 ? C.tealMid : "#F4C0D1" },
+                                { label: "Cognitive Load", val: slideFeedback.cognitiveLoad, color: slideFeedback.cognitiveLoad === "Moderate-High" ? "#F4C0D1" : C.tealMid },
+                                { label: "Pacing", val: `${slideFeedback.pacing}/100`, color: slideFeedback.pacing > 70 ? C.tealMid : "#F4C0D1" },
+                                { label: "Outcomes", val: `${slideFeedback.outcomesCovered}/${OUTCOMES.length}`, color: slideFeedback.outcomesCovered > 0 ? C.tealMid : "#F4C0D1" },
+                              ].map((s, i) => (
+                                <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
+                                  <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
+                                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {slideFeedback.suggestions.map((s, i) => (
+                              <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 8, lineHeight: 1.5 }}>
+                                <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
                               </div>
                             ))}
                           </div>
-                          <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 8 }}>SUGGESTIONS</div>
-                          {slideFeedback.suggestions.map((s, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 10, lineHeight: 1.5 }}>
-                              <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </Card>
-                  </div>
-                )}
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
               </div>
             )}
           </div>
@@ -1975,8 +2399,11 @@ export default function KlasUp() {
                     </div>
                     {replyOpen === p.id && (
                       <div style={{ marginTop: 10 }}>
-                        <textarea rows={2} placeholder="Share your experience..."
-                          style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory }} />
+                        <div style={{ position: "relative" }}>
+                          <textarea rows={2} placeholder="Share your experience..."
+                            style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 8, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory }} />
+                          <VoiceMic onTranscript={() => {}} style={{ position: "absolute", right: 6, bottom: 6 }} />
+                        </div>
                         <button onClick={() => setReplyOpen(null)} style={{ marginTop: 6, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "6px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Post Reply</button>
                       </div>
                     )}
@@ -2230,8 +2657,11 @@ export default function KlasUp() {
                 {reflectionText && (
                   <div style={{ marginTop: 10 }}>
                     {reflectionEditing ? (
-                      <textarea value={reflectionText} onChange={e => setReflectionText(e.target.value)}
-                        style={{ width: "100%", minHeight: 400, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.tealBright}44`, borderRadius: 10, padding: "1rem", fontFamily: F.body, fontSize: 13, color: C.white, lineHeight: 1.75, resize: "vertical", boxSizing: "border-box", outline: "none" }} />
+                      <div style={{ position: "relative" }}>
+                        <textarea value={reflectionText} onChange={e => setReflectionText(e.target.value)}
+                          style={{ width: "100%", minHeight: 400, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.tealBright}44`, borderRadius: 10, padding: "1rem", fontFamily: F.body, fontSize: 13, color: C.white, lineHeight: 1.75, resize: "vertical", boxSizing: "border-box", outline: "none" }} />
+                        <VoiceMic onTranscript={t => setReflectionText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
+                      </div>
                     ) : (
                       <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "1.25rem", fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
                         {reflectionText}
@@ -2530,10 +2960,13 @@ export default function KlasUp() {
               <input value={adminAnnouncementForm.title} onChange={e => setAdminAnnouncementForm(p => ({ ...p, title: e.target.value }))}
                 placeholder="Announcement title"
                 style={{ width: "100%", padding: "10px 12px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box", marginBottom: 8 }} />
-              <textarea value={adminAnnouncementForm.body} onChange={e => setAdminAnnouncementForm(p => ({ ...p, body: e.target.value }))}
-                placeholder="Announcement message — visible to all users"
-                rows={3}
-                style={{ width: "100%", padding: "10px 12px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box", resize: "vertical", marginBottom: 10 }} />
+              <div style={{ position: "relative" }}>
+                <textarea value={adminAnnouncementForm.body} onChange={e => setAdminAnnouncementForm(p => ({ ...p, body: e.target.value }))}
+                  placeholder="Announcement message — visible to all users"
+                  rows={3}
+                  style={{ width: "100%", padding: "10px 12px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box", resize: "vertical", marginBottom: 10 }} />
+                <VoiceMic onTranscript={t => setAdminAnnouncementForm(p => ({ ...p, body: p.body ? p.body + " " + t : t }))} style={{ position: "absolute", right: 8, bottom: 18 }} />
+              </div>
               <button disabled={!adminAnnouncementForm.title.trim() || !adminAnnouncementForm.body.trim()}
                 onClick={async () => {
                   try {
