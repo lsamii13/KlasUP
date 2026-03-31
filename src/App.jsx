@@ -3,7 +3,7 @@ import Landing from "./Landing";
 import Terms from "./Terms";
 import Logo, { LogoMark } from "./Logo";
 import VoiceMic from "./VoiceMic";
-import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan } from "./anthropic";
+import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan, sendSageChat } from "./anthropic";
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
@@ -41,7 +41,6 @@ const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
 const NAV = [
   { id: "Dashboard", icon: "⊞" },
   { id: "My Course", icon: "◎" },
-  { id: "Assignment Builder", icon: "✏" },
   { id: "Slide Studio", icon: "◫" },
   { id: "Micro-Learning", icon: "◉" },
   { id: "Think Tank", icon: "◈" },
@@ -364,6 +363,13 @@ export default function KlasUp() {
   const [pptUpdateText, setPptUpdateText] = useState("");
   const [pptUpdating, setPptUpdating] = useState(false);
 
+  // --- Sage AI Coach state ---
+  const [sageOpen, setSageOpen] = useState(false);
+  const [sageMessages, setSageMessages] = useState([]);
+  const [sageInput, setSageInput] = useState("");
+  const [sageSending, setSageSending] = useState(false);
+  const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
+
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
@@ -677,6 +683,66 @@ export default function KlasUp() {
         assignText.length < 60 ? "Prompt could be more specific — students may need additional context." : "Prompt length and specificity look strong.",
       ],
     });
+  };
+
+  // --- Sage helpers ---
+  const SAGE_CONTEXT = {
+    "Dashboard": "Want to plan something for this week?",
+    "My Course": "Need help building something new from scratch?",
+    "Slide Studio": "Want me to help you plan your deck?",
+  };
+
+  const sageGreeting = () => {
+    const ctx = SAGE_CONTEXT[page];
+    const base = "Hi! I'm Sage 🌿 I'm here to help you build something great.";
+    return ctx
+      ? `${base} ${ctx}`
+      : `${base} What are you working on today — a new assignment, a discussion board, a lesson plan, or something else?`;
+  };
+
+  const openSage = () => {
+    if (sageMessages.length === 0) {
+      setSageMessages([{ role: "assistant", content: sageGreeting() }]);
+    }
+    setSageOpen(true);
+  };
+
+  const handleSageSend = async () => {
+    const text = sageInput.trim();
+    if (!text || sageSending) return;
+    const userMsg = { role: "user", content: text };
+    const updated = [...sageMessages, userMsg];
+    setSageMessages(updated);
+    setSageInput("");
+    setSageSending(true);
+    try {
+      // Anthropic API requires first message to be role:"user".
+      // Skip the local-only assistant greeting so the array starts with user.
+      const apiMessages = updated
+        .filter((m, i) => !(i === 0 && m.role === "assistant"))
+        .map(m => ({ role: m.role, content: m.content }));
+
+      console.log("[Sage] Sending to Edge Function:", JSON.stringify({ type: "sage-chat", messageCount: apiMessages.length, firstRole: apiMessages[0]?.role, currentPage: page }));
+      const reply = await sendSageChat({
+        messages: apiMessages,
+        currentPage: page,
+        courseName: course || null,
+      });
+      console.log("[Sage] Response received:", reply ? reply.slice(0, 100) + "..." : "EMPTY");
+      if (!reply) throw new Error("Empty response");
+      setSageMessages(prev => [...prev, { role: "assistant", content: reply }]);
+
+      // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
+      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(reply) ||
+          /open(ing)? the assignment builder/i.test(reply)) {
+        setSageBuilderOpen(true);
+      }
+    } catch (err) {
+      console.error("[Sage] Chat error:", err);
+      setSageMessages(prev => [...prev, { role: "assistant", content: "Hmm, I'm having trouble connecting right now. Try again in a moment! 🌿" }]);
+    } finally {
+      setSageSending(false);
+    }
   };
 
   const snap = [
@@ -1682,223 +1748,22 @@ export default function KlasUp() {
           );
         })()}
 
-        {/* ── ASSIGNMENT BUILDER ── */}
+        {/* ── ASSIGNMENT BUILDER (now accessed via Sage) ── */}
         {page === "Assignment Builder" && (
-          <div>
-            <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Assignment Builder</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Describe your assignment in plain English. KlasUp generates the full document.</div>
+          <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🌿</div>
+            <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy, marginBottom: 8 }}>Assignment Builder has moved to Sage</div>
+            <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, maxWidth: 420, margin: "0 auto 24px" }}>Ask Sage to help you build an assignment, or open the builder directly.</div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button onClick={() => { setSageBuilderOpen(true); setPage("Dashboard"); }}
+                style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "11px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                Open Assignment Builder
+              </button>
+              <button onClick={() => { openSage(); setPage("Dashboard"); }}
+                style={{ background: C.white, color: C.sage, border: `1.5px solid ${C.sage}`, borderRadius: 10, padding: "11px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                Chat with Sage
+              </button>
             </div>
-            {!can("pro") ? (
-              <Card style={{ textAlign: "center", padding: "3rem" }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
-                <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 8 }}>Assignment Builder is a Pro feature</div>
-                <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Generate complete, beautifully formatted assignments with real dates from your calendar.</div>
-                <button onClick={upgrade} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Upgrade to Pro ↗</button>
-              </Card>
-            ) : (
-              <div>
-                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
-
-                {/* Smart Document Generator Input */}
-                <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
-                  <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>DESCRIBE YOUR ASSIGNMENT IN PLAIN ENGLISH</div>
-                  <div style={{ position: "relative" }}>
-                    <textarea value={assignDocDesc} onChange={e => setAssignDocDesc(e.target.value)}
-                      placeholder={"My class meets every Thursday. Spring break is week 4. I want the first draft due week 5, peer review week 6, and final submission week 7. The client is Fidelity Investments and students need to create a full marketing plan."}
-                      rows={6}
-                      style={{
-                        width: "100%", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14,
-                        fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
-                        background: C.ivory, lineHeight: 1.65,
-                      }}
-                      onFocus={e => e.target.style.borderColor = C.tealBright}
-                      onBlur={e => e.target.style.borderColor = C.border}
-                    />
-                    <VoiceMic onTranscript={t => setAssignDocDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
-                  </div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
-                    Include your schedule, deadlines, client names, assignment type, and any specifics. KlasUp will auto-calculate real dates from your semester calendar.
-                  </div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                    <button onClick={() => {
-                      if (!assignDocDesc.trim()) return;
-                      const courseObj = dbCourses.find(c => c.course_code === course);
-                      setAssignDocLoading(true);
-                      setAssignDocError(null);
-                      setAssignDocResult(null);
-                      generateAssignmentDoc({
-                        description: assignDocDesc,
-                        course,
-                        semesterStart: courseObj?.semester_start || null,
-                        numWeeks: courseObj?.num_weeks || 16,
-                        outcomes: OUTCOMES,
-                      }).then(doc => {
-                        setAssignDocResult(doc);
-                        setAssignDocLoading(false);
-                      }).catch(err => { setAssignDocError(err.message); setAssignDocLoading(false); });
-                    }}
-                      disabled={!assignDocDesc.trim() || assignDocLoading}
-                      style={{
-                        background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
-                        padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
-                        cursor: !assignDocDesc.trim() || assignDocLoading ? "default" : "pointer",
-                        opacity: !assignDocDesc.trim() ? 0.5 : 1,
-                      }}>
-                      {assignDocLoading ? "Generating..." : "Generate Assignment Document ↗"}
-                    </button>
-                  </div>
-                </Card>
-
-                {/* Loading state */}
-                {assignDocLoading && (
-                  <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.tealBright}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 10, height: 10, background: C.tealBright, borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
-                      <div>
-                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 2 }}>Generating your assignment document...</div>
-                        <div style={{ fontSize: 12, color: C.muted }}>Reading your semester calendar and building a complete document with real dates</div>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-                {assignDocError && (
-                  <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.rose}`, background: C.roseLight }}>
-                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13 }}>Error: {assignDocError}</div>
-                  </Card>
-                )}
-
-                {/* Generated Document */}
-                {assignDocResult && !assignDocLoading && (
-                  <Card style={{ marginBottom: 20 }} id="assign-doc-printable">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>GENERATED ASSIGNMENT DOCUMENT</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => setAssignDocEditing(!assignDocEditing)}
-                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: assignDocEditing ? C.rose : C.teal, background: "none", border: `1px solid ${assignDocEditing ? C.rose : C.teal}44`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                          {assignDocEditing ? "Done Editing" : "Edit"}
-                        </button>
-                        <button onClick={() => {
-                          const blob = new Blob([assignDocResult], { type: "text/plain" });
-                          const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-                          a.download = `${course}-assignment.txt`; a.click();
-                        }}
-                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                          Export .txt
-                        </button>
-                        <button onClick={() => {
-                          const printWin = window.open("", "_blank");
-                          printWin.document.write(`<html><head><title>${course} Assignment</title><style>body{font-family:'Nunito',sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;color:#0F1F3D}h1,h2,h3{font-family:'Fredoka One',cursive}pre{white-space:pre-wrap;font-family:'Nunito',sans-serif;font-size:14px}</style></head><body><pre>${assignDocResult}</pre></body></html>`);
-                          printWin.document.close(); printWin.print();
-                        }}
-                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                          Export PDF
-                        </button>
-                      </div>
-                    </div>
-                    {assignDocEditing ? (
-                      <div style={{ position: "relative" }}>
-                        <textarea value={assignDocResult} onChange={e => setAssignDocResult(e.target.value)}
-                          style={{ width: "100%", minHeight: 400, border: `1px solid ${C.tealBright}44`, borderRadius: 10, padding: 16, fontFamily: F.body, fontSize: 14, resize: "vertical", boxSizing: "border-box", background: C.ivory, lineHeight: 1.7 }} />
-                        <VoiceMic onTranscript={t => setAssignDocResult(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
-                      </div>
-                    ) : (
-                      <div style={{ fontFamily: F.body, fontSize: 14, color: C.text, lineHeight: 1.75, whiteSpace: "pre-wrap", padding: "8px 0" }}>
-                        {assignDocResult}
-                      </div>
-                    )}
-
-                    {/* Plain English Update */}
-                    <div style={{ marginTop: 20, padding: 16, background: C.ivoryDark, borderRadius: 12 }}>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>UPDATE WITH PLAIN ENGLISH</div>
-                      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                        <div style={{ flex: 1, position: "relative" }}>
-                          <textarea value={assignDocUpdateText} onChange={e => setAssignDocUpdateText(e.target.value)}
-                            placeholder={'e.g., "Move the deadline to week 8" or "Change the client to Nike"'}
-                            rows={2}
-                            style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.white, lineHeight: 1.5 }} />
-                          <VoiceMic onTranscript={t => setAssignDocUpdateText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
-                        </div>
-                        <button onClick={() => {
-                          if (!assignDocUpdateText.trim()) return;
-                          setAssignDocUpdating(true);
-                          updateAssignmentDoc({ currentDoc: assignDocResult, instruction: assignDocUpdateText })
-                            .then(doc => { setAssignDocResult(doc); setAssignDocUpdateText(""); setAssignDocUpdating(false); })
-                            .catch(err => { setAssignDocError(err.message); setAssignDocUpdating(false); });
-                        }}
-                          disabled={!assignDocUpdateText.trim() || assignDocUpdating}
-                          style={{
-                            background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
-                            padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13,
-                            cursor: assignDocUpdating ? "wait" : "pointer", whiteSpace: "nowrap",
-                          }}>
-                          {assignDocUpdating ? "Updating..." : "Update ↗"}
-                        </button>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-                {/* Legacy: Assignment Type + Feedback Panel */}
-                <Card style={{ marginTop: 20, borderTop: `3px solid ${C.ivoryDark}` }}>
-                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 4 }}>Quick Assignment Feedback</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Or get instant AI feedback on an existing assignment prompt.</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div>
-                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT TYPE</div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {["Case Study", "Team Project", "Group Work", "Socratic Seminar", "Active Learning", "Individual Essay", "Research Paper", "Presentation", "Reflection", "Discussion Post"].map(t => (
-                            <button key={t} onClick={() => setAssignType(assignType === t ? "" : t)}
-                              style={{ fontSize: 12, fontFamily: F.accent, fontWeight: assignType === t ? 700 : 400, padding: "5px 12px", borderRadius: 20, border: assignType === t ? `1.5px solid ${C.tealBright}` : `0.5px solid ${C.border}`, background: assignType === t ? C.tealLight : C.ivory, color: assignType === t ? C.teal : C.muted, cursor: "pointer" }}>
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT PROMPT</div>
-                        <div style={{ position: "relative" }}>
-                          <textarea value={assignText} onChange={e => setAssignText(e.target.value)} placeholder="Paste your existing assignment prompt here for instant feedback..." rows={5}
-                            style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory, lineHeight: 1.6 }} />
-                          <VoiceMic onTranscript={t => setAssignText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
-                        </div>
-                      </div>
-                      <button onClick={genFeedback} style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Get AI Feedback ↗</button>
-                    </div>
-                    <div style={{ background: C.navy, borderRadius: 14, padding: "1rem" }}>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 12 }}>AI FEEDBACK PANEL</div>
-                      {!aiFeedback ? (
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "2rem 0", textAlign: "center" }}>Write your prompt and click "Get AI Feedback" to see analysis.</div>
-                      ) : (
-                        <div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                            {[
-                              { label: "Bloom's Level", val: aiFeedback.blooms, color: C.tealMid },
-                              { label: "Scaffolding", val: `${aiFeedback.scaffold}/100`, color: aiFeedback.scaffold > 70 ? C.tealMid : "#F4C0D1" },
-                              { label: "Outcomes Mapped", val: `${aiFeedback.outcomes}`, color: aiFeedback.outcomes > 0 ? C.tealMid : "#F4C0D1" },
-                              { label: "Clarity Score", val: `${aiFeedback.clarity}/100`, color: aiFeedback.clarity > 70 ? C.tealMid : "#F4C0D1" },
-                            ].map((s, i) => (
-                              <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
-                                <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
-                                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 8 }}>SUGGESTIONS</div>
-                          {aiFeedback.suggestions.map((s, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 10, lineHeight: 1.5 }}>
-                              <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            )}
           </div>
         )}
 
@@ -2050,10 +1915,12 @@ export default function KlasUp() {
                                     style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", fontSize: 13, fontFamily: F.body, background: C.white }} />
                                 </div>
                               ))}
-                              {s.visual && <textarea value={s.visual} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, visual: e.target.value } : sl))}
-                                rows={2} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, fontFamily: F.body, resize: "none", marginTop: 8, boxSizing: "border-box", background: C.white }} />}
-                              {s.notes && <textarea value={s.notes} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, notes: e.target.value } : sl))}
-                                rows={2} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, fontFamily: F.body, resize: "none", marginTop: 6, boxSizing: "border-box", background: C.white }} />}
+                              {s.visual && <div style={{ position: "relative", marginTop: 8 }}><textarea value={s.visual} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, visual: e.target.value } : sl))}
+                                rows={2} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, fontFamily: F.body, resize: "none", boxSizing: "border-box", background: C.white }} />
+                                <VoiceMic onTranscript={t => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, visual: sl.visual ? sl.visual + " " + t : t } : sl))} style={{ position: "absolute", right: 6, bottom: 6 }} /></div>}
+                              {s.notes && <div style={{ position: "relative", marginTop: 6 }}><textarea value={s.notes} onChange={e => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, notes: e.target.value } : sl))}
+                                rows={2} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, fontFamily: F.body, resize: "none", boxSizing: "border-box", background: C.white }} />
+                                <VoiceMic onTranscript={t => setPptSlides(p => p.map((sl, j) => j === i ? { ...sl, notes: sl.notes ? sl.notes + " " + t : t } : sl))} style={{ position: "absolute", right: 6, bottom: 6 }} /></div>}
                             </div>
                           ) : (
                             <div>
@@ -3151,6 +3018,391 @@ export default function KlasUp() {
         )}
 
       </div>
+
+      {/* ── SAGE FLOATING CHAT ── */}
+
+      {/* Floating bubble */}
+      {!sageOpen && (
+        <button onClick={openSage} title="Chat with Sage"
+          style={{
+            position: "fixed", bottom: 24, right: 24, width: 48, height: 48, borderRadius: "50%",
+            background: C.sage, color: C.white, border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 16px rgba(90,138,98,0.35)", zIndex: 9000,
+            fontFamily: F.display, fontSize: 22, transition: "transform 0.2s, box-shadow 0.2s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(90,138,98,0.5)"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(90,138,98,0.35)"; }}
+        >S</button>
+      )}
+
+      {/* Chat panel */}
+      {sageOpen && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, width: 320, height: 480,
+          background: C.white, borderRadius: 16, boxShadow: "0 8px 40px rgba(15,31,61,0.18)",
+          display: "flex", flexDirection: "column", zIndex: 9001, overflow: "hidden",
+          animation: "sageSlideUp 0.25s ease-out",
+        }}>
+          {/* Header */}
+          <div style={{ background: C.sage, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <div>
+              <div style={{ fontFamily: F.display, fontSize: 18, color: C.white }}>Sage</div>
+              <div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Your teaching coach</div>
+            </div>
+            <button onClick={() => setSageOpen(false)}
+              style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+              ─
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10 }}
+            ref={el => { if (el) el.scrollTop = el.scrollHeight; }}>
+            {sageMessages.map((m, i) => (
+              <div key={i} style={{
+                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                maxWidth: "85%",
+                background: m.role === "user" ? C.tealBright : C.sageLight,
+                color: m.role === "user" ? C.white : C.text,
+                borderRadius: m.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                padding: "10px 14px", fontSize: 13, fontFamily: F.body, lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+              }}>
+                {m.content}
+              </div>
+            ))}
+            {sageSending && (
+              <div style={{ alignSelf: "flex-start", maxWidth: "85%", background: C.sageLight, borderRadius: "14px 14px 14px 4px", padding: "10px 14px", fontSize: 13, fontFamily: F.body, color: C.muted }}>
+                <span style={{ animation: "sageDots 1.2s infinite" }}>Thinking...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: 10, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+            <div style={{ flex: 1, position: "relative" }}>
+              <textarea value={sageInput} onChange={e => setSageInput(e.target.value)}
+                placeholder="Ask Sage anything..."
+                rows={2}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSageSend(); } }}
+                style={{
+                  width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 36px 8px 10px",
+                  fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box",
+                  background: C.ivory, lineHeight: 1.5,
+                }}
+                onFocus={e => e.target.style.borderColor = C.sage}
+                onBlur={e => e.target.style.borderColor = C.border}
+              />
+              <VoiceMic onTranscript={t => setSageInput(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 6, bottom: 6 }} />
+            </div>
+            <button onClick={handleSageSend} disabled={!sageInput.trim() || sageSending}
+              style={{
+                background: C.sage, color: C.white, border: "none", borderRadius: 10,
+                padding: "8px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12,
+                cursor: !sageInput.trim() || sageSending ? "default" : "pointer",
+                opacity: !sageInput.trim() ? 0.5 : 1, flexShrink: 0,
+              }}>
+              Send
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sage animation keyframes */}
+      <style>{`
+        @keyframes sageSlideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sageDots {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 1; }
+        }
+      `}</style>
+
+      {/* ── ASSIGNMENT BUILDER MODAL (triggered by Sage) ── */}
+      {sageBuilderOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9500,
+          background: "rgba(15,31,61,0.6)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "sageSlideUp 0.2s ease-out",
+        }}>
+          <div style={{
+            width: "92vw", maxWidth: 900, maxHeight: "90vh", overflowY: "auto",
+            background: C.white, borderRadius: 20, boxShadow: "0 16px 64px rgba(15,31,61,0.25)",
+            padding: 0, position: "relative",
+          }}>
+            {/* Modal header */}
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "20px 28px", borderBottom: `1px solid ${C.border}`,
+              background: `linear-gradient(135deg, ${C.sageLight}, ${C.white})`,
+              borderRadius: "20px 20px 0 0",
+            }}>
+              <div>
+                <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy }}>Assignment Builder</div>
+                <div style={{ color: C.muted, fontSize: 13 }}>Describe the assignment you have in mind and we will help you brainstorm. KlasUp will generate the full document when we are finished.</div>
+              </div>
+              <button onClick={() => setSageBuilderOpen(false)}
+                style={{ background: C.ivoryDark, border: "none", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: C.muted, flexShrink: 0 }}>
+                ✕
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div style={{ padding: "24px 28px" }}>
+              {!can("pro") ? (
+                <div style={{ textAlign: "center", padding: "3rem" }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
+                  <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 8 }}>Assignment Builder is a Pro feature</div>
+                  <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Generate complete, beautifully formatted assignments with real dates from your calendar.</div>
+                  <button onClick={() => { setSageBuilderOpen(false); upgrade(); }} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Upgrade to Pro ↗</button>
+                </div>
+              ) : (
+                <div>
+                  <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
+
+                  {/* Description input */}
+                  <Card style={{ marginBottom: 20, border: `1px solid ${C.sage}22` }}>
+                    <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>DESCRIBE YOUR ASSIGNMENT IN PLAIN ENGLISH</div>
+                    <div style={{ position: "relative" }}>
+                      <textarea value={assignDocDesc} onChange={e => setAssignDocDesc(e.target.value)}
+                        placeholder={"My class meets every Thursday. Spring break is week 4. I want the first draft due week 5, peer review week 6, and final submission week 7. The client is Fidelity Investments and students need to create a full marketing plan."}
+                        rows={5}
+                        style={{
+                          width: "100%", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14,
+                          fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
+                          background: C.ivory, lineHeight: 1.65,
+                        }}
+                        onFocus={e => e.target.style.borderColor = C.sage}
+                        onBlur={e => e.target.style.borderColor = C.border}
+                      />
+                      <VoiceMic onTranscript={t => setAssignDocDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+                      Include your schedule, deadlines, client names, assignment type, and any specifics.
+                    </div>
+                  </Card>
+
+                  {/* Assignment type selector */}
+                  <Card style={{ marginBottom: 20 }}>
+                    <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT TYPE</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {["Case Study", "Team Project", "Group Work", "Socratic Seminar", "Active Learning", "Individual Essay", "Research Paper", "Presentation", "Reflection", "Discussion Post"].map(t => (
+                        <button key={t} onClick={() => setAssignType(assignType === t ? "" : t)}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: assignType === t ? 700 : 400, padding: "5px 12px", borderRadius: 20, border: assignType === t ? `1.5px solid ${C.sage}` : `0.5px solid ${C.border}`, background: assignType === t ? C.sageLight : C.ivory, color: assignType === t ? C.sage : C.muted, cursor: "pointer" }}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </Card>
+
+                  {/* Learning outcome alignment */}
+                  <Card style={{ marginBottom: 20 }}>
+                    <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>LEARNING OUTCOME ALIGNMENT</div>
+                    {OUTCOMES.map((o, i) => (
+                      <label key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, cursor: "pointer", fontSize: 13, fontFamily: F.body, color: C.text, lineHeight: 1.5 }}>
+                        <input type="checkbox" checked={selectedOutcomes.includes(o)}
+                          onChange={() => setSelectedOutcomes(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])}
+                          style={{ marginTop: 3, accentColor: C.sage }} />
+                        {o}
+                      </label>
+                    ))}
+                  </Card>
+
+                  {/* Milestones & checkpoints */}
+                  <Card style={{ marginBottom: 20 }}>
+                    <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>MILESTONES & CHECKPOINTS</div>
+                    {milestones.map((m, i) => (
+                      <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ color: C.sage, fontSize: 12 }}>✓</span>
+                        <input value={m} onChange={e => setMilestones(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                          style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 13, fontFamily: F.body, background: C.ivory }} />
+                        <button onClick={() => setMilestones(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", color: C.rose, cursor: "pointer", fontSize: 14 }}>×</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setMilestones(prev => [...prev, ""])}
+                      style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage, background: "none", border: `1px dashed ${C.sage}44`, borderRadius: 8, padding: "5px 14px", cursor: "pointer", marginTop: 4 }}>
+                      + Add milestone
+                    </button>
+                  </Card>
+
+                  {/* Generate button */}
+                  <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                    <button onClick={() => {
+                      if (!assignDocDesc.trim()) return;
+                      const courseObj = dbCourses.find(c => c.course_code === course);
+                      setAssignDocLoading(true);
+                      setAssignDocError(null);
+                      setAssignDocResult(null);
+                      generateAssignmentDoc({
+                        description: assignDocDesc + (assignType ? `\nAssignment type: ${assignType}` : "") + (selectedOutcomes.length ? `\nLearning outcomes to address: ${selectedOutcomes.join("; ")}` : "") + (milestones.filter(Boolean).length ? `\nMilestones/checkpoints: ${milestones.filter(Boolean).join(", ")}` : ""),
+                        course,
+                        semesterStart: courseObj?.semester_start || null,
+                        numWeeks: courseObj?.num_weeks || 16,
+                        outcomes: OUTCOMES,
+                      }).then(doc => {
+                        setAssignDocResult(doc);
+                        setAssignDocLoading(false);
+                      }).catch(err => { setAssignDocError(err.message); setAssignDocLoading(false); });
+                    }}
+                      disabled={!assignDocDesc.trim() || assignDocLoading}
+                      style={{
+                        background: C.sage, color: C.white, border: "none", borderRadius: 10,
+                        padding: "11px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                        cursor: !assignDocDesc.trim() || assignDocLoading ? "default" : "pointer",
+                        opacity: !assignDocDesc.trim() ? 0.5 : 1,
+                      }}>
+                      {assignDocLoading ? "Generating..." : "Generate Assignment Document ↗"}
+                    </button>
+                  </div>
+
+                  {/* Loading */}
+                  {assignDocLoading && (
+                    <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.sage}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 10, height: 10, background: C.sage, borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
+                        <div>
+                          <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 2 }}>Generating your assignment document...</div>
+                          <div style={{ fontSize: 12, color: C.muted }}>Reading your semester calendar and building a complete document with real dates</div>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {assignDocError && (
+                    <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.rose}`, background: C.roseLight }}>
+                      <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13 }}>Error: {assignDocError}</div>
+                    </Card>
+                  )}
+
+                  {/* Generated document */}
+                  {assignDocResult && !assignDocLoading && (
+                    <Card style={{ marginBottom: 20 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>GENERATED ASSIGNMENT DOCUMENT</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => setAssignDocEditing(!assignDocEditing)}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: assignDocEditing ? C.rose : C.sage, background: "none", border: `1px solid ${assignDocEditing ? C.rose : C.sage}44`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                            {assignDocEditing ? "Done Editing" : "Edit"}
+                          </button>
+                          <button onClick={() => {
+                            const blob = new Blob([assignDocResult], { type: "text/plain" });
+                            const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                            a.download = `${course}-assignment.txt`; a.click();
+                          }}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                            Export .txt
+                          </button>
+                          <button onClick={() => {
+                            const printWin = window.open("", "_blank");
+                            printWin.document.write(`<html><head><title>${course} Assignment</title><style>body{font-family:'Nunito',sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;color:#0F1F3D}h1,h2,h3{font-family:'Fredoka One',cursive}pre{white-space:pre-wrap;font-family:'Nunito',sans-serif;font-size:14px}</style></head><body><pre>${assignDocResult}</pre></body></html>`);
+                            printWin.document.close(); printWin.print();
+                          }}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                            Export PDF
+                          </button>
+                        </div>
+                      </div>
+                      {assignDocEditing ? (
+                        <div style={{ position: "relative" }}>
+                          <textarea value={assignDocResult} onChange={e => setAssignDocResult(e.target.value)}
+                            style={{ width: "100%", minHeight: 400, border: `1px solid ${C.sage}44`, borderRadius: 10, padding: 16, fontFamily: F.body, fontSize: 14, resize: "vertical", boxSizing: "border-box", background: C.ivory, lineHeight: 1.7 }} />
+                          <VoiceMic onTranscript={t => setAssignDocResult(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
+                        </div>
+                      ) : (
+                        <div style={{ fontFamily: F.body, fontSize: 14, color: C.text, lineHeight: 1.75, whiteSpace: "pre-wrap", padding: "8px 0" }}>
+                          {assignDocResult}
+                        </div>
+                      )}
+
+                      {/* Plain English update bar */}
+                      <div style={{ marginTop: 20, padding: 16, background: C.ivoryDark, borderRadius: 12 }}>
+                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>UPDATE WITH PLAIN ENGLISH</div>
+                        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                          <div style={{ flex: 1, position: "relative" }}>
+                            <textarea value={assignDocUpdateText} onChange={e => setAssignDocUpdateText(e.target.value)}
+                              placeholder={'e.g., "Move the deadline to week 8" or "Change the client to Nike"'}
+                              rows={2}
+                              style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.white, lineHeight: 1.5 }} />
+                            <VoiceMic onTranscript={t => setAssignDocUpdateText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
+                          </div>
+                          <button onClick={() => {
+                            if (!assignDocUpdateText.trim()) return;
+                            setAssignDocUpdating(true);
+                            updateAssignmentDoc({ currentDoc: assignDocResult, instruction: assignDocUpdateText })
+                              .then(doc => { setAssignDocResult(doc); setAssignDocUpdateText(""); setAssignDocUpdating(false); })
+                              .catch(err => { setAssignDocError(err.message); setAssignDocUpdating(false); });
+                          }}
+                            disabled={!assignDocUpdateText.trim() || assignDocUpdating}
+                            style={{
+                              background: C.sage, color: C.white, border: "none", borderRadius: 10,
+                              padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13,
+                              cursor: assignDocUpdating ? "wait" : "pointer", whiteSpace: "nowrap",
+                            }}>
+                            {assignDocUpdating ? "Updating..." : "Update ↗"}
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* AI Feedback Panel */}
+                  <Card style={{ borderTop: `3px solid ${C.ivoryDark}` }}>
+                    <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 4 }}>Quick Assignment Feedback</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Get instant AI feedback on an existing assignment prompt.</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div>
+                          <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT PROMPT</div>
+                          <div style={{ position: "relative" }}>
+                            <textarea value={assignText} onChange={e => setAssignText(e.target.value)} placeholder="Paste your existing assignment prompt here for instant feedback..." rows={5}
+                              style={{ width: "100%", border: `0.5px solid ${C.border}`, borderRadius: 8, padding: 10, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", background: C.ivory, lineHeight: 1.6 }} />
+                            <VoiceMic onTranscript={t => setAssignText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
+                          </div>
+                        </div>
+                        <button onClick={genFeedback} style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Get AI Feedback ↗</button>
+                      </div>
+                      <div style={{ background: C.navy, borderRadius: 14, padding: "1rem" }}>
+                        <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 12 }}>AI FEEDBACK PANEL</div>
+                        {!aiFeedback ? (
+                          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "2rem 0", textAlign: "center" }}>Write your prompt and click "Get AI Feedback" to see analysis.</div>
+                        ) : (
+                          <div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                              {[
+                                { label: "Bloom's Level", val: aiFeedback.blooms, color: C.tealMid },
+                                { label: "Scaffolding", val: `${aiFeedback.scaffold}/100`, color: aiFeedback.scaffold > 70 ? C.tealMid : "#F4C0D1" },
+                                { label: "Outcomes Mapped", val: `${aiFeedback.outcomes}`, color: aiFeedback.outcomes > 0 ? C.tealMid : "#F4C0D1" },
+                                { label: "Clarity Score", val: `${aiFeedback.clarity}/100`, color: aiFeedback.clarity > 70 ? C.tealMid : "#F4C0D1" },
+                              ].map((s, i) => (
+                                <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
+                                  <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
+                                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700, marginBottom: 8 }}>SUGGESTIONS</div>
+                            {aiFeedback.suggestions.map((s, i) => (
+                              <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 10, lineHeight: 1.5 }}>
+                                <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

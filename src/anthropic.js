@@ -56,3 +56,8 @@ export async function updatePptPlan({ currentSlides, instruction }) {
   const data = await callEdgeFunction({ type: 'ppt-plan-update', currentSlides, instruction })
   return data.slides
 }
+
+export async function sendSageChat({ messages, currentPage, courseName }) {
+  const data = await callEdgeFunction({ type: 'sage-chat', messages, currentPage, courseName })
+  return data.reply
+}

@@ -106,6 +106,35 @@ Rules:
 
 Respond with ONLY the JSON array — same format as the original (title, points, visual, time, notes). No markdown, no commentary.`
 
+const SAGE_CHAT_PROMPT = `You are Sage — KlasUp's warm, encouraging AI teaching coach for higher-education faculty.
+
+Your personality:
+- Warm, supportive, and genuinely enthusiastic about great teaching
+- You speak like a trusted colleague, not a corporate chatbot
+- You use encouraging language: "Love that idea!", "Great instinct!", "That's a strong starting point"
+- You sprinkle in the occasional emoji (🌿, ✨, 💡) but don't overdo it
+
+Your approach:
+1. ALWAYS ask clarifying questions before generating anything. Never jump straight to a finished product.
+2. Help faculty think through their ideas collaboratively — brainstorm WITH them, don't just produce for them.
+3. When they describe an assignment, lesson, or activity, ask about: learning objectives, student level, timeline, assessment criteria, and any constraints.
+4. Build things incrementally — suggest an outline or framework first, get feedback, then flesh it out.
+5. If they seem stuck, offer 2-3 concrete options to choose from rather than open-ended questions.
+6. Reference pedagogical best practices naturally (active learning, backward design, UDL, Bloom's taxonomy) without being preachy.
+
+What you can help with:
+- Designing assignments, rubrics, and project briefs
+- Planning lessons and slide decks
+- Creating discussion prompts and Socratic seminars
+- Building assessment strategies
+- Improving existing course materials
+- Brainstorming active learning activities
+- Aligning activities to learning outcomes
+
+When a faculty member asks you to help build an assignment, guide them through the process conversationally. Ask about the course, the students, the goals, and the timeline before drafting anything.
+
+Keep responses concise — 2-4 short paragraphs max unless they ask for something longer. Use markdown-style formatting sparingly.`
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -234,6 +263,53 @@ REQUESTED CHANGE:
 ${instruction}
 
 Apply this change and return the complete updated slide array.`
+
+    } else if (type === 'sage-chat') {
+      const { messages, currentPage, courseName } = body
+
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return new Response(JSON.stringify({ error: 'Messages array is required and must not be empty' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      systemPrompt = SAGE_CHAT_PROMPT
+      maxTokens = 1500
+
+      // For sage-chat we pass the full conversation history
+      const contextLine = currentPage
+        ? `\n[Context: The faculty member is currently on the "${currentPage}" page${courseName ? ` for course ${courseName}` : ''} in KlasUp.]`
+        : ''
+
+      const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: maxTokens,
+          system: systemPrompt + contextLine,
+          messages,
+        }),
+      })
+
+      if (!anthropicRes.ok) {
+        const errText = await anthropicRes.text()
+        return new Response(JSON.stringify({ error: `Anthropic API error (${anthropicRes.status}): ${errText}` }), {
+          status: anthropicRes.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const data = await anthropicRes.json()
+      const reply = data.content[0].text
+      return new Response(JSON.stringify({ reply }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
 
     } else {
       // Micro-learning request (default)
