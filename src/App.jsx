@@ -584,7 +584,7 @@ export default function KlasUp() {
   const [profile, setProfile] = useState(null);
   const [profileSetup, setProfileSetup] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(1); // 1=profile, 2=courses
-  const [profileForm, setProfileForm] = useState({ name: "", institution: "", job_title: "", lms: "" });
+  const [profileForm, setProfileForm] = useState({ name: "", institution: "", job_title: "", lms: "", education_level: "" });
 
   // --- Subscription state ---
   const [subStatus, setSubStatus] = useState({ tier: "free", trialActive: false, trialExpiringSoon: false, trialExpired: false, daysLeft: 0 });
@@ -696,7 +696,11 @@ export default function KlasUp() {
 
   const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Adjunct", "Instructor", "Lecturer", "Dean", "Department Chair", "AVPAA", "Other"];
   const LMS_OPTIONS = ["Canvas", "Blackboard", "D2L Brightspace", "Moodle", "Other"];
-  const EDUCATION_LEVELS = ["Bachelor's Degree", "Master's Degree", "Doctoral Degree (PhD, EdD, etc.)", "Professional Degree (JD, MD, etc.)", "Other"];
+  const EDUCATION_LEVELS = ["Bachelor's Degree", "Master's Degree", "Doctoral Degree (PhD, EdD, etc.)", "Medical Degree (MD)", "Law Degree (JD)", "Other Professional Degree", "Other"];
+  const DR_ELIGIBLE = ["Doctoral Degree (PhD, EdD, etc.)", "Medical Degree (MD)"];
+  const hasDrPrefix = (name) => /^dr\.?\s/i.test((name || "").trim());
+  const addDrPrefix = (name) => hasDrPrefix(name) ? name : `Dr. ${name}`;
+  const removeDrPrefix = (name) => (name || "").replace(/^dr\.?\s*/i, "");
 
   // --- Auth listener ---
   useEffect(() => {
@@ -904,6 +908,7 @@ export default function KlasUp() {
         institution: profileForm.institution.trim() || null,
         job_title: profileForm.job_title || null,
         lms: profileForm.lms || null,
+        education_level: profileForm.education_level || null,
         tos_accepted_at: new Date().toISOString(),
         tos_version: "1.0",
       });
@@ -1265,7 +1270,7 @@ export default function KlasUp() {
                     {JOB_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
-                <div style={{ gridColumn: "1 / -1" }}>
+                <div>
                   <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Which LMS do you use?</label>
                   <select value={profileForm.lms} onChange={e => setProfileForm(p => ({ ...p, lms: e.target.value }))}
                     style={{ ...fld, color: profileForm.lms ? C.text : C.muted }}>
@@ -1273,7 +1278,28 @@ export default function KlasUp() {
                     {LMS_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Highest Education Level</label>
+                  <select value={profileForm.education_level} onChange={e => setProfileForm(p => ({ ...p, education_level: e.target.value }))}
+                    style={{ ...fld, color: profileForm.education_level ? C.text : C.muted }}>
+                    <option value="">Select...</option>
+                    {EDUCATION_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
               </div>
+
+              {/* Dr. prefix suggestion during onboarding */}
+              {DR_ELIGIBLE.includes(profileForm.education_level) && !hasDrPrefix(profileForm.name) && !profileForm._drDismissed && (
+                <div style={{ marginBottom: 14, padding: "10px 14px", background: C.tealLight, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 13, color: C.teal }}>Would you like to add <strong>Dr.</strong> to your display name?</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={() => setProfileForm(p => ({ ...p, name: addDrPrefix(p.name) }))}
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "5px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Yes</button>
+                    <button type="button" onClick={() => setProfileForm(p => ({ ...p, _drDismissed: true }))}
+                      style={{ background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>No thanks</button>
+                  </div>
+                </div>
+              )}
 
               <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>
                 Fields marked with * are required. You can update other fields later in Settings.
@@ -2974,6 +3000,20 @@ export default function KlasUp() {
                   </select>
                 </div>
               </div>
+
+              {/* Dr. prefix suggestion */}
+              {DR_ELIGIBLE.includes(pf.education_level) && !hasDrPrefix(pf.name) && !pf._drDismissed && (
+                <div style={{ marginBottom: 14, padding: "10px 14px", background: C.tealLight, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 13, color: C.teal }}>Would you like to add <strong>Dr.</strong> to your display name?</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setSettingsProfileForm(p => ({ ...p, name: addDrPrefix(p.name) }))}
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "5px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Yes</button>
+                    <button onClick={() => setSettingsProfileForm(p => ({ ...p, _drDismissed: true }))}
+                      style={{ background: C.white, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>No thanks</button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>Bio</label>
                 <textarea value={pf.bio || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, bio: e.target.value }))}
