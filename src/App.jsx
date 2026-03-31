@@ -4,6 +4,9 @@ import Terms from "./Terms";
 import Logo, { LogoMark } from "./Logo";
 import VoiceMic from "./VoiceMic";
 import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan, sendSageChat } from "./anthropic";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } from "docx";
+import PptxGenJS from "pptxgenjs";
+import mammoth from "mammoth";
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
@@ -260,6 +263,305 @@ const WCS = ({ course, setCourse, week, setWeek, courses }) => (
     <div style={{ fontSize: 11, fontFamily: F.accent, color: C.sage, fontWeight: 700, padding: "5px 10px", background: C.sageLight, borderRadius: 8 }}>● Auto-tagged</div>
   </div>
 );
+
+// Reusable "or upload a file" link that reads .docx/.pdf/.txt/.pptx and calls onText
+const FileUploadLink = ({ onText, accept = ".docx,.pdf,.txt,.pptx", label }) => {
+  const [reading, setReading] = useState(false);
+  const inputRef = { current: null };
+  return (
+    <span>
+      <input type="file" accept={accept} ref={el => inputRef.current = el}
+        style={{ display: "none" }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          setReading(true);
+          try {
+            const text = await extractFileText(file);
+            onText(text);
+          } catch (err) {
+            onText(`[Error reading ${file.name}: ${err.message}]`);
+          } finally {
+            setReading(false);
+            e.target.value = "";
+          }
+        }} />
+      <button type="button" onClick={() => inputRef.current?.click()}
+        style={{ background: "none", border: "none", fontSize: 12, color: C.teal, cursor: "pointer", fontFamily: F.body, padding: 0, textDecoration: "underline", textUnderlineOffset: 2 }}>
+        {reading ? "Reading your document..." : (label || "or upload a file ↑")}
+      </button>
+    </span>
+  );
+};
+
+// --- File Import Helper ---
+
+async function extractFileText(file) {
+  const ext = file.name.split(".").pop().toLowerCase();
+
+  if (ext === "txt") {
+    return await file.text();
+  }
+
+  if (ext === "docx") {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  }
+
+  if (ext === "pdf") {
+    // Use browser PDF.js (available in modern browsers via pdf.js CDN fallback)
+    // For simplicity, read as text — many PDFs contain extractable text
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    // Try to extract readable text from PDF binary
+    let text = "";
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const raw = decoder.decode(bytes);
+    // Extract text between BT/ET markers (PDF text objects)
+    const matches = raw.match(/\(([^)]+)\)/g);
+    if (matches && matches.length > 5) {
+      text = matches
+        .map(m => m.slice(1, -1))
+        .filter(s => s.length > 1 && /[a-zA-Z]/.test(s))
+        .join(" ")
+        .replace(/\\n/g, "\n")
+        .replace(/\s{3,}/g, "\n");
+    }
+    if (text.trim().length < 20) {
+      return `[PDF uploaded: ${file.name}]\n\nNote: This PDF's text could not be fully extracted. You can copy and paste the content manually, or try exporting from the original source as .docx or .txt for best results.`;
+    }
+    return text;
+  }
+
+  if (ext === "pptx") {
+    // PPTX is a ZIP containing XML slides — extract <a:t> text tags from the raw bytes
+    const arrayBuffer = await file.arrayBuffer();
+    try {
+      const bytes = new Uint8Array(arrayBuffer);
+      const decoder = new TextDecoder("utf-8", { fatal: false });
+      const raw = decoder.decode(bytes);
+      const textMatches = raw.match(/<a:t>([^<]+)<\/a:t>/g);
+      if (textMatches && textMatches.length > 0) {
+        const slideTexts = textMatches.map(m => m.replace(/<\/?a:t>/g, ""));
+        let result = "";
+        let slideNum = 1;
+        slideTexts.forEach((t, i) => {
+          if (i > 0 && t.length > 20 && /^[A-Z]/.test(t)) {
+            result += `\n\n--- Slide ${slideNum++} ---\n`;
+          }
+          result += t + " ";
+        });
+        return result.trim();
+      }
+    } catch (e) { /* fall through */ }
+    return `[PowerPoint uploaded: ${file.name}]\n\nSlide content was extracted — review above and add any missing details.`;
+  }
+
+  return `[File uploaded: ${file.name}] — Unsupported format. Please use .docx, .pdf, .txt, or .pptx.`;
+}
+
+// --- Document Export Helpers ---
+
+async function exportAssignmentDocx(text, courseName) {
+  // Parse the plain-text assignment into sections by ALL-CAPS headers
+  const lines = text.split("\n");
+  const children = [];
+  let currentSection = null;
+  const rubricRows = [];
+  let inRubric = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (!inRubric) children.push(new Paragraph({ spacing: { after: 120 } }));
+      continue;
+    }
+
+    // Detect ALL-CAPS section headers (e.g., "ASSIGNMENT TITLE", "GRADING RUBRIC")
+    if (/^[A-Z][A-Z &/\-:()]{4,}$/.test(trimmed) || /^[A-Z][A-Z &/\-:()]{4,}:/.test(trimmed)) {
+      if (inRubric && rubricRows.length > 0) {
+        children.push(buildRubricTable(rubricRows));
+        rubricRows.length = 0;
+      }
+      inRubric = /RUBRIC/i.test(trimmed);
+      currentSection = trimmed;
+      children.push(new Paragraph({
+        text: trimmed.replace(/:$/, ""),
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 300, after: 120 },
+        run: { bold: true, size: 26, color: "0F1F3D", font: "Calibri" },
+      }));
+      continue;
+    }
+
+    // Detect numbered items or bullet points
+    if (/^\d+[\.\)]\s/.test(trimmed) || /^[-•●]\s/.test(trimmed)) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, size: 22, font: "Calibri" })],
+        bullet: { level: 0 },
+        spacing: { after: 60 },
+      }));
+      continue;
+    }
+
+    // Rubric rows: "Criteria | Points | Description" or similar pipe-separated
+    if (inRubric && trimmed.includes("|")) {
+      rubricRows.push(trimmed.split("|").map(c => c.trim()));
+      continue;
+    }
+
+    // Default paragraph
+    children.push(new Paragraph({
+      children: [new TextRun({ text: trimmed, size: 22, font: "Calibri" })],
+      spacing: { after: 80 },
+    }));
+  }
+
+  if (rubricRows.length > 0) {
+    children.push(buildRubricTable(rubricRows));
+  }
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: "Calibri", size: 22 } },
+        heading2: { run: { bold: true, size: 26, color: "0F1F3D", font: "Calibri" } },
+      },
+    },
+    sections: [{
+      properties: {
+        page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } },
+      },
+      children: [
+        new Paragraph({
+          children: [new TextRun({ text: courseName || "Assignment", bold: true, size: 32, color: "0B8A8A", font: "Calibri" })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: "Generated by KlasUp", italics: true, size: 18, color: "4A5568", font: "Calibri" })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "0FB5B5" } },
+        }),
+        ...children,
+      ],
+    }],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(courseName || "assignment").replace(/\s+/g, "-")}-assignment.docx`;
+  a.click();
+}
+
+function buildRubricTable(rows) {
+  const tealBg = { type: ShadingType.SOLID, color: "0FB5B5" };
+  const lightBg = { type: ShadingType.SOLID, color: "F0FAFA" };
+
+  const tableRows = rows.map((cells, rowIdx) =>
+    new TableRow({
+      children: cells.map(cell =>
+        new TableCell({
+          children: [new Paragraph({
+            children: [new TextRun({
+              text: cell,
+              bold: rowIdx === 0,
+              size: rowIdx === 0 ? 20 : 19,
+              color: rowIdx === 0 ? "FFFFFF" : "0F1F3D",
+              font: "Calibri",
+            })],
+            spacing: { after: 40 },
+          })],
+          shading: rowIdx === 0 ? tealBg : rowIdx % 2 === 1 ? lightBg : undefined,
+          width: { size: Math.floor(100 / cells.length), type: WidthType.PERCENTAGE },
+        })
+      ),
+    })
+  );
+
+  return new Table({
+    rows: tableRows,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+  });
+}
+
+function exportSlidePptx(slides, courseName, weekLabel) {
+  const pptx = new PptxGenJS();
+  pptx.author = "KlasUp";
+  pptx.title = `${courseName} — ${weekLabel} Slides`;
+  pptx.layout = "LAYOUT_WIDE";
+
+  // Title slide
+  const titleSlide = pptx.addSlide();
+  titleSlide.background = { color: "0F1F3D" };
+  titleSlide.addText(courseName || "Slide Deck", {
+    x: 0.8, y: 1.5, w: "85%", h: 1.2,
+    fontSize: 36, bold: true, color: "FFFFFF", fontFace: "Calibri",
+  });
+  titleSlide.addText(weekLabel || "", {
+    x: 0.8, y: 2.8, w: "85%", h: 0.6,
+    fontSize: 20, color: "0FB5B5", fontFace: "Calibri",
+  });
+  titleSlide.addText("Generated by KlasUp", {
+    x: 0.8, y: 4.5, w: "85%", h: 0.4,
+    fontSize: 12, italic: true, color: "7F8CA0", fontFace: "Calibri",
+  });
+
+  // Content slides
+  slides.forEach((s, i) => {
+    const slide = pptx.addSlide();
+
+    // Slide number + time badge
+    const badge = `Slide ${i + 1}${s.time ? `  ·  ~${s.time}` : ""}`;
+    slide.addText(badge, {
+      x: 0.5, y: 0.3, w: 3, h: 0.35,
+      fontSize: 10, bold: true, color: "0FB5B5", fontFace: "Calibri",
+    });
+
+    // Title
+    slide.addText(s.title || "", {
+      x: 0.5, y: 0.7, w: "90%", h: 0.7,
+      fontSize: 28, bold: true, color: "0F1F3D", fontFace: "Calibri",
+    });
+
+    // Bullet points
+    const bulletY = 1.55;
+    const bullets = (s.points || []).map(p => ({
+      text: p, options: { fontSize: 16, color: "333333", fontFace: "Calibri", bullet: { code: "2022" } },
+    }));
+    if (bullets.length) {
+      slide.addText(bullets, {
+        x: 0.7, y: bulletY, w: "55%", h: 2.8,
+        valign: "top", lineSpacingMultiple: 1.35,
+      });
+    }
+
+    // Visual / activity suggestion box (right side)
+    if (s.visual) {
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x: 7.8, y: 1.55, w: 4.5, h: 1.4,
+        fill: { color: "E6F4E8" }, rectRadius: 0.15,
+        line: { color: "5A8A62", width: 0.5 },
+      });
+      slide.addText([
+        { text: "Visual / Activity\n", options: { fontSize: 10, bold: true, color: "5A8A62", fontFace: "Calibri" } },
+        { text: s.visual, options: { fontSize: 12, color: "333333", fontFace: "Calibri" } },
+      ], {
+        x: 8.0, y: 1.65, w: 4.1, h: 1.2, valign: "top",
+      });
+    }
+
+    // Speaker notes
+    if (s.notes) {
+      slide.addNotes(s.notes);
+    }
+  });
+
+  pptx.writeFile({ fileName: `${(courseName || "slides").replace(/\s+/g, "-")}-${(weekLabel || "deck").replace(/\s+/g, "-")}.pptx` });
+}
 
 export default function KlasUp() {
   // --- Auth state ---
@@ -1569,6 +1871,9 @@ export default function KlasUp() {
                 />
                 <VoiceMic onTranscript={t => setUploadText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
               </div>
+              <div style={{ marginTop: 6 }}>
+                <FileUploadLink onText={t => setUploadText(p => p ? p + "\n\n" + t : t)} />
+              </div>
 
               {/* Submit + helper */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
@@ -1808,6 +2113,9 @@ export default function KlasUp() {
                     />
                     <VoiceMic onTranscript={t => setPptDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
                   </div>
+                  <div style={{ marginTop: 6 }}>
+                    <FileUploadLink onText={t => setPptDesc(p => p ? p + "\n\n" + t : t)} accept=".docx,.pdf,.txt,.pptx" label="or upload a file (.pptx, .docx, .txt) ↑" />
+                  </div>
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => {
                       if (!pptDesc.trim()) return;
@@ -1853,23 +2161,9 @@ export default function KlasUp() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                       <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>SLIDE-BY-SLIDE OUTLINE — {pptSlides.length} SLIDES</div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => {
-                          let text = `${course} — ${week} Slide Deck Outline\n${"=".repeat(50)}\n\n`;
-                          pptSlides.forEach((s, i) => {
-                            text += `SLIDE ${i + 1}: ${s.title}\n`;
-                            if (s.time) text += `Estimated time: ${s.time}\n`;
-                            text += `\nKey Talking Points:\n`;
-                            (s.points || []).forEach(p => { text += `  • ${p}\n`; });
-                            if (s.visual) text += `\nSuggested Visual/Activity: ${s.visual}\n`;
-                            if (s.notes) text += `\nSpeaker Notes: ${s.notes}\n`;
-                            text += `\n${"—".repeat(40)}\n\n`;
-                          });
-                          const blob = new Blob([text], { type: "text/plain" });
-                          const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-                          a.download = `${course}-${week}-slides.txt`; a.click();
-                        }}
-                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                          Export .txt
+                        <button onClick={() => exportSlidePptx(pptSlides, course, week)}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Export as PowerPoint
                         </button>
                         <button onClick={() => {
                           let html = `<html><head><title>${course} ${week} Slides</title><style>body{font-family:'Nunito',sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;color:#0F1F3D}h1,h2{font-family:'Fredoka One',cursive}.slide{border:1px solid #ddd;border-radius:12px;padding:20px;margin:16px 0;page-break-inside:avoid}.slide-num{background:#0FB5B5;color:#fff;display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700}ul{margin:8px 0}li{margin:4px 0}.visual{background:#E6F4E8;padding:8px 12px;border-radius:8px;font-size:13px;margin:8px 0}.notes{background:#F0EDE6;padding:8px 12px;border-radius:8px;font-size:12px;color:#4A5568;margin:8px 0}</style></head><body>`;
@@ -1886,7 +2180,25 @@ export default function KlasUp() {
                           const w = window.open("", "_blank"); w.document.write(html); w.document.close(); w.print();
                         }}
                           style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                          Export PDF
+                          Export as PDF
+                        </button>
+                        <button onClick={() => {
+                          let text = `${course} — ${week} Slide Deck Outline\n${"=".repeat(50)}\n\n`;
+                          pptSlides.forEach((s, i) => {
+                            text += `SLIDE ${i + 1}: ${s.title}\n`;
+                            if (s.time) text += `Estimated time: ${s.time}\n`;
+                            text += `\nKey Talking Points:\n`;
+                            (s.points || []).forEach(p => { text += `  • ${p}\n`; });
+                            if (s.visual) text += `\nSuggested Visual/Activity: ${s.visual}\n`;
+                            if (s.notes) text += `\nSpeaker Notes: ${s.notes}\n`;
+                            text += `\n${"—".repeat(40)}\n\n`;
+                          });
+                          const blob = new Blob([text], { type: "text/plain" });
+                          const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                          a.download = `${course}-${week}-slides.txt`; a.click();
+                        }}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Export as Text
                         </button>
                       </div>
                     </div>
@@ -3096,15 +3408,18 @@ export default function KlasUp() {
               />
               <VoiceMic onTranscript={t => setSageInput(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 6, bottom: 6 }} />
             </div>
-            <button onClick={handleSageSend} disabled={!sageInput.trim() || sageSending}
-              style={{
-                background: C.sage, color: C.white, border: "none", borderRadius: 10,
-                padding: "8px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12,
-                cursor: !sageInput.trim() || sageSending ? "default" : "pointer",
-                opacity: !sageInput.trim() ? 0.5 : 1, flexShrink: 0,
-              }}>
-              Send
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+              <button onClick={handleSageSend} disabled={!sageInput.trim() || sageSending}
+                style={{
+                  background: C.sage, color: C.white, border: "none", borderRadius: 10,
+                  padding: "8px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12,
+                  cursor: !sageInput.trim() || sageSending ? "default" : "pointer",
+                  opacity: !sageInput.trim() ? 0.5 : 1,
+                }}>
+                Send
+              </button>
+              <FileUploadLink onText={t => setSageInput(p => p ? p + "\n" + t : t)} label="upload ↑" />
+            </div>
           </div>
         </div>
       )}
@@ -3181,8 +3496,11 @@ export default function KlasUp() {
                       />
                       <VoiceMic onTranscript={t => setAssignDocDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
                     </div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
-                      Include your schedule, deadlines, client names, assignment type, and any specifics.
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                        Include your schedule, deadlines, client names, assignment type, and any specifics.
+                      </div>
+                      <FileUploadLink onText={t => setAssignDocDesc(p => p ? p + "\n\n" + t : t)} />
                     </div>
                   </Card>
 
@@ -3289,13 +3607,9 @@ export default function KlasUp() {
                             style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: assignDocEditing ? C.rose : C.sage, background: "none", border: `1px solid ${assignDocEditing ? C.rose : C.sage}44`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
                             {assignDocEditing ? "Done Editing" : "Edit"}
                           </button>
-                          <button onClick={() => {
-                            const blob = new Blob([assignDocResult], { type: "text/plain" });
-                            const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-                            a.download = `${course}-assignment.txt`; a.click();
-                          }}
-                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                            Export .txt
+                          <button onClick={() => exportAssignmentDocx(assignDocResult, course)}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                            Export as Word
                           </button>
                           <button onClick={() => {
                             const printWin = window.open("", "_blank");
@@ -3303,7 +3617,15 @@ export default function KlasUp() {
                             printWin.document.close(); printWin.print();
                           }}
                             style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                            Export PDF
+                            Export as PDF
+                          </button>
+                          <button onClick={() => {
+                            const blob = new Blob([assignDocResult], { type: "text/plain" });
+                            const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+                            a.download = `${course}-assignment.txt`; a.click();
+                          }}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                            Export as Text
                           </button>
                         </div>
                       </div>
