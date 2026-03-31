@@ -1,5 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Logo, { LogoMark } from "./Logo";
+
+/* ── Window width hook for responsive ── */
+function useWindowWidth() {
+  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return width;
+}
 
 const C = {
   navy: "#0F1F3D", navyMid: "#1A3260", navyLight: "#243D75",
@@ -88,7 +99,7 @@ function BtnSolid({ children, onClick, style }) {
 /* ── Section wrapper ── */
 function Section({ bg, children, style }) {
   return (
-    <section style={{ padding: "96px 24px", background: bg || C.ivory, ...style }}>
+    <section className="landing-section" style={{ padding: "96px 24px", background: bg || C.ivory, ...style }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>{children}</div>
     </section>
   );
@@ -111,6 +122,9 @@ function SectionTitle({ children, light, sub }) {
 export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) {
   const [scrollY, setScrollY] = useState(0);
   const [navSolid, setNavSolid] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const ww = useWindowWidth();
+  const mob = ww < 768;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -122,6 +136,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
   }, []);
 
   const scrollTo = (id) => {
+    setMobileMenuOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -129,29 +144,65 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
   const Navbar = (
     <nav style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-      padding: "0 24px", height: 72,
-      background: navSolid ? "rgba(15,31,61,0.97)" : "transparent",
-      backdropFilter: navSolid ? "blur(12px)" : "none",
+      padding: mob ? "0 16px" : "0 24px", height: 72,
+      background: navSolid || mobileMenuOpen ? "rgba(15,31,61,0.97)" : "transparent",
+      backdropFilter: navSolid || mobileMenuOpen ? "blur(12px)" : "none",
       transition: "background 0.3s, backdrop-filter 0.3s",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div style={{ maxWidth: 1100, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        {/* Logo */}
         <Logo size="sm" dark />
-        {/* Buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={onSignIn} style={{
-            background: "transparent", border: "none", color: "rgba(255,255,255,0.85)",
-            fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer",
-            padding: "8px 16px", borderRadius: 8, transition: "color 0.2s",
-          }}>Sign In</button>
-          <button onClick={onGetStarted} style={{
-            background: C.tealBright, color: C.white, border: "none",
-            padding: "10px 22px", borderRadius: 10, fontFamily: F.accent,
-            fontWeight: 700, fontSize: 14, cursor: "pointer",
-            transition: "transform 0.2s, box-shadow 0.2s",
-          }}>Get Started Free</button>
-        </div>
+        {mob ? (
+          <>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ background: "none", border: "none", color: C.white, fontSize: 28, cursor: "pointer", padding: "8px", lineHeight: 1 }}>
+              {mobileMenuOpen ? "✕" : "☰"}
+            </button>
+            {mobileMenuOpen && (
+              <div style={{
+                position: "absolute", top: 72, left: 0, right: 0,
+                background: "rgba(15,31,61,0.98)", backdropFilter: "blur(12px)",
+                padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                {[
+                  { label: "Features", action: () => scrollTo("features") },
+                  { label: "How It Works", action: () => scrollTo("how-it-works") },
+                  { label: "Pricing", action: () => scrollTo("pricing") },
+                  { label: "For Institutions", action: () => scrollTo("institutions") },
+                ].map(l => (
+                  <button key={l.label} onClick={l.action}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", fontFamily: F.accent, fontWeight: 600, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44 }}>
+                    {l.label}
+                  </button>
+                ))}
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12, marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button onClick={() => { setMobileMenuOpen(false); onSignIn(); }}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.85)", fontFamily: F.accent, fontWeight: 700, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44 }}>
+                    Sign In
+                  </button>
+                  <button onClick={() => { setMobileMenuOpen(false); onGetStarted(); }}
+                    style={{ background: C.tealBright, color: C.white, border: "none", padding: "14px 22px", borderRadius: 10, fontFamily: F.accent, fontWeight: 700, fontSize: 16, cursor: "pointer", minHeight: 44 }}>
+                    Get Started Free
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={onSignIn} style={{
+              background: "transparent", border: "none", color: "rgba(255,255,255,0.85)",
+              fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer",
+              padding: "8px 16px", borderRadius: 8, transition: "color 0.2s",
+            }}>Sign In</button>
+            <button onClick={onGetStarted} style={{
+              background: C.tealBright, color: C.white, border: "none",
+              padding: "10px 22px", borderRadius: 10, fontFamily: F.accent,
+              fontWeight: 700, fontSize: 14, cursor: "pointer",
+              transition: "transform 0.2s, box-shadow 0.2s",
+            }}>Get Started Free</button>
+          </div>
+        )}
       </div>
     </nav>
   );
@@ -162,7 +213,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
       minHeight: "100vh",
       background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 40%, #0D4F5A 100%)`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "120px 24px 96px", position: "relative", overflow: "hidden",
+      padding: mob ? "100px 16px 64px" : "120px 24px 96px", position: "relative", overflow: "hidden",
     }}>
       {/* Decorative circles */}
       <div style={{
@@ -178,8 +229,8 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
 
       <div style={{ textAlign: "center", maxWidth: 780, position: "relative", zIndex: 1 }}>
         {/* Hero brand moment — stacked mark + wordmark */}
-        <div style={{ marginBottom: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <LogoMark size={144} />
+        <div style={{ marginBottom: mob ? 20 : 32, display: "flex", flexDirection: "column", alignItems: "center", gap: mob ? 10 : 16 }}>
+          <LogoMark size={mob ? 100 : 144} />
           <div style={{ fontFamily: F.display, fontSize: "clamp(40px, 5vw, 56px)", lineHeight: 1 }}>
             <span style={{ color: "#FFFFFF" }}>Klas</span>
             <span style={{ color: "#0FB5B5" }}>Up</span>
@@ -233,7 +284,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
   const Problem = (
     <Section bg={C.ivory}>
       <SectionTitle>The hard truths nobody talks about</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: mob ? 20 : 28 }}>
         {[
           {
             icon: "📅",
@@ -273,7 +324,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
     <Section bg={C.white} style={{ paddingTop: 96, paddingBottom: 96 }}>
       <div id="how-it-works" style={{ position: "relative", top: -80 }} />
       <SectionTitle>How it works</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(260px, 1fr))", gap: mob ? 28 : 40 }}>
         {[
           { step: "01", icon: "📤", title: "Upload your content", desc: "Drop in your syllabus, lecture slides, or assignment prompts. KlasUp reads what you're already teaching." },
           { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized micro-learning, course health analysis, and career connection data — tailored to your exact content." },
@@ -305,7 +356,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
     <Section bg={C.ivory}>
       <div id="features" style={{ position: "relative", top: -80 }} />
       <SectionTitle>Everything you need to teach brilliantly</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(310px, 1fr))", gap: mob ? 16 : 24 }}>
         {[
           { icon: "◉", title: "AI Micro-Learning", desc: "Bite-sized pedagogical tips generated from your actual course content — not generic advice. Delivered weekly.", color: C.tealBright, bg: C.tealLight },
           { icon: "❤", title: "Course Health Score", desc: "A living diagnostic that evaluates alignment, engagement strategies, assessment design, and inclusivity across your syllabus.", color: C.rose, bg: C.roseLight },
@@ -412,7 +463,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
     <Section bg={C.ivory}>
       <div id="pricing" style={{ position: "relative", top: -80 }} />
       <SectionTitle>Simple, transparent pricing</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, maxWidth: 940, margin: "0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: mob ? 20 : 24, maxWidth: 940, margin: "0 auto" }}>
         {[
           {
             name: "Free", price: "$0", period: "forever", desc: "Get started and explore the basics.",
@@ -508,7 +559,8 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-          flexWrap: "wrap", gap: 32, marginBottom: 40,
+          flexWrap: "wrap", gap: mob ? 24 : 32, marginBottom: mob ? 28 : 40,
+          flexDirection: mob ? "column" : "row",
         }}>
           {/* Logo + tagline */}
           <div>
@@ -521,7 +573,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
           </div>
 
           {/* Links */}
-          <div style={{ display: "flex", gap: 48, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: mob ? 28 : 48, flexWrap: "wrap" }}>
             {[
               { title: "Product", links: [
                 { label: "Features", action: () => scrollTo("features") },
@@ -586,6 +638,12 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
       {Pricing}
       {FinalCTA}
       {Footer}
+      <style>{`
+        @media (max-width: 767px) {
+          .landing-section { padding: 56px 16px !important; }
+          button { min-height: 44px; }
+        }
+      `}</style>
     </div>
   );
 }

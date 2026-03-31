@@ -22,30 +22,37 @@ const sizes = {
 
 function LogoMark({ size = 58 }) {
   // All proportions are relative to `size` which controls the total height.
-  // The bulb is the top ~68%, neck ~8%, base/socket ~24%.
+  // The bulb is the top ~65%, neck ~8%, base/socket ~27%.
   const s = size;
 
-  // --- Layout ---
+  // --- Bulb ---
   const bulbR = s * 0.34;          // bulb circle radius
   const bulbCx = s * 0.5;          // bulb center x
-  const bulbCy = s * 0.36;         // bulb center y
-  const neckTop = bulbCy + bulbR * 0.82;  // where neck starts (overlaps bulb slightly)
+  const bulbCy = s * 0.34;         // bulb center y
+
+  // --- Taper: connects bulb bottom to neck smoothly ---
+  const taperW = s * 0.34;
+  const taperH = bulbR * 0.5;
+  const taperTop = bulbCy + bulbR * 0.5;
+
+  // --- Neck: slightly darker teal connector ---
   const neckW = s * 0.26;
-  const neckH = s * 0.08;
+  const neckH = s * 0.07;
+  const neckTop = taperTop + taperH - s * 0.02;
   const neckX = bulbCx - neckW / 2;
 
-  // Socket bars
-  const socketTop = neckTop + neckH - s * 0.01;
-  const barH = s * 0.055;
-  const barGap = s * 0.015;
+  // --- Socket bars: navy horizontal bars, getting narrower, rounded ---
+  const socketTop = neckTop + neckH - s * 0.005;
+  const barH = s * 0.052;
+  const barGap = s * 0.016;
   const bar1W = s * 0.30;
   const bar2W = s * 0.26;
   const bar3W = s * 0.22;
 
   // --- K letterform inside bulb ---
-  const kCx = bulbCx;              // center the K in the bulb
+  const kCx = bulbCx;
   const kCy = bulbCy;
-  const kH = bulbR * 1.05;         // K height relative to bulb
+  const kH = bulbR * 1.05;
   const stemX = kCx - bulbR * 0.18;
   const stemTop = kCy - kH * 0.48;
   const stemBot = kCy + kH * 0.48;
@@ -64,17 +71,17 @@ function LogoMark({ size = 58 }) {
   const sh2r = s * 0.020;
   const sh3r = s * 0.014;
 
-  // Total viewbox: width = s, height = s
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Bulb — teal circle with slight taper via ellipse+rect blend */}
+      {/* Bulb — teal circle */}
       <circle cx={bulbCx} cy={bulbCy} r={bulbR} fill="#0FB5B5" />
-      {/* Taper: a rounded rect connecting bulb bottom to neck */}
+
+      {/* Taper: rounded rect connecting bulb bottom to neck */}
       <rect
-        x={bulbCx - neckW * 0.65}
-        y={bulbCy + bulbR * 0.45}
-        width={neckW * 1.3}
-        height={bulbR * 0.55}
+        x={bulbCx - taperW / 2}
+        y={taperTop}
+        width={taperW}
+        height={taperH}
         rx={s * 0.04}
         fill="#0FB5B5"
       />
@@ -85,7 +92,7 @@ function LogoMark({ size = 58 }) {
       {/* Base/Socket — navy horizontal bars, getting narrower */}
       <rect x={bulbCx - bar1W / 2} y={socketTop} width={bar1W} height={barH} rx={s * 0.015} fill="#0F1F3D" />
       <rect x={bulbCx - bar2W / 2} y={socketTop + barH + barGap} width={bar2W} height={barH} rx={s * 0.015} fill="#0F1F3D" />
-      <rect x={bulbCx - bar3W / 2} y={socketTop + (barH + barGap) * 2} width={bar3W} height={barH} rx={s * 0.02} fill="#0F1F3D" />
+      <rect x={bulbCx - bar3W / 2} y={socketTop + (barH + barGap) * 2} width={bar3W} height={barH} rx={s * 0.025} fill="#0F1F3D" />
 
       {/* K vertical stem */}
       <rect x={stemX - stemW / 2} y={stemTop} width={stemW} height={stemBot - stemTop} rx={stemW / 2} fill="white" />

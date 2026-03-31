@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <!-- Navy background -->
+  <rect width="1200" height="630" fill="#0F1F3D"/>
+  <!-- Subtle gradient overlay -->
+  <rect width="1200" height="630" fill="url(#grad)" opacity="0.4"/>
+  <defs>
+    <radialGradient id="grad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#0B8A8A" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0F1F3D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Lightbulb logo mark — centered at (600, 210), size ~160 -->
+  <g transform="translate(520, 130)">
+    <!-- Bulb — teal circle -->
+    <circle cx="80" cy="58" r="55" fill="#0FB5B5"/>
+    <!-- Taper from bulb to neck -->
+    <rect x="46" y="84" width="68" height="30" rx="6" fill="#0FB5B5"/>
+    <!-- Neck -->
+    <rect x="54" y="108" width="52" height="13" rx="4" fill="#0A9E9E"/>
+    <!-- Socket bars — navy -->
+    <rect x="50" y="119" width="60" height="9" rx="3" fill="#0F1F3D" stroke="#1A3260" stroke-width="0.5"/>
+    <rect x="53" y="130" width="54" height="9" rx="3" fill="#0F1F3D" stroke="#1A3260" stroke-width="0.5"/>
+    <rect x="56" y="141" width="48" height="9" rx="4" fill="#0F1F3D" stroke="#1A3260" stroke-width="0.5"/>
+    <!-- K vertical stem -->
+    <rect x="65" y="30" width="10" height="56" rx="5" fill="white"/>
+    <!-- K upper diagonal -->
+    <line x1="76" y1="58" x2="104" y2="30" stroke="white" stroke-width="10" stroke-linecap="round"/>
+    <!-- K lower diagonal -->
+    <line x1="76" y1="58" x2="106" y2="86" stroke="white" stroke-width="10" stroke-linecap="round"/>
+    <!-- Shine dots -->
+    <circle cx="109" cy="30" r="4.5" fill="white" opacity="0.9"/>
+    <circle cx="117" cy="44" r="3.2" fill="white" opacity="0.6"/>
+    <circle cx="108" cy="45" r="2.2" fill="white" opacity="0.45"/>
+  </g>
+
+  <!-- KlasUp wordmark -->
+  <text x="600" y="340" text-anchor="middle" font-family="'Fredoka One', 'Arial Black', sans-serif" font-size="64" font-weight="400">
+    <tspan fill="#FFFFFF">Klas</tspan><tspan fill="#0FB5B5">Up</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="600" y="400" text-anchor="middle" font-family="'Nunito', 'Segoe UI', sans-serif" font-size="28" fill="rgba(255,255,255,0.6)" font-weight="600" font-style="italic">
+    Teach smarter. Not harder.
+  </text>
+
+  <!-- Divider line -->
+  <line x1="540" y1="440" x2="660" y2="440" stroke="#0FB5B5" stroke-width="2" opacity="0.4"/>
+
+  <!-- URL -->
+  <text x="600" y="480" text-anchor="middle" font-family="'Nunito', 'Segoe UI', sans-serif" font-size="22" fill="rgba(255,255,255,0.35)" font-weight="700" letter-spacing="2">
+    klasup.com
+  </text>
+
+  <!-- Bottom accent line -->
+  <rect x="0" y="620" width="1200" height="10" fill="#0FB5B5" opacity="0.6"/>
+</svg>
