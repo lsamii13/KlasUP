@@ -32,6 +32,7 @@ import {
   adminFetchUsageStats, adminFetchFunnel,
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension,
+  insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
 } from "./supabase";
 
 const C = {
@@ -62,6 +63,7 @@ const NAV = [
   { id: "Think Tank", icon: "◈" },
   { id: "Course Portfolio", icon: "◆" },
   { id: "Reports", icon: "☑" },
+  { id: "Wellness", icon: "🌿" },
   { id: "Research Library", icon: "⊡" },
   { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
@@ -812,6 +814,17 @@ export default function KlasUp() {
   const [settingsPwMsg, setSettingsPwMsg] = useState(null);
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
 
+  // --- Wellness state ---
+  const [wellnessScore, setWellnessScore] = useState(null);
+  const [wellnessTodayCheckin, setWellnessTodayCheckin] = useState(null);
+  const [wellnessHistory, setWellnessHistory] = useState([]);
+  const [wellnessMsg, setWellnessMsg] = useState(null);
+  const [wellnessTab, setWellnessTab] = useState("faculty");
+  const [wellnessReflection, setWellnessReflection] = useState("");
+  const [wellnessReflectionResult, setWellnessReflectionResult] = useState(null);
+  const [wellnessReflectionLoading, setWellnessReflectionLoading] = useState(false);
+  const [breathingOpen, setBreathingOpen] = useState(null);
+
   const courseNames = dbCourses.map(c => c.course_code);
   const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
 
@@ -1075,6 +1088,54 @@ export default function KlasUp() {
       setAdminDimCounts(Object.entries(counts).map(([dimension, count]) => ({ dimension, count })).sort((a, b) => b.count - a.count));
     } catch (e) { console.error("Admin research load error:", e); }
   }, []);
+
+  // --- Wellness helpers ---
+  const loadWellnessData = useCallback(async () => {
+    if (!session?.user) return;
+    try {
+      const [today, history] = await Promise.all([
+        fetchTodayCheckin(session.user.id),
+        fetchRecentCheckins(session.user.id, 28),
+      ]);
+      setWellnessTodayCheckin(today);
+      setWellnessHistory(history);
+      if (today) setWellnessScore(today.check_in_score);
+    } catch (e) { console.error("Wellness load error:", e); }
+  }, [session?.user?.id]);
+
+  useEffect(() => { if (session?.user) loadWellnessData(); }, [session?.user, loadWellnessData]);
+
+  const WELLNESS_EMOJIS = ["😔", "😕", "😐", "🙂", "😊"];
+  const WELLNESS_MESSAGES = [
+    "It's okay to have hard days. You showed up — that matters. 🌿",
+    "Tough stretch. Remember: you don't have to be perfect to be impactful.",
+    "Steady and present. That's enough. 🌿",
+    "You're doing good work. Your students are lucky to have you.",
+    "You're thriving! Carry this energy into your next class. ✨",
+  ];
+  const WELLNESS_TIPS = [
+    "Try a 2-minute breathing exercise before your next class.",
+    "Consider reaching out to a colleague today — connection helps.",
+    "A short walk between classes can reset your energy.",
+    "Take a moment to name one thing that went well this week.",
+    "Share this energy — tell a student something you noticed about their growth.",
+  ];
+
+  const handleWellnessCheckin = async (score) => {
+    if (!session?.user) return;
+    try {
+      if (wellnessTodayCheckin) {
+        await updateWellnessCheckin(wellnessTodayCheckin.id, score);
+      } else {
+        await insertWellnessCheckin(session.user.id, score);
+      }
+      setWellnessScore(score);
+      setWellnessMsg({ message: WELLNESS_MESSAGES[score - 1], tip: WELLNESS_TIPS[score - 1] });
+      loadWellnessData();
+    } catch (e) { console.error("Wellness check-in error:", e); }
+  };
+
+  const wellnessBurnoutFlag = wellnessHistory.length >= 3 && wellnessHistory.slice(0, 3).every(c => c.check_in_score <= 2);
 
   const removeCourse = async (id) => {
     await deleteCourseDB(id);
@@ -1777,6 +1838,51 @@ export default function KlasUp() {
                 <EmailBtn subject={`My Teaching Snapshot — ${week}`} body={snap.map(s => `${s.ok ? "✓" : "⚑"} ${s.label}`).join("\n") + "\n\nPriority this week: Add a metacognitive exit ticket to Week 9."} />
               </div>
             </Card>
+
+            {/* Wellness Check-in */}
+            <div style={{ background: "#EAF3DE", borderRadius: 14, padding: "1.25rem", marginBottom: 14, border: `1px solid ${C.sage}22` }}>
+              <div style={{ fontFamily: F.display, fontSize: 17, color: C.sage, marginBottom: 10 }}>How are you showing up today?</div>
+              {wellnessBurnoutFlag && (
+                <div style={{ background: C.roseLight, borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: 13, color: C.rose, lineHeight: 1.5 }}>
+                  You've had a tough few days. Be gentle with yourself. 🌿
+                </div>
+              )}
+              {wellnessTodayCheckin && !wellnessMsg ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 28 }}>{WELLNESS_EMOJIS[wellnessTodayCheckin.check_in_score - 1]}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: C.sage, fontWeight: 600 }}>Checked in today</div>
+                    <div style={{ fontSize: 12, color: C.muted }}>{WELLNESS_MESSAGES[wellnessTodayCheckin.check_in_score - 1]}</div>
+                  </div>
+                  <button onClick={() => { setWellnessMsg(null); setWellnessScore(null); setWellnessTodayCheckin(null); }}
+                    style={{ background: "none", border: "none", fontSize: 12, color: C.sage, fontFamily: F.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+                    Update
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: mob ? 12 : 16, marginBottom: wellnessMsg ? 12 : 0 }}>
+                    {WELLNESS_EMOJIS.map((e, i) => (
+                      <button key={i} onClick={() => handleWellnessCheckin(i + 1)}
+                        style={{
+                          fontSize: mob ? 26 : 30, background: wellnessScore === i + 1 ? `${C.sage}22` : "transparent",
+                          border: wellnessScore === i + 1 ? `2px solid ${C.sage}` : "2px solid transparent",
+                          borderRadius: "50%", width: mob ? 44 : 48, height: mob ? 44 : 48,
+                          cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                  {wellnessMsg && (
+                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, lineHeight: 1.5, marginBottom: 4 }}>{wellnessMsg.message}</div>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>💡 {wellnessMsg.tip}</div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* Up Score */}
             <Card style={{ marginBottom: 14, background: C.navy, border: "none", position: "relative", overflow: "hidden" }}>
@@ -3178,6 +3284,215 @@ export default function KlasUp() {
           );
         })()}
 
+        {/* ── WELLNESS ── */}
+        {page === "Wellness" && (() => {
+          const FACULTY_MEDITATIONS = [
+            { title: "Before a Tough Class", duration: "3 min", desc: "Ground yourself and find your center before walking into a challenging session.", inhale: 4, hold: 4, exhale: 6, rounds: 6 },
+            { title: "After a Draining Week", duration: "5 min", desc: "Release the weight of the week. You gave what you had — now restore.", inhale: 4, hold: 7, exhale: 8, rounds: 8 },
+            { title: "Reconnect with Purpose", duration: "4 min", desc: "Remember why you teach. Reconnect with the impact you make every day.", inhale: 5, hold: 5, exhale: 5, rounds: 7 },
+            { title: "Midday Reset", duration: "2 min", desc: "A quick energy refresh between classes or meetings.", inhale: 3, hold: 3, exhale: 4, rounds: 5 },
+          ];
+          const STUDENT_MEDITATIONS = [
+            { emoji: "🎨", title: "Before a Creative Assignment", duration: "2 min", desc: "Open up to new ideas and let go of perfectionism.", inhale: 4, hold: 3, exhale: 5, rounds: 4, state: "Creativity" },
+            { emoji: "💬", title: "Before Presentations or Discussions", duration: "2 min", desc: "Calm nerves and find your voice before speaking up.", inhale: 4, hold: 4, exhale: 6, rounds: 4, state: "Communication" },
+            { emoji: "📝", title: "Before an Exam", duration: "3 min", desc: "Settle anxiety and access what you already know.", inhale: 4, hold: 7, exhale: 8, rounds: 5, state: "Test Anxiety" },
+            { emoji: "🔥", title: "Mid-Semester Reset", duration: "4 min", desc: "When everything feels like too much — pause and recharge.", inhale: 5, hold: 5, exhale: 7, rounds: 6, state: "Burnout" },
+            { emoji: "💭", title: "Processing Difficult Topics", duration: "3 min", desc: "Create space after emotionally heavy content or discussions.", inhale: 4, hold: 5, exhale: 6, rounds: 5, state: "Understanding Emotions" },
+            { emoji: "🌱", title: "General Centering", duration: "2 min", desc: "A simple grounding exercise for any moment you need stillness.", inhale: 4, hold: 4, exhale: 4, rounds: 5, state: "Grounding" },
+          ];
+          const TI_RESOURCES = [
+            { title: "Trauma-Aware Pedagogy Improves Student Engagement", cite: "Carello, J., & Butler, L. D. (2015). Practicing what we teach: Trauma-informed educational practice. Journal of Teaching in Social Work, 35(3), 262-278.", summary: "Creating predictable, safe classroom environments where students have choice and voice reduces stress responses and increases participation, especially for first-generation and underrepresented students." },
+            { title: "Compassion Fatigue in Faculty Is Real — And Preventable", cite: "Hoffman, S., Palladino, J. M., & Barnett, J. (2007). Compassion fatigue as a theoretical framework. Journal of Curriculum, Teaching, Learning and Leadership in Education, 2(2).", summary: "Faculty who regularly engage with students' struggles can develop secondary traumatic stress. Self-care routines, peer support, and institutional boundaries protect against burnout." },
+            { title: "Mindfulness Practices Reduce Faculty Burnout", cite: "Hue, M. T., & Lau, N. S. (2015). Promoting well-being and preventing burnout in teacher education. Journal of Education for Teaching, 41(1), 33-50.", summary: "Brief daily mindfulness practices — even 2-5 minutes — significantly reduce emotional exhaustion and increase job satisfaction among educators." },
+          ];
+
+          // Weekly check-in history visual (last 4 weeks)
+          const weeklyData = [];
+          for (let w = 0; w < 4; w++) {
+            const weekCheckins = wellnessHistory.filter(c => {
+              const d = new Date(c.created_at);
+              const now = new Date();
+              const weekStart = new Date(now); weekStart.setDate(now.getDate() - (w + 1) * 7);
+              const weekEnd = new Date(now); weekEnd.setDate(now.getDate() - w * 7);
+              return d >= weekStart && d < weekEnd;
+            });
+            const avg = weekCheckins.length > 0 ? Math.round(weekCheckins.reduce((a, c) => a + c.check_in_score, 0) / weekCheckins.length) : 0;
+            weeklyData.unshift({ week: `${w === 0 ? "This" : w} wk${w > 1 ? "s" : ""} ago`, avg, count: weekCheckins.length });
+          }
+
+          return (
+          <div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2, color: C.sage }}>Wellness 🌿</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Your wellbeing matters. Teaching is a practice — and so is taking care of yourself.</div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 20, background: C.ivoryDark, borderRadius: 10, padding: 3 }}>
+              {[{ id: "faculty", label: "Your Wellbeing" }, { id: "students", label: "Your Students" }].map(t => (
+                <button key={t.id} onClick={() => setWellnessTab(t.id)}
+                  style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", background: wellnessTab === t.id ? C.white : "transparent", color: wellnessTab === t.id ? C.sage : C.muted, transition: "all 0.2s" }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── TAB 1: FACULTY WELLBEING ── */}
+            {wellnessTab === "faculty" && (
+              <div>
+                {/* Weekly check-in */}
+                <div style={{ background: "#EAF3DE", borderRadius: 14, padding: "1.25rem", marginBottom: 16, border: `1px solid ${C.sage}22` }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.sage, marginBottom: 8 }}>How are you feeling this week?</div>
+                  <div style={{ display: "flex", gap: mob ? 10 : 14, marginBottom: wellnessMsg ? 12 : 0 }}>
+                    {WELLNESS_EMOJIS.map((e, i) => (
+                      <button key={i} onClick={() => handleWellnessCheckin(i + 1)}
+                        style={{ fontSize: mob ? 28 : 34, background: wellnessScore === i + 1 ? `${C.sage}22` : "transparent", border: wellnessScore === i + 1 ? `2px solid ${C.sage}` : "2px solid transparent", borderRadius: "50%", width: mob ? 48 : 56, height: mob ? 48 : 56, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                  {wellnessMsg && (
+                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginTop: 8 }}>
+                      <div style={{ fontSize: 14, color: C.sage, fontWeight: 600, lineHeight: 1.5, marginBottom: 4 }}>{wellnessMsg.message}</div>
+                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>💡 {wellnessMsg.tip}</div>
+                    </div>
+                  )}
+                  {wellnessBurnoutFlag && (
+                    <div style={{ background: C.roseLight, borderRadius: 8, padding: "8px 12px", marginTop: 10, fontSize: 13, color: C.rose, lineHeight: 1.5 }}>
+                      You've had a tough few days. Be gentle with yourself. 🌿
+                    </div>
+                  )}
+                </div>
+
+                {/* Burnout risk tracker */}
+                <Card style={{ marginBottom: 16 }}>
+                  <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Your Last 4 Weeks</div>
+                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 10 }}>
+                    {weeklyData.map((w, i) => (
+                      <div key={i} style={{ background: w.avg === 0 ? C.ivoryDark : w.avg <= 2 ? C.roseLight : w.avg <= 3 ? "#FFF8E7" : "#EAF3DE", borderRadius: 10, padding: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}>{w.avg > 0 ? WELLNESS_EMOJIS[w.avg - 1] : "—"}</div>
+                        <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted }}>{w.week}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>{w.count} check-in{w.count !== 1 ? "s" : ""}</div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Faculty meditations */}
+                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Breathing for Faculty</div>
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
+                  {FACULTY_MEDITATIONS.map((m, i) => (
+                    <Card key={i} style={{ background: "#EAF3DE", border: `1px solid ${C.sage}22` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.sage }}>{m.title}</div>
+                        <Tag label={m.duration} color={C.sage} bg={`${C.sage}18`} />
+                      </div>
+                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
+                      <button onClick={() => setBreathingOpen(m)}
+                        style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        Begin 🌿
+                      </button>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Trauma-informed resources */}
+                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Trauma-Informed Teaching</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {TI_RESOURCES.map((r, i) => (
+                    <Card key={i} style={{ borderLeft: `4px solid ${C.sage}` }}>
+                      <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 6 }}>{r.title}</div>
+                      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>{r.summary}</div>
+                      <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>{r.cite}</div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB 2: YOUR STUDENTS ── */}
+            {wellnessTab === "students" && (
+              <div>
+                {/* Weekly reflection */}
+                <Card style={{ marginBottom: 16, background: "#EAF3DE", border: `1px solid ${C.sage}22` }}>
+                  <div style={{ fontFamily: F.display, fontSize: 17, color: C.sage, marginBottom: 8 }}>What have you done to support the whole student this week?</div>
+                  <textarea value={wellnessReflection} onChange={e => setWellnessReflection(e.target.value)}
+                    placeholder="Share a moment — big or small — where you saw or supported the whole student..."
+                    rows={4}
+                    style={{ width: "100%", border: `1px solid ${C.sage}33`, borderRadius: 10, padding: 12, fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.7)", lineHeight: 1.6 }} />
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                    <button onClick={async () => {
+                      if (!wellnessReflection.trim()) return;
+                      setWellnessReflectionLoading(true);
+                      try {
+                        const data = await (await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-micro-learning`, {
+                          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+                          body: JSON.stringify({ type: "sage-chat", messages: [{ role: "user", content: `A faculty member reflected on supporting the whole student this week: "${wellnessReflection}"\n\nRespond with: (1) A warm, genuine 1-2 sentence acknowledgment of what they shared. (2) One specific, research-backed suggestion for next week. Keep it concise and encouraging. Use 🌿 sparingly.` }], currentPage: "Wellness" }),
+                        })).json();
+                        setWellnessReflectionResult(data.reply);
+                      } catch (e) { setWellnessReflectionResult("Thank you for reflecting on your students' wellbeing. That awareness itself is a powerful act of care. 🌿"); }
+                      setWellnessReflectionLoading(false);
+                    }}
+                      disabled={!wellnessReflection.trim() || wellnessReflectionLoading}
+                      style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: wellnessReflectionLoading ? "wait" : "pointer", opacity: !wellnessReflection.trim() ? 0.5 : 1 }}>
+                      {wellnessReflectionLoading ? "Reflecting..." : "Submit Reflection"}
+                    </button>
+                  </div>
+                  {wellnessReflectionResult && (
+                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: 14, color: C.sage, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
+                      {wellnessReflectionResult}
+                    </div>
+                  )}
+                </Card>
+
+                {/* Student exercises */}
+                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Exercises for Students</div>
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
+                  {STUDENT_MEDITATIONS.map((m, i) => (
+                    <Card key={i} style={{ border: `1px solid ${C.sage}22` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                        <div>
+                          <span style={{ fontSize: 20, marginRight: 8 }}>{m.emoji}</span>
+                          <span style={{ fontFamily: F.display, fontSize: 15, color: C.navy }}>{m.title}</span>
+                        </div>
+                        <Tag label={m.duration} color={C.sage} bg={`${C.sage}18`} />
+                      </div>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.sage, marginBottom: 6 }}>{m.state}</div>
+                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setBreathingOpen(m)}
+                          style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                          Begin
+                        </button>
+                        <button onClick={() => {
+                          const text = `🌿 ${m.title} (${m.duration})\n\n${m.desc}\n\nTry this before ${m.state.toLowerCase()}: Close your eyes. Breathe in for ${m.inhale} seconds, hold for ${m.hold}, breathe out for ${m.exhale}. Repeat ${m.rounds} times.\n\n— Shared via KlasUp (klasup.com)`;
+                          navigator.clipboard.writeText(text);
+                        }}
+                          style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                          Share with Students
+                        </button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Trauma-informed section (student tab) */}
+                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Trauma-Informed Teaching</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {TI_RESOURCES.map((r, i) => (
+                    <Card key={i} style={{ borderLeft: `4px solid ${C.sage}` }}>
+                      <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 6 }}>{r.title}</div>
+                      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>{r.summary}</div>
+                      <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>{r.cite}</div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
         {/* ── SETTINGS ── */}
         {page === "Settings" && (() => {
           const emptyForm = { course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 };
@@ -3943,6 +4258,89 @@ export default function KlasUp() {
         )}
 
       </div>
+
+      {/* ── BREATHING GUIDE MODAL ── */}
+      {breathingOpen && (() => {
+        const m = breathingOpen;
+        const totalSeconds = (m.inhale + m.hold + m.exhale) * m.rounds;
+        const cycleSeconds = m.inhale + m.hold + m.exhale;
+
+        const BreathingGuide = () => {
+          const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
+          const [phase, setPhase] = useState("in"); // "in" | "hold" | "out"
+          const [cyclePos, setCyclePos] = useState(0);
+
+          useEffect(() => {
+            if (secondsLeft <= 0) return;
+            const timer = setInterval(() => {
+              setSecondsLeft(prev => {
+                if (prev <= 1) { clearInterval(timer); return 0; }
+                return prev - 1;
+              });
+              setCyclePos(prev => {
+                const next = (prev + 1) % cycleSeconds;
+                if (next < m.inhale) setPhase("in");
+                else if (next < m.inhale + m.hold) setPhase("hold");
+                else setPhase("out");
+                return next;
+              });
+            }, 1000);
+            return () => clearInterval(timer);
+          }, []);
+
+          const mins = Math.floor(secondsLeft / 60);
+          const secs = secondsLeft % 60;
+          const circleScale = phase === "in" ? 1.4 : phase === "hold" ? 1.4 : 0.85;
+          const phaseText = phase === "in" ? "Breathe in..." : phase === "hold" ? "Hold..." : "Breathe out...";
+          const done = secondsLeft <= 0;
+
+          return (
+            <div style={{
+              position: "fixed", inset: 0, zIndex: 10000,
+              background: "rgba(15,31,61,0.95)", backdropFilter: "blur(8px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexDirection: "column", padding: 24,
+            }}>
+              <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 24, color: C.white, marginBottom: 6 }}>{m.title}</div>
+              <div style={{ fontSize: 13, color: C.tealMid, marginBottom: 40, fontFamily: F.accent, fontWeight: 600 }}>{m.duration}</div>
+
+              {/* Breathing circle */}
+              <div style={{
+                width: mob ? 160 : 200, height: mob ? 160 : 200, borderRadius: "50%",
+                background: `radial-gradient(circle, ${C.sage}44 0%, ${C.sage}11 70%, transparent 100%)`,
+                border: `3px solid ${C.sage}88`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transform: `scale(${done ? 1 : circleScale})`,
+                transition: phase === "in" ? `transform ${m.inhale}s ease-in-out` : phase === "hold" ? "none" : `transform ${m.exhale}s ease-in-out`,
+                marginBottom: 32,
+              }}>
+                <div style={{ fontFamily: F.display, fontSize: done ? 20 : 18, color: C.white, textAlign: "center" }}>
+                  {done ? "Well done 🌿" : phaseText}
+                </div>
+              </div>
+
+              {/* Instructions */}
+              {!done && (
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textAlign: "center", maxWidth: 320, lineHeight: 1.6, marginBottom: 20 }}>
+                  In for {m.inhale}s · Hold for {m.hold}s · Out for {m.exhale}s
+                </div>
+              )}
+
+              {/* Timer */}
+              <div style={{ fontFamily: F.accent, fontSize: 28, fontWeight: 700, color: done ? C.sage : C.tealMid, marginBottom: 32 }}>
+                {done ? "" : `${mins}:${secs.toString().padStart(2, "0")}`}
+              </div>
+
+              <button onClick={() => setBreathingOpen(null)}
+                style={{ background: "rgba(255,255,255,0.1)", border: `1px solid rgba(255,255,255,0.2)`, borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.white, cursor: "pointer", minHeight: 44 }}>
+                {done ? "Close" : "End Session"}
+              </button>
+            </div>
+          );
+        };
+
+        return <BreathingGuide />;
+      })()}
 
       {/* ── SAGE FLOATING CHAT ── */}
 

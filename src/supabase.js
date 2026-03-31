@@ -384,6 +384,54 @@ export async function keywordSearchArticles(queryText, dimension = null, count =
   return data
 }
 
+// ── Wellness check-ins ─────────────────────────────────────
+
+export async function insertWellnessCheckin(userId, score, note = null) {
+  const { data, error } = await supabase
+    .from('wellness_checkins')
+    .insert({ user_id: userId, check_in_score: score, note: sanitize(note) })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateWellnessCheckin(id, score, note = null) {
+  const { data, error } = await supabase
+    .from('wellness_checkins')
+    .update({ check_in_score: score, note: sanitize(note) })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchRecentCheckins(userId, limit = 28) {
+  const { data, error } = await supabase
+    .from('wellness_checkins')
+    .select('id, check_in_score, note, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchTodayCheckin(userId) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const { data, error } = await supabase
+    .from('wellness_checkins')
+    .select('id, check_in_score, note, created_at')
+    .eq('user_id', userId)
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  return data?.[0] || null
+}
+
 export async function fetchArticlesByDimension(dimension, limit = 20) {
   const { data, error } = await supabase
     .from('research_articles')
