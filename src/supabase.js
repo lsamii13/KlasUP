@@ -3,7 +3,28 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Custom storage that checks sessionStorage first, then localStorage.
+// This allows "Remember Me" to work: unchecked = sessionStorage (dies on tab close),
+// checked = localStorage (persists across sessions).
+const dualStorage = {
+  getItem: (key) => sessionStorage.getItem(key) ?? localStorage.getItem(key),
+  setItem: (key, value) => {
+    // Write to whichever store currently holds the key, defaulting to localStorage
+    if (sessionStorage.getItem(key) !== null) {
+      sessionStorage.setItem(key, value)
+    } else {
+      localStorage.setItem(key, value)
+    }
+  },
+  removeItem: (key) => {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+  },
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { storage: dualStorage, autoRefreshToken: true, persistSession: true },
+})
 
 // ── Sanitization ──────────────────────────────────────────
 
@@ -26,9 +47,21 @@ export async function signUp(email, password) {
   return data
 }
 
-export async function signIn(email, password) {
+export async function signIn(email, password, { remember = true } = {}) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
+
+  // When "Remember Me" is unchecked, move the session token from localStorage
+  // to sessionStorage so it expires when the browser tab closes.
+  if (!remember) {
+    const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
+    const token = localStorage.getItem(storageKey)
+    if (token) {
+      sessionStorage.setItem(storageKey, token)
+      localStorage.removeItem(storageKey)
+    }
+  }
+
   return data
 }
 
