@@ -681,11 +681,22 @@ export default function KlasUp() {
   const [settingsEditing, setSettingsEditing] = useState(null);
   const [settingsForm, setSettingsForm] = useState({});
 
+  // --- Settings page state ---
+  const [settingsProfileForm, setSettingsProfileForm] = useState(null);
+  const [settingsProfileSaving, setSettingsProfileSaving] = useState(false);
+  const [settingsProfileMsg, setSettingsProfileMsg] = useState(null);
+  const [settingsPhotoUploading, setSettingsPhotoUploading] = useState(false);
+  const [settingsPwForm, setSettingsPwForm] = useState({ current: "", newPw: "", confirm: "" });
+  const [settingsPwSaving, setSettingsPwSaving] = useState(false);
+  const [settingsPwMsg, setSettingsPwMsg] = useState(null);
+  const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
+
   const courseNames = dbCourses.map(c => c.course_code);
   const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
 
-  const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Lecturer", "Adjunct", "Dean", "Department Chair", "Other"];
+  const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Adjunct", "Instructor", "Lecturer", "Dean", "Department Chair", "AVPAA", "Other"];
   const LMS_OPTIONS = ["Canvas", "Blackboard", "D2L Brightspace", "Moodle", "Other"];
+  const EDUCATION_LEVELS = ["Bachelor's Degree", "Master's Degree", "Doctoral Degree (PhD, EdD, etc.)", "Professional Degree (JD, MD, etc.)", "Other"];
 
   // --- Auth listener ---
   useEffect(() => {
@@ -1434,7 +1445,7 @@ export default function KlasUp() {
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
           {NAV.filter(n => !n.adminOnly || profile?.role === "admin").map(n => (
-            <button key={n.id} onClick={() => { setPage(n.id); if (n.id === "Admin") loadAdminData(); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer" }}>
+            <button key={n.id} onClick={() => { setPage(n.id); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer" }}>
               <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
             </button>
           ))}
@@ -2867,17 +2878,177 @@ export default function KlasUp() {
         {page === "Settings" && (() => {
           const emptyForm = { course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 };
           const isAdding = settingsEditing === "new";
+          // Initialize profile form if needed
+          if (!settingsProfileForm && profile) {
+            // Will trigger a re-render with the form populated
+            Promise.resolve().then(() => setSettingsProfileForm({
+              name: profile.name || "",
+              institution: profile.institution || "",
+              job_title: profile.job_title || "",
+              lms: profile.lms || "",
+              education_level: profile.education_level || "",
+              bio: profile.bio || "",
+            }));
+          }
+          const pf = settingsProfileForm || {};
+          const initials = (profile?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+          const inputStyle = { width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box", background: C.white };
+          const labelStyle = { fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 };
+
           return (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Settings</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Add, edit, or remove your courses. Semester overview is on your Dashboard.</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Manage your profile, courses, and account.</div>
             </div>
 
-            {/* Course list */}
-            <Card style={{ marginBottom: 16 }}>
+            {/* ── PROFILE SECTION ── */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy, marginBottom: 16 }}>Profile</div>
+
+              {/* Avatar + name row */}
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 20 }}>
+                <div style={{ position: "relative" }}>
+                  {profile?.photo_url ? (
+                    <img src={profile.photo_url} alt="Avatar" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: `3px solid ${C.tealLight}` }} />
+                  ) : (
+                    <div style={{ width: 72, height: 72, borderRadius: "50%", background: C.tealBright, display: "flex", alignItems: "center", justifyContent: "center", color: C.white, fontFamily: F.display, fontSize: 24 }}>
+                      {initials}
+                    </div>
+                  )}
+                  <label style={{ position: "absolute", bottom: -4, right: -4, width: 26, height: 26, borderRadius: "50%", background: C.white, border: `2px solid ${C.tealBright}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12 }}>
+                    {settingsPhotoUploading ? "..." : "📷"}
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setSettingsPhotoUploading(true);
+                      try {
+                        const url = await uploadProfilePhoto(session.user.id, file);
+                        setProfile(p => ({ ...p, photo_url: url }));
+                      } catch (err) { alert("Upload failed: " + err.message); }
+                      finally { setSettingsPhotoUploading(false); }
+                    }} />
+                  </label>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy }}>{profile?.name || "Faculty"}</div>
+                  <div style={{ fontSize: 13, color: C.muted }}>{session?.user?.email}</div>
+                  {profile?.created_at && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Member since {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>}
+                </div>
+              </div>
+
+              {/* Profile fields */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+                <div>
+                  <label style={labelStyle}>Full Name *</label>
+                  <input value={pf.name || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, name: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Email</label>
+                  <input value={session?.user?.email || ""} disabled style={{ ...inputStyle, background: C.ivoryDark, color: C.muted, cursor: "not-allowed" }} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Job Title</label>
+                  <select value={pf.job_title || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, job_title: e.target.value }))} style={{ ...inputStyle, cursor: "pointer" }}>
+                    <option value="">Select...</option>
+                    {JOB_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Institution</label>
+                  <input value={pf.institution || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, institution: e.target.value }))} placeholder="e.g. Boston University" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>LMS</label>
+                  <select value={pf.lms || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, lms: e.target.value }))} style={{ ...inputStyle, cursor: "pointer" }}>
+                    <option value="">Select...</option>
+                    {LMS_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Highest Education Level</label>
+                  <select value={pf.education_level || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, education_level: e.target.value }))} style={{ ...inputStyle, cursor: "pointer" }}>
+                    <option value="">Select...</option>
+                    {EDUCATION_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Bio</label>
+                <textarea value={pf.bio || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, bio: e.target.value }))}
+                  placeholder="Tell us a little about your teaching..."
+                  rows={3}
+                  style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={async () => {
+                  if (!pf.name?.trim()) return;
+                  setSettingsProfileSaving(true);
+                  setSettingsProfileMsg(null);
+                  try {
+                    const updated = await upsertProfile(session.user.id, {
+                      ...profile,
+                      name: pf.name.trim(),
+                      institution: pf.institution?.trim() || null,
+                      job_title: pf.job_title || null,
+                      lms: pf.lms || null,
+                      education_level: pf.education_level || null,
+                      bio: pf.bio?.trim() || null,
+                      email: session.user.email,
+                    });
+                    setProfile(updated);
+                    setSettingsProfileMsg("saved");
+                    setTimeout(() => setSettingsProfileMsg(null), 3000);
+                  } catch (err) { setSettingsProfileMsg("error:" + err.message); }
+                  finally { setSettingsProfileSaving(false); }
+                }}
+                  disabled={settingsProfileSaving || !pf.name?.trim()}
+                  style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: settingsProfileSaving ? "wait" : "pointer", opacity: !pf.name?.trim() ? 0.5 : 1 }}>
+                  {settingsProfileSaving ? "Saving..." : "Save Changes"}
+                </button>
+                {settingsProfileMsg === "saved" && <span style={{ fontSize: 12, color: C.sage, fontWeight: 700 }}>Changes saved!</span>}
+                {settingsProfileMsg?.startsWith("error:") && <span style={{ fontSize: 12, color: C.rose, fontWeight: 700 }}>{settingsProfileMsg.slice(6)}</span>}
+              </div>
+            </Card>
+
+            {/* ── ACCOUNT SECTION ── */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy, marginBottom: 14 }}>Account</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <div style={{
+                  fontSize: 12, fontFamily: F.accent, fontWeight: 700, padding: "4px 14px", borderRadius: 20,
+                  background: tier === "pro" ? C.tealLight : tier === "institutional" ? C.goldLight : C.ivoryDark,
+                  color: tier === "pro" ? C.teal : tier === "institutional" ? C.gold : C.muted,
+                }}>
+                  {tier.charAt(0).toUpperCase() + tier.slice(1)}{subStatus.trialActive ? " Trial" : ""} Plan
+                </div>
+                {subStatus.trialActive && subStatus.daysLeft > 0 && (
+                  <span style={{ fontSize: 12, color: subStatus.trialExpiringSoon ? C.rose : C.muted }}>
+                    {subStatus.daysLeft} day{subStatus.daysLeft !== 1 ? "s" : ""} left
+                  </span>
+                )}
+              </div>
+              {profile?.created_at && (
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Account created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+              )}
+              {tier === "free" && (
+                <button onClick={upgrade} style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  Upgrade to Pro
+                </button>
+              )}
+              {tier === "pro" && !subStatus.trialActive && (
+                <button style={{ background: C.ivoryDark, color: C.muted, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  Cancel Subscription
+                </button>
+              )}
+            </Card>
+
+            {/* ── SEMESTER SETTINGS (Courses) ── */}
+            <Card style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ fontFamily: F.display, fontSize: 18 }}>Your Courses</div>
+                <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy }}>Semester Settings</div>
                 {!isAdding && (
                   <button onClick={() => { setSettingsEditing("new"); setSettingsForm(emptyForm); }}
                     style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
@@ -2888,7 +3059,6 @@ export default function KlasUp() {
 
               {dbCourses.length === 0 && !isAdding && (
                 <div style={{ textAlign: "center", padding: "2rem", color: C.muted }}>
-                  <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.3 }}>⚙</div>
                   <div style={{ fontSize: 13 }}>No courses yet. Add your first course to get started.</div>
                 </div>
               )}
@@ -2901,57 +3071,40 @@ export default function KlasUp() {
                       <div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                           <div>
-                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Code</label>
-                            <input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                            <label style={labelStyle}>Course Code</label>
+                            <input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Name</label>
-                            <input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                            <label style={labelStyle}>Course Name</label>
+                            <input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Section</label>
-                            <input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                            <label style={labelStyle}>Section</label>
+                            <input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Code</label>
-                            <input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                            <label style={labelStyle}>Semester Code</label>
+                            <input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Start</label>
-                            <input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                            <label style={labelStyle}>Semester Start</label>
+                            <input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Weeks</label>
-                            <input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))}
-                              style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                            <label style={labelStyle}>Weeks</label>
+                            <input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))} style={inputStyle} />
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={async () => {
                             try {
-                              await editCourse(c.id, {
-                                course_code: settingsForm.course_code.trim(),
-                                course_name: settingsForm.course_name.trim(),
-                                section: settingsForm.section.trim() || null,
-                                semester_code: settingsForm.semester_code.trim(),
-                                semester_start: settingsForm.semester_start || null,
-                                num_weeks: parseInt(settingsForm.num_weeks) || 16,
-                              });
+                              await editCourse(c.id, { course_code: settingsForm.course_code.trim(), course_name: settingsForm.course_name.trim(), section: settingsForm.section.trim() || null, semester_code: settingsForm.semester_code.trim(), semester_start: settingsForm.semester_start || null, num_weeks: parseInt(settingsForm.num_weeks) || 16 });
                               setSettingsEditing(null);
                             } catch (err) { alert("Error: " + err.message); }
                           }}
-                            style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                            Save
-                          </button>
+                            style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Save</button>
                           <button onClick={() => setSettingsEditing(null)}
-                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                            Cancel
-                          </button>
+                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -2970,13 +3123,9 @@ export default function KlasUp() {
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button onClick={() => { setSettingsEditing(c.id); setSettingsForm({ course_code: c.course_code, course_name: c.course_name, section: c.section || "", semester_code: c.semester_code, semester_start: c.semester_start || "", num_weeks: c.num_weeks || 16 }); }}
-                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
-                            Edit
-                          </button>
+                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Edit</button>
                           <button onClick={async () => { if (confirm(`Remove ${c.course_code}?`)) { try { await removeCourse(c.id); } catch (err) { alert("Error: " + err.message); } } }}
-                            style={{ background: C.roseLight, color: C.rose, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
-                            Remove
-                          </button>
+                            style={{ background: C.roseLight, color: C.rose, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Remove</button>
                         </div>
                       </div>
                     )}
@@ -2984,94 +3133,116 @@ export default function KlasUp() {
                 );
               })}
 
-              {/* Add new course form */}
               {isAdding && (
                 <div style={{ border: `1.5px solid ${C.tealBright}`, borderRadius: 12, padding: "1rem", marginBottom: 10, background: C.ivory }}>
                   <div style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.teal, marginBottom: 10 }}>New Course</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                    <div>
-                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Code *</label>
-                      <input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))}
-                        placeholder="e.g. MKT 301" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Course Name *</label>
-                      <input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))}
-                        placeholder="e.g. Consumer Behavior" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Section</label>
-                      <input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))}
-                        placeholder="e.g. 001" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Code *</label>
-                      <input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))}
-                        placeholder="e.g. Fall 2025" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Start</label>
-                      <input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Weeks</label>
-                      <input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
-                    </div>
+                    <div><label style={labelStyle}>Course Code *</label><input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))} placeholder="e.g. MKT 301" style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Course Name *</label><input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))} placeholder="e.g. Consumer Behavior" style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Section</label><input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))} placeholder="e.g. 001" style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Semester Code *</label><input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))} placeholder="e.g. Fall 2025" style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Semester Start</label><input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Weeks</label><input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))} style={inputStyle} /></div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      disabled={!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()}
-                      onClick={async () => {
-                        try {
-                          await addCourseFromForm(settingsForm);
-                          setSettingsEditing(null);
-                          setSettingsForm({});
-                        } catch (err) { alert("Error: " + err.message); }
-                      }}
-                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()) ? 0.4 : 1 }}>
-                      Save Course
-                    </button>
+                    <button disabled={!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()}
+                      onClick={async () => { try { await addCourseFromForm(settingsForm); setSettingsEditing(null); setSettingsForm({}); } catch (err) { alert("Error: " + err.message); } }}
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()) ? 0.4 : 1 }}>Save Course</button>
                     <button onClick={() => { setSettingsEditing(null); setSettingsForm({}); }}
-                      style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                      Cancel
-                    </button>
+                      style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Cancel</button>
                   </div>
                 </div>
               )}
             </Card>
 
-            {/* FERPA Compliance Notice */}
-            <Card style={{ marginTop: 16, borderLeft: `4px solid ${C.teal}` }}>
+            {/* ── SECURITY ── */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy, marginBottom: 14 }}>Security</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label style={labelStyle}>Current Password</label>
+                  <input type="password" value={settingsPwForm.current} onChange={e => setSettingsPwForm(p => ({ ...p, current: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>New Password</label>
+                  <input type="password" value={settingsPwForm.newPw} onChange={e => setSettingsPwForm(p => ({ ...p, newPw: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Confirm New Password</label>
+                  <input type="password" value={settingsPwForm.confirm} onChange={e => setSettingsPwForm(p => ({ ...p, confirm: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={async () => {
+                  if (!settingsPwForm.newPw || settingsPwForm.newPw.length < 8) { setSettingsPwMsg("error:Password must be at least 8 characters."); return; }
+                  if (settingsPwForm.newPw !== settingsPwForm.confirm) { setSettingsPwMsg("error:Passwords don't match."); return; }
+                  setSettingsPwSaving(true); setSettingsPwMsg(null);
+                  try {
+                    await updatePassword(settingsPwForm.newPw);
+                    setSettingsPwForm({ current: "", newPw: "", confirm: "" });
+                    setSettingsPwMsg("saved");
+                    setTimeout(() => setSettingsPwMsg(null), 3000);
+                  } catch (err) { setSettingsPwMsg("error:" + err.message); }
+                  finally { setSettingsPwSaving(false); }
+                }}
+                  disabled={settingsPwSaving || !settingsPwForm.newPw}
+                  style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: settingsPwSaving ? "wait" : "pointer", opacity: !settingsPwForm.newPw ? 0.5 : 1 }}>
+                  {settingsPwSaving ? "Saving..." : "Update Password"}
+                </button>
+                {settingsPwMsg === "saved" && <span style={{ fontSize: 12, color: C.sage, fontWeight: 700 }}>Password updated!</span>}
+                {settingsPwMsg?.startsWith("error:") && <span style={{ fontSize: 12, color: C.rose, fontWeight: 700 }}>{settingsPwMsg.slice(6)}</span>}
+              </div>
+            </Card>
+
+            {/* ── FERPA ── */}
+            <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.teal}` }}>
               <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>FERPA Compliance</div>
-              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
-                KlasUp is designed with FERPA compliance in mind. We do <strong>not</strong> collect, store, or process any student personally identifiable information (PII).
-                All data in KlasUp relates to faculty teaching practices, course design, and pedagogical improvement — not individual student records.
-                Faculty who upload course content should ensure that any submitted text does not contain student names, IDs, grades, or other PII.
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 8 }}>
+                KlasUp does <strong>not</strong> collect or process student PII.
+                All data relates to faculty teaching practices and course design. Ensure uploaded content does not contain student names, IDs, or grades.
               </div>
               <div style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>Your institution's FERPA obligations are not affected by using KlasUp.</div>
             </Card>
 
-            {/* Account & Data */}
-            <Card style={{ marginTop: 16 }}>
-              <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>Account & Data</div>
+            {/* ── DANGER ZONE ── */}
+            <Card style={{ borderLeft: `4px solid ${C.rose}`, background: `${C.roseLight}44` }}>
+              <div style={{ fontFamily: F.display, fontSize: 20, color: C.rose, marginBottom: 8 }}>Danger Zone</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
-                Under GDPR and CCPA, you have the right to request deletion of your account and all associated data.
-                This action is permanent and cannot be undone.
+                Permanently delete your account and all associated data. This action cannot be undone.
               </div>
-              <button onClick={async () => {
-                if (confirm("Are you sure you want to request deletion of your account and all data? This cannot be undone.")) {
-                  try {
-                    await requestDataDeletion(session.user.id);
-                    alert("Deletion request submitted. Your account will be permanently deleted within 30 days. You will receive a confirmation email.");
-                  } catch (err) { alert("Error: " + err.message); }
-                }
-              }}
-                style={{ background: C.roseLight, color: C.rose, border: `1px solid ${C.rose}44`, borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+              <button onClick={() => setSettingsDeleteConfirm(true)}
+                style={{ background: C.roseLight, color: C.rose, border: `1.5px solid ${C.rose}`, borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                 Request Account Deletion
               </button>
             </Card>
+
+            {/* Delete confirmation modal */}
+            {settingsDeleteConfirm && (
+              <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,31,61,0.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ background: C.white, borderRadius: 16, padding: "2rem", maxWidth: 420, width: "90%", boxShadow: "0 8px 40px rgba(15,31,61,0.2)" }}>
+                  <div style={{ fontFamily: F.display, fontSize: 20, color: C.rose, marginBottom: 12 }}>Delete your account?</div>
+                  <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 20 }}>
+                    This will permanently delete your profile, all courses, uploads, and generated content within 30 days. You will receive a confirmation email. <strong>This cannot be undone.</strong>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={async () => {
+                      try {
+                        await requestDataDeletion(session.user.id);
+                        setSettingsDeleteConfirm(false);
+                        alert("Deletion request submitted. Your account will be permanently deleted within 30 days.");
+                      } catch (err) { alert("Error: " + err.message); }
+                    }}
+                      style={{ background: C.rose, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                      Yes, Delete My Account
+                    </button>
+                    <button onClick={() => setSettingsDeleteConfirm(false)}
+                      style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           );
         })()}

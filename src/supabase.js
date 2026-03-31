@@ -83,6 +83,8 @@ export async function upsertProfile(userId, profile) {
     job_title: sanitize(profile.job_title),
     lms: profile.lms || null,
     photo_url: profile.photo_url || null,
+    education_level: profile.education_level || null,
+    bio: profile.bio ? sanitize(profile.bio) : null,
     tos_accepted_at: profile.tos_accepted_at || null,
     tos_version: profile.tos_version || null,
   }
