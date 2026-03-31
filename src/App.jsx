@@ -3837,6 +3837,21 @@ export default function KlasUp() {
               <div style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>Your institution's FERPA obligations are not affected by using KlasUp.</div>
             </Card>
 
+            {/* ── LEGAL ── */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Legal</div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <button onClick={() => setShowTerms("terms")}
+                  style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "9px 18px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  Terms of Service
+                </button>
+                <button onClick={() => setShowTerms("privacy")}
+                  style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "9px 18px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  Privacy Policy
+                </button>
+              </div>
+            </Card>
+
             {/* ── DANGER ZONE ── */}
             <Card style={{ borderLeft: `4px solid ${C.rose}`, background: `${C.roseLight}44` }}>
               <div style={{ fontFamily: F.display, fontSize: 20, color: C.rose, marginBottom: 8 }}>Danger Zone</div>

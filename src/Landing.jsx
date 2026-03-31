@@ -306,13 +306,13 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
         {[
           {
             icon: "📅",
-            title: "Development is a one-time event",
-            body: "Professional development is a one-time event. Teaching is a daily practice. The workshop you attended last August doesn't help you on a Tuesday in October.",
+            title: "PD Is a Checkbox. Teaching Is Every Day.",
+            body: "One workshop. One day. One year to figure out the rest on your own. That's not professional development — that's a checkbox. But it's Tuesday in October. A student is checked out. An assignment isn't landing. You're tired. Teaching is a daily practice. KlasUp is too — every day, right where you are.",
           },
           {
             icon: "🎓",
             title: "Nobody taught you to teach",
-            body: "You know your subject. Nobody taught you how to teach it. You earned a doctorate in your discipline — not in pedagogy. And yet teaching is half your job.",
+            body: "You spent a decade becoming one of the best minds in your field. There were no classes in pedagogy or classroom management. Your expertise deserves to land. KlasUp helps you make sure it does.",
           },
           {
             icon: "📋",
@@ -380,7 +380,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           { icon: "❤", title: "Course Health Score", desc: "A living diagnostic that evaluates alignment, engagement strategies, assessment design, and inclusivity across your syllabus.", color: C.rose, bg: C.roseLight },
           { icon: "🔗", title: "Career Connections", desc: "Show students how this week's lesson connects to real, growing careers — with labor market data and shareable cards.", color: C.sage, bg: C.sageLight },
           { icon: "◈", title: "Think Tank", desc: "Ask any teaching question and get research-backed, practical answers. Like office hours with a pedagogical expert.", color: "#6B4E9B", bg: "#F0EBF8" },
-          { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for AACSB, HLC, or SACSCOC review.", color: "#B8860B", bg: "#FFF8E7" },
+          { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for your accreditation body, whatever it may be.", color: "#B8860B", bg: "#FFF8E7" },
           { icon: "✦", title: "Semester Reflection", desc: "End each term with an AI-powered narrative that captures what changed, what improved, and what to try next.", color: C.navy, bg: C.ivoryDark },
         ].map((f, i) => (
           <RevealSection key={i} delay={(i % 3) * 0.1}>
