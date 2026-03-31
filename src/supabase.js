@@ -370,3 +370,27 @@ export async function requestDataDeletion(userId) {
   if (error) throw error
   await logSecurityEvent(userId, 'deletion_request')
 }
+
+// ── RAG Knowledge Base (client-side keyword search) ────────
+
+export async function keywordSearchArticles(queryText, dimension = null, count = 10) {
+  const { data, error } = await supabase
+    .rpc('keyword_search_articles', {
+      query_text: sanitize(queryText),
+      match_count: count,
+      filter_dimension: dimension,
+    })
+  if (error) throw error
+  return data
+}
+
+export async function fetchArticlesByDimension(dimension, limit = 20) {
+  const { data, error } = await supabase
+    .from('research_articles')
+    .select('id, title, authors, year, journal, abstract, dimension, search_terms')
+    .eq('dimension', dimension)
+    .order('year', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data
+}

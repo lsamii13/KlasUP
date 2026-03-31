@@ -119,7 +119,7 @@ function SectionTitle({ children, light, sub }) {
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    Landing Page Component
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) {
+export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, onResearch }) {
   const [scrollY, setScrollY] = useState(0);
   const [navSolid, setNavSolid] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -169,6 +169,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
                   { label: "How It Works", action: () => scrollTo("how-it-works") },
                   { label: "Pricing", action: () => scrollTo("pricing") },
                   { label: "For Institutions", action: () => scrollTo("institutions") },
+                  { label: "Research Library", action: () => { setMobileMenuOpen(false); if (onResearch) onResearch(); } },
                 ].map(l => (
                   <button key={l.label} onClick={l.action}
                     style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", fontFamily: F.accent, fontWeight: 600, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44 }}>
@@ -190,6 +191,11 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
           </>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={onResearch} style={{
+              background: "transparent", border: "none", color: "rgba(255,255,255,0.65)",
+              fontFamily: F.accent, fontWeight: 600, fontSize: 13, cursor: "pointer",
+              padding: "8px 12px", borderRadius: 8, transition: "color 0.2s",
+            }}>Research</button>
             <button onClick={onSignIn} style={{
               background: "transparent", border: "none", color: "rgba(255,255,255,0.85)",
               fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer",
@@ -579,6 +585,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy }) 
                 { label: "Features", action: () => scrollTo("features") },
                 { label: "Pricing", action: () => scrollTo("pricing") },
                 { label: "For Institutions", action: () => scrollTo("institutions") },
+                { label: "Research Library", action: onResearch },
               ]},
               { title: "Company", links: [
                 { label: "About", action: () => scrollTo("founder") },

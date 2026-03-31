@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Landing from "./Landing";
+import ResearchLibrary from "./ResearchLibrary";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -14,7 +15,7 @@ function useWindowWidth() {
 import Terms from "./Terms";
 import Logo, { LogoMark } from "./Logo";
 import VoiceMic from "./VoiceMic";
-import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan, sendSageChat } from "./anthropic";
+import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan, sendSageChat, searchResearchArticles, embedAllArticles } from "./anthropic";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } from "docx";
 import PptxGenJS from "pptxgenjs";
 import mammoth from "mammoth";
@@ -30,6 +31,7 @@ import {
   adminCreateTestUser, adminResetTestUser, adminCreateAnnouncement,
   adminFetchUsageStats, adminFetchFunnel,
   requestDataDeletion,
+  keywordSearchArticles, fetchArticlesByDimension,
 } from "./supabase";
 
 const C = {
@@ -60,6 +62,7 @@ const NAV = [
   { id: "Think Tank", icon: "◈" },
   { id: "Course Portfolio", icon: "◆" },
   { id: "Reports", icon: "☑" },
+  { id: "Research Library", icon: "⊡" },
   { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
   { id: "Admin", icon: "⛨", adminOnly: true },
@@ -675,6 +678,7 @@ export default function KlasUp() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
+  const [showResearch, setShowResearch] = useState(window.location.hash === "#/research");
   const [showTerms, setShowTerms] = useState(null); // null | "terms" | "privacy"
   const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
   const [authEmail, setAuthEmail] = useState("");
@@ -707,6 +711,13 @@ export default function KlasUp() {
   const [adminAnnouncementForm, setAdminAnnouncementForm] = useState({ title: "", body: "" });
   const [adminTestForm, setAdminTestForm] = useState({ email: "", password: "", name: "" });
   const [adminLoading, setAdminLoading] = useState(false);
+  const [adminResearchTab, setAdminResearchTab] = useState(false);
+  const [adminArticles, setAdminArticles] = useState([]);
+  const [adminDimCounts, setAdminDimCounts] = useState([]);
+  const [adminArticleForm, setAdminArticleForm] = useState({ title: "", authors: "", year: "", journal: "", abstract: "", content: "", dimension: "Active Learning", search_terms: "" });
+  const [adminCrawlerResult, setAdminCrawlerResult] = useState(null);
+  const [adminCrawlerLoading, setAdminCrawlerLoading] = useState(false);
+  const [adminEmbedResult, setAdminEmbedResult] = useState(null);
 
   const [page, setPage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1054,6 +1065,17 @@ export default function KlasUp() {
     finally { setAdminLoading(false); }
   }, [profile?.role]);
 
+  const loadAdminResearch = useCallback(async () => {
+    try {
+      const { data: articles } = await supabase.from("research_articles").select("id, title, authors, year, dimension, embedding").order("created_at", { ascending: false }).limit(50);
+      setAdminArticles(articles || []);
+      const { data: dims } = await supabase.from("research_articles").select("dimension").order("dimension");
+      const counts = {};
+      (dims || []).forEach(d => { counts[d.dimension] = (counts[d.dimension] || 0) + 1; });
+      setAdminDimCounts(Object.entries(counts).map(([dimension, count]) => ({ dimension, count })).sort((a, b) => b.count - a.count));
+    } catch (e) { console.error("Admin research load error:", e); }
+  }, []);
+
   const removeCourse = async (id) => {
     await deleteCourseDB(id);
     setDbCourses(prev => {
@@ -1186,6 +1208,16 @@ export default function KlasUp() {
     { label: "Assignment milestone set", ok: true },
   ];
 
+  // --- Research Library (public, no login required) ---
+  if (showResearch) {
+    return (
+      <ResearchLibrary
+        onBack={() => { setShowResearch(false); window.location.hash = ""; }}
+        onSignUp={() => { setShowResearch(false); window.location.hash = ""; setShowLanding(false); setAuthMode("signup"); }}
+      />
+    );
+  }
+
   // --- Terms & Privacy page ---
   if (showTerms) {
     return (
@@ -1217,6 +1249,7 @@ export default function KlasUp() {
         onGetStarted={() => { setShowLanding(false); setAuthMode("signup"); }}
         onTerms={() => setShowTerms("terms")}
         onPrivacy={() => setShowTerms("privacy")}
+        onResearch={() => { setShowResearch(true); window.location.hash = "#/research"; }}
       />
     );
   }
@@ -1599,7 +1632,7 @@ export default function KlasUp() {
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
           {NAV.filter(n => !n.adminOnly || profile?.role === "admin").map(n => (
-            <button key={n.id} onClick={() => { setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
+            <button key={n.id} onClick={() => { if (n.id === "Research Library") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
               <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
             </button>
           ))}
@@ -3727,6 +3760,130 @@ export default function KlasUp() {
                 </table>
               </div>
             </Card>
+
+            {/* ── RESEARCH LIBRARY TAB ── */}
+            <div style={{ marginTop: 20, marginBottom: 8 }}>
+              <button onClick={() => { setAdminResearchTab(!adminResearchTab); if (!adminResearchTab) loadAdminResearch(); }}
+                style={{ background: adminResearchTab ? C.navy : C.ivoryDark, color: adminResearchTab ? C.white : C.navy, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                {adminResearchTab ? "Hide Research Library ↑" : "Research Library ↓"}
+              </button>
+            </div>
+
+            {adminResearchTab && (
+              <div>
+                {/* Dimension counts */}
+                <Card style={{ marginBottom: 16 }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 14 }}>Articles by Dimension</div>
+                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 6 }}>
+                    {adminDimCounts.map((d, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 10px", background: i % 2 === 0 ? C.ivory : C.white, borderRadius: 6, fontSize: 13 }}>
+                        <span style={{ color: C.text }}>{d.dimension}</span>
+                        <span style={{ fontFamily: F.accent, fontWeight: 700, color: C.tealBright }}>{d.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Actions row */}
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+                  <button onClick={async () => {
+                    setAdminCrawlerLoading(true); setAdminCrawlerResult(null);
+                    try {
+                      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-crawler`;
+                      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` }, body: JSON.stringify({ source: "all" }) });
+                      const data = await res.json();
+                      setAdminCrawlerResult(data);
+                      loadAdminResearch();
+                    } catch (e) { setAdminCrawlerResult({ error: e.message }); }
+                    setAdminCrawlerLoading(false);
+                  }}
+                    disabled={adminCrawlerLoading}
+                    style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: adminCrawlerLoading ? "wait" : "pointer" }}>
+                    {adminCrawlerLoading ? "Crawling..." : "Run Crawler Now"}
+                  </button>
+                  <button onClick={async () => {
+                    setAdminEmbedResult(null);
+                    try {
+                      const data = await embedAllArticles();
+                      setAdminEmbedResult(data);
+                    } catch (e) { setAdminEmbedResult({ error: e.message }); }
+                  }}
+                    style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    Generate Embeddings
+                  </button>
+                </div>
+
+                {adminCrawlerResult && (
+                  <Card style={{ marginBottom: 12, borderLeft: `4px solid ${adminCrawlerResult.error ? C.rose : C.sage}` }}>
+                    <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: adminCrawlerResult.error ? C.rose : C.sage }}>
+                      {adminCrawlerResult.error ? `Error: ${adminCrawlerResult.error}` : adminCrawlerResult.message}
+                    </div>
+                  </Card>
+                )}
+                {adminEmbedResult && (
+                  <Card style={{ marginBottom: 12, borderLeft: `4px solid ${adminEmbedResult.error ? C.rose : C.sage}` }}>
+                    <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: adminEmbedResult.error ? C.rose : C.sage }}>
+                      {adminEmbedResult.error ? `Error: ${adminEmbedResult.error}` : adminEmbedResult.message}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Add Article Form */}
+                <Card style={{ marginBottom: 16 }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Add Article Manually</div>
+                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    <input value={adminArticleForm.title} onChange={e => setAdminArticleForm(p => ({ ...p, title: e.target.value }))} placeholder="Title" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    <input value={adminArticleForm.authors} onChange={e => setAdminArticleForm(p => ({ ...p, authors: e.target.value }))} placeholder="Authors" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    <input value={adminArticleForm.year} onChange={e => setAdminArticleForm(p => ({ ...p, year: e.target.value }))} placeholder="Year" type="number" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    <input value={adminArticleForm.journal} onChange={e => setAdminArticleForm(p => ({ ...p, journal: e.target.value }))} placeholder="Journal" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                    <select value={adminArticleForm.dimension} onChange={e => setAdminArticleForm(p => ({ ...p, dimension: e.target.value }))} style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }}>
+                      {["Active Learning","Pedagogy","Experiential Learning","Kagan Structures","Problem-Based Learning","Project-Based Learning","Teamwork & Group Projects","Andragogy","Action Research","Universal Design for Learning","Socratic Seminar","Flipped Classroom","Metacognition","Feedback Quality","Student Wellbeing","Faculty Development","Bloom's Taxonomy","Case Studies","Reflective Practice","Community of Inquiry"].map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <input value={adminArticleForm.search_terms} onChange={e => setAdminArticleForm(p => ({ ...p, search_terms: e.target.value }))} placeholder="Search terms (comma-separated)" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
+                  </div>
+                  <textarea value={adminArticleForm.abstract} onChange={e => setAdminArticleForm(p => ({ ...p, abstract: e.target.value }))} placeholder="Abstract" rows={3} style={{ width: "100%", padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, resize: "none", boxSizing: "border-box", marginBottom: 10 }} />
+                  <button onClick={async () => {
+                    const f = adminArticleForm;
+                    if (!f.title || !f.authors) return;
+                    try {
+                      const { error } = await supabase.from("research_articles").insert({
+                        title: f.title, authors: f.authors, year: parseInt(f.year) || new Date().getFullYear(),
+                        journal: f.journal || null, abstract: f.abstract || null, content: f.content || null,
+                        dimension: f.dimension,
+                        search_terms: f.search_terms ? f.search_terms.split(",").map(s => s.trim().toLowerCase()) : [],
+                      });
+                      if (error) throw error;
+                      setAdminArticleForm({ title: "", authors: "", year: "", journal: "", abstract: "", content: "", dimension: "Active Learning", search_terms: "" });
+                      loadAdminResearch();
+                    } catch (e) { console.error(e); }
+                  }}
+                    style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    Add Article
+                  </button>
+                </Card>
+
+                {/* Recent articles */}
+                <Card>
+                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 14 }}>Recent Articles ({adminArticles.length})</div>
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                    {adminArticles.map(a => (
+                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 0", borderBottom: `0.5px solid ${C.border}`, gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>{a.authors} ({a.year}) — {a.dimension} {!a.embedding ? "⚠ No embedding" : ""}</div>
+                        </div>
+                        <button onClick={async () => {
+                          if (!confirm("Delete this article?")) return;
+                          await supabase.from("research_articles").delete().eq("id", a.id);
+                          loadAdminResearch();
+                        }}
+                          style={{ background: "none", border: "none", color: C.rose, fontSize: 14, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            )}
           </div>
           );
         })()}

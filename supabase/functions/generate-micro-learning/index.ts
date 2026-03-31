@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { createClient } from "jsr:@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,13 +7,50 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// ── RAG: Retrieve research context via keyword search ────────
+// Uses the keyword_search_articles RPC (full-text + search_terms array).
+// No embedding provider is required. When vector embeddings are added later,
+// this can be upgraded to use match_articles for semantic similarity.
+
+async function fetchRagContext(content: string, category: string): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Build a short keyword query from the content — full-text search works
+    // best with a few meaningful terms rather than the whole upload
+    const queryText = `${category} ${content}`.slice(0, 200)
+
+    const { data: articles, error } = await supabase
+      .rpc('keyword_search_articles', {
+        query_text: queryText,
+        match_count: 5,
+        filter_dimension: null,
+      })
+
+    if (error || !articles?.length) return ''
+
+    return articles.map((a: {
+      title: string; authors: string; year: number; journal: string; abstract: string; dimension: string
+    }) =>
+      `[${a.dimension}] ${a.authors} (${a.year}). "${a.title}." ${a.journal || ''}.\nKey finding: ${a.abstract || 'N/A'}`
+    ).join('\n\n')
+  } catch (e) {
+    console.error('[RAG] Context fetch failed:', e.message)
+    return ''
+  }
+}
+
 const MICRO_LEARNING_PROMPT = `You are KlasUp's Micro-Learning Engine — an AI pedagogical advisor for higher-education faculty.
 
 When a faculty member submits course content (announcements, assignments, discussion prompts, learning outcomes, post-class notes, or student voice data), analyze it and generate exactly 4 personalized micro-learning recommendations.
 
+You will be provided with a RESEARCH CONTEXT section containing relevant peer-reviewed articles from KlasUp's knowledge base. You MUST ground your recommendations in these articles when they are relevant to the faculty member's content. Use the exact citation information provided — do not fabricate or modify author names, years, or journal titles.
+
 Each recommendation MUST:
 1. Be directly tied to a gap or opportunity you detect in the submitted content
-2. Reference a REAL, peer-reviewed research study with correct author(s), year, journal, and DOI when available
+2. Reference a REAL, peer-reviewed research study — preferring articles from the RESEARCH CONTEXT when relevant, or citing other well-known peer-reviewed studies with correct author(s), year, journal, and DOI when available
 3. Include a concrete, actionable next step the faculty member can take in their next class session
 
 Respond with a JSON array of exactly 4 objects. Each object must have these fields:
@@ -277,6 +315,16 @@ Apply this change and return the complete updated slide array.`
       systemPrompt = SAGE_CHAT_PROMPT
       maxTokens = 1500
 
+      // Extract the last user message for RAG context
+      const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user')
+      let ragContextLine = ''
+      if (lastUserMsg) {
+        const sageRag = await fetchRagContext(lastUserMsg.content, '')
+        if (sageRag) {
+          ragContextLine = `\n\n[Research context from KlasUp knowledge base — cite these when relevant:\n${sageRag}\n]`
+        }
+      }
+
       // For sage-chat we pass the full conversation history
       const contextLine = currentPage
         ? `\n[Context: The faculty member is currently on the "${currentPage}" page${courseName ? ` for course ${courseName}` : ''} in KlasUp.]`
@@ -292,7 +340,7 @@ Apply this change and return the complete updated slide array.`
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: maxTokens,
-          system: systemPrompt + contextLine,
+          system: systemPrompt + contextLine + ragContextLine,
           messages,
         }),
       })
@@ -312,17 +360,24 @@ Apply this change and return the complete updated slide array.`
       })
 
     } else {
-      // Micro-learning request (default)
+      // Micro-learning request (default) — with RAG context
       const { content, category, course, week } = body
       systemPrompt = MICRO_LEARNING_PROMPT
-      maxTokens = 1500
+      maxTokens = 2000
+
+      // Fetch relevant research articles from the knowledge base
+      const ragContext = await fetchRagContext(content, category || '')
+
+      const ragSection = ragContext
+        ? `\n\nRESEARCH CONTEXT (from KlasUp knowledge base — use these citations when relevant):\n---\n${ragContext}\n---`
+        : ''
 
       userMessage = `Faculty member teaching ${course}, ${week}.
 Content category: ${category}
 Submitted content:
 ---
 ${content}
----
+---${ragSection}
 
 Based on this content, identify pedagogical gaps and opportunities, then generate 4 personalized micro-learning recommendations grounded in peer-reviewed research.`
     }

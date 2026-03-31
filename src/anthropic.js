@@ -61,3 +61,32 @@ export async function sendSageChat({ messages, currentPage, courseName }) {
   const data = await callEdgeFunction({ type: 'sage-chat', messages, currentPage, courseName })
   return data.reply
 }
+
+// ── RAG Knowledge Base ──────────────────────────────────────
+
+async function callRagFunction(body) {
+  const url = `${SUPABASE_URL}/functions/v1/rag-search`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    throw new Error(err.error || `RAG Function error (${res.status})`)
+  }
+  return res.json()
+}
+
+export async function searchResearchArticles({ query, dimension, count = 5 }) {
+  const data = await callRagFunction({ type: 'search', query, dimension, count })
+  return data.articles
+}
+
+export async function embedAllArticles() {
+  const data = await callRagFunction({ type: 'embed' })
+  return data
+}
