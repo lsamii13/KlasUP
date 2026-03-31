@@ -20,7 +20,7 @@ const sizes = {
   lg: { mark: 96, font: 53, gap: 16 },
 };
 
-function LogoMark({ size = 58 }) {
+function LogoMark({ size = 58, dark = false }) {
   // All proportions are relative to `size` which controls the total height.
   // The bulb is the top ~65%, neck ~8%, base/socket ~27%.
   const s = size;
@@ -71,10 +71,14 @@ function LogoMark({ size = 58 }) {
   const sh2r = s * 0.020;
   const sh3r = s * 0.014;
 
+  // --- Outline stroke for dark backgrounds ---
+  const outlineW = dark ? Math.max(1.5, s * 0.025) : 0;
+
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Bulb — teal circle */}
-      <circle cx={bulbCx} cy={bulbCy} r={bulbR} fill="#0FB5B5" />
+      {/* Bulb — teal circle with optional white outline */}
+      <circle cx={bulbCx} cy={bulbCy} r={bulbR} fill="#0FB5B5"
+        stroke={dark ? "rgba(255,255,255,0.35)" : "none"} strokeWidth={outlineW} />
 
       {/* Taper: rounded rect connecting bulb bottom to neck */}
       <rect
@@ -121,7 +125,7 @@ export default function Logo({ size = "md", dark = false, mark = false, style })
       display: "inline-flex", alignItems: "center", gap: cfg.gap,
       ...style,
     }}>
-      <LogoMark size={cfg.mark} />
+      <LogoMark size={cfg.mark} dark={dark} />
       {!mark && (
         <div style={{ fontFamily: F.display, fontSize: cfg.font, lineHeight: 1 }}>
           <span style={{ color: dark ? "#FFFFFF" : "#0F1F3D" }}>Klas</span>

@@ -162,51 +162,63 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
               <div style={{
                 position: "absolute", top: 72, left: 0, right: 0,
                 background: "rgba(15,31,61,0.98)", backdropFilter: "blur(12px)",
-                padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 8,
+                padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 4,
               }}>
-                {[
-                  { label: "Features", action: () => scrollTo("features") },
-                  { label: "How It Works", action: () => scrollTo("how-it-works") },
-                  { label: "Pricing", action: () => scrollTo("pricing") },
-                  { label: "For Institutions", action: () => scrollTo("institutions") },
-                  { label: "Research Library", action: () => { setMobileMenuOpen(false); if (onResearch) onResearch(); } },
-                ].map(l => (
-                  <button key={l.label} onClick={l.action}
-                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", fontFamily: F.accent, fontWeight: 600, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44 }}>
-                    {l.label}
-                  </button>
-                ))}
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12, marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <button onClick={() => { setMobileMenuOpen(false); onSignIn(); }}
-                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.85)", fontFamily: F.accent, fontWeight: 700, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44 }}>
-                    Sign In
-                  </button>
+                <button onClick={() => { setMobileMenuOpen(false); onSignIn(); }}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontFamily: F.accent, fontWeight: 600, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44, transition: "all 0.2s ease" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+                  onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}>
+                  Sign In
+                </button>
+                <button onClick={() => { setMobileMenuOpen(false); if (onResearch) onResearch(); }}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontFamily: F.accent, fontWeight: 600, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44, transition: "all 0.2s ease" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+                  onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}>
+                  Research
+                </button>
+                <button onClick={() => { setMobileMenuOpen(false); scrollTo("founder"); }}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontFamily: F.accent, fontWeight: 600, fontSize: 16, padding: "12px 0", cursor: "pointer", textAlign: "left", minHeight: 44, transition: "all 0.2s ease" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+                  onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}>
+                  About
+                </button>
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12, marginTop: 4 }}>
                   <button onClick={() => { setMobileMenuOpen(false); onGetStarted(); }}
-                    style={{ background: C.tealBright, color: C.white, border: "none", padding: "14px 22px", borderRadius: 10, fontFamily: F.accent, fontWeight: 700, fontSize: 16, cursor: "pointer", minHeight: 44 }}>
-                    Get Started Free
+                    style={{ background: C.tealBright, color: C.white, border: "none", padding: "14px 22px", borderRadius: 24, fontFamily: F.accent, fontWeight: 700, fontSize: 16, cursor: "pointer", minHeight: 44, width: "100%", transition: "all 0.2s ease" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "#FFFFFF"; e.currentTarget.style.color = C.tealBright; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = C.tealBright; e.currentTarget.style.color = "#FFFFFF"; }}>
+                    Try for Free
                   </button>
                 </div>
               </div>
             )}
           </>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={onResearch} style={{
-              background: "transparent", border: "none", color: "rgba(255,255,255,0.65)",
-              fontFamily: F.accent, fontWeight: 600, fontSize: 13, cursor: "pointer",
-              padding: "8px 12px", borderRadius: 8, transition: "color 0.2s",
-            }}>Research</button>
-            <button onClick={onSignIn} style={{
-              background: "transparent", border: "none", color: "rgba(255,255,255,0.85)",
-              fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer",
-              padding: "8px 16px", borderRadius: 8, transition: "color 0.2s",
-            }}>Sign In</button>
-            <button onClick={onGetStarted} style={{
-              background: C.tealBright, color: C.white, border: "none",
-              padding: "10px 22px", borderRadius: 10, fontFamily: F.accent,
-              fontWeight: 700, fontSize: 14, cursor: "pointer",
-              transition: "transform 0.2s, box-shadow 0.2s",
-            }}>Get Started Free</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={onSignIn}
+              style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", fontFamily: F.accent, fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "8px 14px", borderRadius: 8, transition: "all 0.2s ease" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}>
+              Sign In
+            </button>
+            <button onClick={onResearch}
+              style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", fontFamily: F.accent, fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "8px 14px", borderRadius: 8, transition: "all 0.2s ease" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}>
+              Research
+            </button>
+            <button onClick={() => scrollTo("founder")}
+              style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", fontFamily: F.accent, fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "8px 14px", borderRadius: 8, transition: "all 0.2s ease" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.7)"}>
+              About
+            </button>
+            <button onClick={onGetStarted}
+              style={{ background: C.tealBright, color: C.white, border: "none", padding: "10px 22px", borderRadius: 24, fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.2s ease" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#FFFFFF"; e.currentTarget.style.color = C.tealBright; }}
+              onMouseLeave={e => { e.currentTarget.style.background = C.tealBright; e.currentTarget.style.color = "#FFFFFF"; }}>
+              Try for Free
+            </button>
           </div>
         )}
       </div>
@@ -236,7 +248,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       <div style={{ textAlign: "center", maxWidth: 780, position: "relative", zIndex: 1 }}>
         {/* Hero brand moment — stacked mark + wordmark */}
         <div style={{ marginBottom: mob ? 20 : 32, display: "flex", flexDirection: "column", alignItems: "center", gap: mob ? 10 : 16 }}>
-          <LogoMark size={mob ? 100 : 144} />
+          <LogoMark size={mob ? 100 : 144} dark />
           <div style={{ fontFamily: F.display, fontSize: "clamp(40px, 5vw, 56px)", lineHeight: 1 }}>
             <span style={{ color: "#FFFFFF" }}>Klas</span>
             <span style={{ color: "#0FB5B5" }}>Up</span>
