@@ -41,13 +41,13 @@ function LogoMark({ size = 58, dark = false }) {
   const neckTop = taperTop + taperH - s * 0.02;
   const neckX = bulbCx - neckW / 2;
 
-  // --- Socket bars: navy horizontal bars, getting narrower, rounded ---
-  const socketTop = neckTop + neckH - s * 0.005;
-  const barH = s * 0.052;
-  const barGap = s * 0.016;
-  const bar1W = s * 0.30;
-  const bar2W = s * 0.26;
-  const bar3W = s * 0.22;
+  // --- Socket bars: wider and more pronounced for small sizes ---
+  const socketTop = neckTop + neckH + s * 0.01;  // gap for separator line
+  const barH = s * 0.06;
+  const barGap = s * 0.02;
+  const bar1W = s * 0.34;
+  const bar2W = s * 0.30;
+  const bar3W = s * 0.25;
 
   // --- K letterform inside bulb ---
   const kCx = bulbCx;
@@ -93,10 +93,20 @@ function LogoMark({ size = 58, dark = false }) {
       {/* Neck — slightly darker teal connector */}
       <rect x={neckX} y={neckTop} width={neckW} height={neckH} rx={s * 0.02} fill="#0A9E9E" />
 
-      {/* Base/Socket — navy horizontal bars, getting narrower */}
-      <rect x={bulbCx - bar1W / 2} y={socketTop} width={bar1W} height={barH} rx={s * 0.015} fill="#0F1F3D" />
-      <rect x={bulbCx - bar2W / 2} y={socketTop + barH + barGap} width={bar2W} height={barH} rx={s * 0.015} fill="#0F1F3D" />
-      <rect x={bulbCx - bar3W / 2} y={socketTop + (barH + barGap) * 2} width={bar3W} height={barH} rx={s * 0.025} fill="#0F1F3D" />
+      {/* Separator line between neck and socket */}
+      <line
+        x1={bulbCx - bar1W * 0.45} y1={socketTop - s * 0.006}
+        x2={bulbCx + bar1W * 0.45} y2={socketTop - s * 0.006}
+        stroke="white" strokeWidth={Math.max(1, s * 0.018)} strokeLinecap="round" opacity="0.85"
+      />
+
+      {/* Base/Socket bars — light on dark bg, dark on light bg */}
+      <rect x={bulbCx - bar1W / 2} y={socketTop} width={bar1W} height={barH} rx={s * 0.018}
+        fill={dark ? "rgba(255,255,255,0.9)" : "#1A3260"} />
+      <rect x={bulbCx - bar2W / 2} y={socketTop + barH + barGap} width={bar2W} height={barH} rx={s * 0.018}
+        fill={dark ? "rgba(255,255,255,0.75)" : "#243D75"} />
+      <rect x={bulbCx - bar3W / 2} y={socketTop + (barH + barGap) * 2} width={bar3W} height={barH} rx={s * 0.025}
+        fill={dark ? "rgba(255,255,255,0.6)" : "#2D4A8A"} />
 
       {/* K vertical stem */}
       <rect x={stemX - stemW / 2} y={stemTop} width={stemW} height={stemBot - stemTop} rx={stemW / 2} fill="white" />
