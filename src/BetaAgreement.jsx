@@ -18,7 +18,7 @@ const F = {
   accent: "'Nunito', sans-serif",
 };
 
-const AGREEMENT_TEXT = `This Beta Tester Agreement is entered into between KlasUP, LLC and the individual signing below. By signing, you agree to: (1) keep all non-public Platform features confidential and not share publicly; (2) provide honest feedback; (3) grant KlasUP a perpetual license to use your feedback with no IP claims retained; (4) acknowledge you are signing as an individual, not on behalf of any institution or employer. This Agreement is governed by the laws of New Hampshire. KlasUP provides the Platform as-is during the beta period.`;
+const AGREEMENT_TEXT = `This Beta Tester Agreement is between KlasUP, LLC and the individual signing below. By signing, you agree to: (1) keep all non-public Platform features confidential and not share publicly; (2) provide honest feedback to help improve the Platform; (3) grant KlasUP a perpetual license to use your feedback — you retain no IP claims on feedback provided; (4) confirm you are signing as an individual, not on behalf of any institution or employer. KlasUP provides the Platform as-is during the beta period. This Agreement is governed by the laws of New Hampshire. Effective Date: April 1, 2026. Questions? Email leilavsamii@gmail.com`;
 
 export default function BetaAgreement({ onBack }) {
   const [form, setForm] = useState({ full_name: "", email: "", job_title: "", institution: "", digital_signature: "" });
@@ -45,7 +45,7 @@ export default function BetaAgreement({ onBack }) {
       if (insertErr) throw insertErr;
       setSuccess(true);
     } catch (e) {
-      setError(e.message || "Something went wrong. Please try again.");
+      setError(e.message || "Something went wrong. Please try again or email leilavsamii@gmail.com");
     }
     setSubmitting(false);
   };

@@ -32,10 +32,11 @@ async function fetchRagContext(content: string, category: string): Promise<strin
     if (error || !articles?.length) return ''
 
     return articles.map((a: {
-      title: string; authors: string; year: number; journal: string; abstract: string; dimension: string
-    }) =>
-      `[${a.dimension}] ${a.authors} (${a.year}). "${a.title}." ${a.journal || ''}.\nKey finding: ${a.abstract || 'N/A'}`
-    ).join('\n\n')
+      title: string; authors: string; year: number; journal: string; abstract: string; dimension: string; source_type?: string; url?: string
+    }) => {
+      const type = a.source_type === 'ted_talk' ? 'TED Talk' : a.source_type === 'book_summary' ? 'Book' : a.source_type === 'ctl_resource' ? 'CTL Resource' : a.source_type === 'teaching_blog' ? 'Teaching Blog' : 'Article';
+      return `[${a.dimension} · ${type}] ${a.authors} (${a.year}). "${a.title}." ${a.journal || ''}${a.url ? ` — ${a.url}` : ''}.\nKey finding: ${a.abstract || 'N/A'}`;
+    }).join('\n\n')
   } catch (e) {
     console.error('[RAG] Context fetch failed:', e.message)
     return ''
@@ -46,11 +47,11 @@ const MICRO_LEARNING_PROMPT = `You are KlasUp's Micro-Learning Engine — an AI 
 
 When a faculty member submits course content (announcements, assignments, discussion prompts, learning outcomes, post-class notes, or student voice data), analyze it and generate exactly 4 personalized micro-learning recommendations.
 
-You will be provided with a RESEARCH CONTEXT section containing relevant peer-reviewed articles from KlasUp's knowledge base. You MUST ground your recommendations in these articles when they are relevant to the faculty member's content. Use the exact citation information provided — do not fabricate or modify author names, years, or journal titles.
+You will be provided with a RESEARCH CONTEXT section containing relevant resources from KlasUp's knowledge base — including peer-reviewed articles, books, TED talks, CTL guides, and teaching blogs. Ground your recommendations in these sources when relevant. Use the exact citation information provided — do not fabricate or modify author names, years, or titles.
 
 Each recommendation MUST:
 1. Be directly tied to a gap or opportunity you detect in the submitted content
-2. Reference a REAL, peer-reviewed research study — preferring articles from the RESEARCH CONTEXT when relevant, or citing other well-known peer-reviewed studies with correct author(s), year, journal, and DOI when available
+2. Reference a source from the RESEARCH CONTEXT when relevant, or cite other well-known peer-reviewed studies with correct author(s), year, and publication
 3. Include a concrete, actionable next step the faculty member can take in their next class session
 
 Respond with a JSON array of exactly 4 objects. Each object must have these fields:
@@ -162,7 +163,9 @@ How you communicate:
 - Speak like a trusted colleague giving a new perspective over coffee, not a consultant giving a report
 - Leave faculty feeling clearer, not overwhelmed
 
-You never give walls of text. You never give multiple questions. You never lecture. You never moralize.`
+You never give walls of text. You never give multiple questions. You never lecture. You never moralize.
+
+When citing sources: do NOT proactively cite sources in every response. Only cite a specific source when the faculty member directly asks where something came from, or when a research finding is central to your suggestion. When you do cite, name the author and work naturally — never dump a bibliography.`
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
