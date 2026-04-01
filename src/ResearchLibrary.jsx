@@ -73,6 +73,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
   const [activeDim, setActiveDim] = useState(null);
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState(null);
+  const [activeTab, setActiveTab] = useState("research");
   const ww = useWindowWidth();
   const mob = ww < 768;
 
@@ -146,16 +147,33 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
             </button>
           </div>
           <div style={{ fontFamily: F.display, fontSize: mob ? 28 : 40, color: C.white, marginBottom: 8 }}>
-            Research Library
+            Pedagogical Resources
           </div>
           <div style={{ fontSize: mob ? 14 : 16, color: "rgba(255,255,255,0.6)", marginBottom: 20, maxWidth: 600 }}>
             Peer-reviewed research on teaching and learning — free and open to all.
           </div>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 20 }}>
+            {[{ id: "research", label: "Research Library" }, { id: "ctl", label: "CTL Directory" }].map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                style={{
+                  background: "none", border: "none", borderBottom: activeTab === t.id ? `3px solid ${C.white}` : "3px solid transparent",
+                  color: activeTab === t.id ? C.white : "rgba(255,255,255,0.45)",
+                  fontFamily: F.accent, fontWeight: activeTab === t.id ? 700 : 600, fontSize: mob ? 14 : 16,
+                  padding: "10px 20px", cursor: "pointer", transition: "all 0.2s",
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search bar (research tab only) */}
+          {activeTab === "research" && (
+          <>
           <div style={{ fontSize: 13, color: C.tealMid, fontFamily: F.accent, fontWeight: 700, marginBottom: 20 }}>
             {totalCount} peer-reviewed articles and growing
           </div>
-
-          {/* Search bar */}
           <div style={{ position: "relative", maxWidth: 600 }}>
             <input
               type="text"
@@ -173,9 +191,14 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
             />
             <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "rgba(255,255,255,0.4)" }}>⌕</span>
           </div>
+          </>
+          )}
         </div>
       </header>
 
+      {/* ── RESEARCH LIBRARY TAB ── */}
+      {activeTab === "research" && (
+      <>
       {/* ── DIMENSION FILTERS ── */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: mob ? "16px 16px 0" : "20px 24px 0" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
@@ -330,6 +353,90 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* ── CTL DIRECTORY TAB ── */}
+      {activeTab === "ctl" && (
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: mob ? "24px 16px 40px" : "32px 24px 60px" }}>
+          <div style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
+            Centers for Teaching and Learning at leading universities — curated resources to support your growth as an educator.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {[
+              {
+                name: "Vanderbilt University",
+                center: "Center for Teaching",
+                url: "https://cft.vanderbilt.edu",
+                desc: "One of the most comprehensive teaching centers in the country, offering research-backed guides on active learning, course design, and inclusive teaching.",
+                resources: [
+                  { label: "Teaching Guides A-Z", url: "https://cft.vanderbilt.edu/guides-sub-pages/teaching-guides/" },
+                  { label: "Active Learning", url: "https://cft.vanderbilt.edu/guides-sub-pages/active-learning/" },
+                  { label: "Bloom's Taxonomy", url: "https://cft.vanderbilt.edu/guides-sub-pages/blooms-taxonomy/" },
+                ],
+              },
+              {
+                name: "Harvard University",
+                center: "Bok Center for Teaching and Learning",
+                url: "https://bokcenter.harvard.edu",
+                desc: "Harvard's teaching center focused on evidence-based pedagogy, offering resources for new and experienced faculty across disciplines.",
+                resources: [
+                  { label: "Teaching Resources", url: "https://bokcenter.harvard.edu/resources" },
+                  { label: "Discussions", url: "https://bokcenter.harvard.edu/discussions" },
+                  { label: "Feedback on Teaching", url: "https://bokcenter.harvard.edu/feedback-teaching" },
+                ],
+              },
+              {
+                name: "Stanford University",
+                center: "Center for Teaching and Learning",
+                url: "https://ctl.stanford.edu",
+                desc: "Stanford's CTL supports faculty with resources on course design, inclusive teaching, and educational technology integration.",
+                resources: [
+                  { label: "Teaching Commons", url: "https://teachingcommons.stanford.edu" },
+                  { label: "Course Design", url: "https://ctl.stanford.edu/course-design" },
+                  { label: "Inclusive Teaching", url: "https://ctl.stanford.edu/inclusive-teaching" },
+                ],
+              },
+            ].map((ctl, i) => (
+              <div key={i} style={{
+                background: C.ivory, border: `1px solid ${C.navy}18`, borderRadius: 16,
+                padding: mob ? "20px 18px" : "28px 28px", boxShadow: "0 2px 12px rgba(15,31,61,0.04)",
+              }}>
+                <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 24, color: C.navy, marginBottom: 4 }}>
+                  {ctl.name}
+                </div>
+                <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: C.teal, marginBottom: 10 }}>
+                  {ctl.center}
+                </div>
+                <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.7, marginBottom: 16 }}>
+                  {ctl.desc}
+                </div>
+                <a href={ctl.url} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: "inline-block", background: C.tealBright, color: C.white, border: "none",
+                    padding: "10px 22px", borderRadius: 10, fontFamily: F.accent, fontWeight: 700,
+                    fontSize: 13, textDecoration: "none", marginBottom: 16,
+                  }}>
+                  Visit CTL
+                </a>
+                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                  <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, marginBottom: 8 }}>FEATURED RESOURCES</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {ctl.resources.map((r, j) => (
+                      <a key={j} href={r.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 13, color: C.teal, fontFamily: F.body, fontWeight: 600, textDecoration: "none", transition: "color 0.2s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = C.navy}
+                        onMouseLeave={e => e.currentTarget.style.color = C.teal}>
+                        → {r.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── FOOTER ── */}
       <footer style={{

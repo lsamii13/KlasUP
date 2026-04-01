@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Landing from "./Landing";
 import ResearchLibrary from "./ResearchLibrary";
+import BetaAgreement from "./BetaAgreement";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -64,7 +65,7 @@ const NAV = [
   { id: "Course Portfolio", icon: "◆" },
   { id: "Reports", icon: "☑" },
   { id: "Wellness", icon: "🌿" },
-  { id: "Research Library", icon: "⊡" },
+  { id: "Pedagogical Resources", icon: "⊡" },
   { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
   { id: "Admin", icon: "⛨", adminOnly: true },
@@ -681,6 +682,7 @@ export default function KlasUp() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
   const [showResearch, setShowResearch] = useState(window.location.hash === "#/research");
+  const [showBeta, setShowBeta] = useState(window.location.hash === "#/beta");
   const [showTerms, setShowTerms] = useState(null); // null | "terms" | "privacy"
   const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
   const [authEmail, setAuthEmail] = useState("");
@@ -714,6 +716,8 @@ export default function KlasUp() {
   const [adminTestForm, setAdminTestForm] = useState({ email: "", password: "", name: "" });
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminResearchTab, setAdminResearchTab] = useState(false);
+  const [adminBetaTab, setAdminBetaTab] = useState(false);
+  const [adminBetaAgreements, setAdminBetaAgreements] = useState([]);
   const [adminArticles, setAdminArticles] = useState([]);
   const [adminDimCounts, setAdminDimCounts] = useState([]);
   const [adminArticleForm, setAdminArticleForm] = useState({ title: "", authors: "", year: "", journal: "", abstract: "", content: "", dimension: "Active Learning", search_terms: "" });
@@ -1089,6 +1093,13 @@ export default function KlasUp() {
     } catch (e) { console.error("Admin research load error:", e); }
   }, []);
 
+  const loadAdminBeta = useCallback(async () => {
+    try {
+      const { data } = await supabase.from("beta_agreements").select("*").order("signed_at", { ascending: false });
+      setAdminBetaAgreements(data || []);
+    } catch (e) { console.error("Admin beta load error:", e); }
+  }, []);
+
   // --- Wellness helpers ---
   const loadWellnessData = useCallback(async () => {
     if (!session?.user) return;
@@ -1269,6 +1280,15 @@ export default function KlasUp() {
     { label: "No metacognitive prompt this week", ok: false },
     { label: "Assignment milestone set", ok: true },
   ];
+
+  // --- Beta Agreement (public, no login required) ---
+  if (showBeta) {
+    return (
+      <BetaAgreement
+        onBack={() => { setShowBeta(false); window.location.hash = ""; }}
+      />
+    );
+  }
 
   // --- Research Library (public, no login required) ---
   if (showResearch) {
@@ -1694,7 +1714,7 @@ export default function KlasUp() {
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
           {NAV.filter(n => !n.adminOnly || profile?.role === "admin").map(n => (
-            <button key={n.id} onClick={() => { if (n.id === "Research Library") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
+            <button key={n.id} onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
               <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
             </button>
           ))}
@@ -4186,6 +4206,54 @@ export default function KlasUp() {
                   </div>
                 </Card>
               </div>
+            )}
+            {/* ── BETA AGREEMENTS TAB ── */}
+            <div style={{ marginTop: 20, marginBottom: 8 }}>
+              <button onClick={() => { setAdminBetaTab(!adminBetaTab); if (!adminBetaTab) loadAdminBeta(); }}
+                style={{ background: adminBetaTab ? C.navy : C.ivoryDark, color: adminBetaTab ? C.white : C.navy, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                {adminBetaTab ? "Hide Beta Agreements ↑" : "Beta Agreements ↓"}
+              </button>
+            </div>
+
+            {adminBetaTab && (
+              <Card>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ fontFamily: F.display, fontSize: 18 }}>{adminBetaAgreements.length} agreement{adminBetaAgreements.length !== 1 ? "s" : ""} signed</div>
+                  <button onClick={loadAdminBeta}
+                    style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: `1px solid ${C.teal}44`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                    Refresh
+                  </button>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: F.body }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${C.border}`, textAlign: "left" }}>
+                        <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Name</th>
+                        <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Email</th>
+                        <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Job Title</th>
+                        <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Institution</th>
+                        <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Signature</th>
+                        <th style={{ padding: "8px 10px", fontFamily: F.accent, fontWeight: 700, color: C.muted, fontSize: 11 }}>Date Signed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminBetaAgreements.map(a => (
+                        <tr key={a.id} style={{ borderBottom: `0.5px solid ${C.border}` }}>
+                          <td style={{ padding: "8px 10px", fontWeight: 600 }}>{a.full_name}</td>
+                          <td style={{ padding: "8px 10px", color: C.teal }}>{a.email}</td>
+                          <td style={{ padding: "8px 10px", color: C.muted }}>{a.job_title || "—"}</td>
+                          <td style={{ padding: "8px 10px", color: C.muted }}>{a.institution || "—"}</td>
+                          <td style={{ padding: "8px 10px", fontStyle: "italic", fontFamily: "'Georgia', serif" }}>{a.digital_signature}</td>
+                          <td style={{ padding: "8px 10px", color: C.muted }}>{new Date(a.signed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        </tr>
+                      ))}
+                      {adminBetaAgreements.length === 0 && (
+                        <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: C.muted }}>No agreements yet.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             )}
           </div>
           );

@@ -597,7 +597,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
                 { label: "Features", action: () => scrollTo("features") },
                 { label: "Pricing", action: () => scrollTo("pricing") },
                 { label: "For Institutions", action: () => scrollTo("institutions") },
-                { label: "Research Library", action: onResearch },
+                { label: "Pedagogical Resources", action: onResearch },
               ]},
               { title: "Company", links: [
                 { label: "About", action: () => scrollTo("founder") },
