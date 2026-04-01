@@ -397,6 +397,83 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                   { label: "Inclusive Teaching", url: "https://ctl.stanford.edu/inclusive-teaching" },
                 ],
               },
+              {
+                name: "Elon University",
+                center: "Center for the Advancement of Teaching & Learning (CATL)",
+                url: "https://www.elon.edu/u/academics/catl/",
+                desc: "A nationally recognized teaching center focused on evidence-based, inclusive, and equitable teaching practices, SoTL, and faculty learning communities.",
+                resources: [
+                  { label: "Teaching & Learning Resources", url: "https://www.elon.edu/u/academics/catl/tlresources/" },
+                  { label: "Programs & Fellowships", url: "https://www.elon.edu/u/academics/catl/programsservices/programs/" },
+                  { label: "Center for Engaged Learning", url: "https://www.centerforengagedlearning.org/" },
+                ],
+              },
+              {
+                name: "Endicott College",
+                center: "Center for Teaching & Learning",
+                url: "https://www.endicott.edu/academics/endicott-center-for-teaching-and-learning",
+                desc: "Supports teaching excellence and student access, persistence, and success at Endicott College.",
+                resources: [
+                  { label: "Academic Resources", url: "https://www.endicott.edu/academics/academic-resources-support" },
+                  { label: "Faculty Directory", url: "https://www.endicott.edu/about/faculty-staff-directory" },
+                  { label: "Endicott Homepage", url: "https://www.endicott.edu/" },
+                ],
+              },
+              {
+                name: "University of Michigan",
+                center: "Center for Research on Learning and Teaching (CRLT)",
+                url: "https://crlt.umich.edu/",
+                desc: "Founded in 1962, CRLT was the first teaching center in the country, offering evidence-based programs and services to promote excellence, equity, and innovation in teaching.",
+                resources: [
+                  { label: "Teaching Resources", url: "https://crlt.umich.edu/resources" },
+                  { label: "Programs & Services", url: "https://crlt.umich.edu/programs" },
+                  { label: "About CRLT", url: "https://crlt.umich.edu/aboutcrlt/aboutcrlt" },
+                ],
+              },
+              {
+                name: "Rollins College",
+                center: "Endeavor Foundation Center for Faculty Development",
+                url: "https://www.rollins.edu/endeavor/",
+                desc: "Ranked 5th in the South for best undergraduate teaching, Rollins' Endeavor Center supports faculty across the professional lifecycle with evidence-based teaching resources rooted in the liberal arts tradition.",
+                resources: [
+                  { label: "Faculty Development", url: "https://www.rollins.edu/endeavor/" },
+                  { label: "Teaching Resources", url: "https://www.rollins.edu/endeavor/" },
+                  { label: "Faculty Support", url: "https://www.rollins.edu/endeavor/" },
+                ],
+              },
+              {
+                name: "Bowdoin College",
+                center: "Baldwin Center for Learning and Teaching",
+                url: "https://www.bowdoin.edu/baldwin-center/index.html",
+                desc: "Promotes intentional, inclusive, equitable, and effective learning and teaching environments, offering academic coaching, quantitative reasoning, and faculty development support.",
+                resources: [
+                  { label: "Baldwin Center", url: "https://www.bowdoin.edu/baldwin-center/index.html" },
+                  { label: "Academic Support", url: "https://www.bowdoin.edu/baldwin-center/index.html" },
+                  { label: "Teaching Resources", url: "https://www.bowdoin.edu/baldwin-center/index.html" },
+                ],
+              },
+              {
+                name: "Columbia University",
+                center: "Center for Teaching and Learning",
+                url: "https://ctl.columbia.edu/",
+                desc: "Columbia's CTL supports faculty with innovative teaching strategies, educational technology integration, and research-backed pedagogical development.",
+                resources: [
+                  { label: "Teaching Resources", url: "https://ctl.columbia.edu/resources/" },
+                  { label: "Faculty Programs", url: "https://ctl.columbia.edu/programs/" },
+                  { label: "About CTL", url: "https://ctl.columbia.edu/" },
+                ],
+              },
+              {
+                name: "Indiana University Bloomington",
+                center: "Center for Innovative Teaching and Learning (CITL)",
+                url: "https://citl.indiana.edu/",
+                desc: "CITL supports IU Bloomington faculty with instructional consulting, classroom observations, workshops, and resources for innovative and effective teaching.",
+                resources: [
+                  { label: "Teaching Resources", url: "https://citl.indiana.edu/teaching-resources/" },
+                  { label: "Programs & Services", url: "https://citl.indiana.edu/programs-services/" },
+                  { label: "Instructional Consulting", url: "https://citl.indiana.edu/programs-services/" },
+                ],
+              },
             ].map((ctl, i) => (
               <div key={i} style={{
                 background: C.ivory, border: `1px solid ${C.navy}18`, borderRadius: 16,
