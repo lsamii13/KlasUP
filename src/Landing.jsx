@@ -231,7 +231,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       minHeight: "100vh",
       background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 40%, #0D4F5A 100%)`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: mob ? "100px 16px 64px" : "120px 24px 96px", position: "relative", overflow: "hidden",
+      padding: mob ? "68px 16px 64px" : "88px 24px 96px", position: "relative", overflow: "hidden",
     }}>
       {/* Decorative circles */}
       <div style={{
@@ -429,7 +429,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
             fontFamily: F.body, fontSize: 17, color: "rgba(255,255,255,0.7)",
             lineHeight: 1.7, margin: "0 0 36px",
           }}>
-            Provosts and academic leaders: KlasUp gives your faculty a tool they'll actually use —
+            KlasUp gives your faculty a tool they'll actually use —
             and gives you the continuous improvement documentation accreditors demand.
             Every micro-learning completed, every course portfolio updated, every semester
             reflection written becomes evidence of institutional commitment to teaching excellence.
@@ -652,8 +652,8 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       {Problem}
       {HowItWorks}
       {Features}
-      {Institutions}
       {FounderStory}
+      {Institutions}
       {Pricing}
       {FinalCTA}
       {Footer}
