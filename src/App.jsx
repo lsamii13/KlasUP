@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Landing from "./Landing";
 import ResearchLibrary from "./ResearchLibrary";
 import BetaAgreement from "./BetaAgreement";
+import OnboardingTour from "./components/OnboardingTour";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -817,6 +818,7 @@ export default function KlasUp() {
   const [settingsPwSaving, setSettingsPwSaving] = useState(false);
   const [settingsPwMsg, setSettingsPwMsg] = useState(null);
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
 
   // --- Wellness state ---
   const [wellnessScore, setWellnessScore] = useState(null);
@@ -930,6 +932,11 @@ export default function KlasUp() {
         fetchActiveAnnouncements(userId)
           .then(anns => setAnnouncements(anns))
           .catch(() => {});
+
+        // Show onboarding tour for new users who haven't completed it
+        if (p && p.onboarding_complete === false) {
+          setShowOnboardingTour(true);
+        }
 
       } catch (err) {
         console.error("Failed to load:", err);
@@ -1286,6 +1293,7 @@ export default function KlasUp() {
     return (
       <BetaAgreement
         onBack={() => { setShowBeta(false); window.location.hash = ""; }}
+        onSignUp={() => { setShowBeta(false); window.location.hash = ""; setShowLanding(false); setAuthMode("signup"); }}
       />
     );
   }
@@ -4314,6 +4322,22 @@ export default function KlasUp() {
         )}
 
       </div>
+
+      {/* ── ONBOARDING TOUR ── */}
+      {showOnboardingTour && (
+        <OnboardingTour
+          onComplete={async () => {
+            setShowOnboardingTour(false);
+            if (session?.user) {
+              try {
+                await upsertProfile(session.user.id, { ...profile, onboarding_complete: true, email: session.user.email });
+                setProfile(prev => prev ? { ...prev, onboarding_complete: true } : prev);
+              } catch (e) { console.error("Failed to save onboarding_complete:", e); }
+            }
+          }}
+          onGoToProfile={() => { setPage("Settings"); setSettingsProfileForm(null); }}
+        />
+      )}
 
       {/* ── BREATHING GUIDE MODAL ── */}
       {breathingOpen && (() => {

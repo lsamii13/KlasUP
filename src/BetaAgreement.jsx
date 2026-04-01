@@ -20,7 +20,7 @@ const F = {
 
 const AGREEMENT_TEXT = `This Beta Tester Agreement is between KlasUP, LLC and the individual signing below. By signing, you agree to: (1) keep all non-public Platform features confidential and not share publicly; (2) provide honest feedback to help improve the Platform; (3) grant KlasUP a perpetual license to use your feedback — you retain no IP claims on feedback provided; (4) confirm you are signing as an individual, not on behalf of any institution or employer. KlasUP provides the Platform as-is during the beta period. This Agreement is governed by the laws of New Hampshire. Effective Date: April 1, 2026. Questions? Email leilavsamii@gmail.com`;
 
-export default function BetaAgreement({ onBack }) {
+export default function BetaAgreement({ onBack, onSignUp }) {
   const [form, setForm] = useState({ full_name: "", email: "", job_title: "", institution: "", digital_signature: "" });
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -96,9 +96,17 @@ export default function BetaAgreement({ onBack }) {
           }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
             <div style={{ fontFamily: F.display, fontSize: 22, color: C.sage, marginBottom: 8 }}>Thank you!</div>
-            <div style={{ fontSize: 15, color: C.text, lineHeight: 1.6 }}>
-              Your agreement has been received. You'll hear from us soon at <strong>{form.email}</strong>.
+            <div style={{ fontSize: 15, color: C.text, lineHeight: 1.6, marginBottom: 20 }}>
+              Your agreement has been received. You're officially a KlasUP beta tester!
             </div>
+            <button onClick={onSignUp}
+              style={{
+                background: C.tealBright, color: C.white, border: "none", borderRadius: 12,
+                padding: "14px 32px", fontFamily: F.accent, fontWeight: 700, fontSize: 16,
+                cursor: "pointer", minHeight: 48,
+              }}>
+              Start Testing KlasUP →
+            </button>
           </div>
         ) : (
           <>
