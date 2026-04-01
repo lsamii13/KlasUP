@@ -344,8 +344,8 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       <SectionTitle>How it works</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(260px, 1fr))", gap: mob ? 28 : 40 }}>
         {[
-          { step: "01", icon: "📤", title: "Upload your content", desc: "Drop in your syllabus, lecture slides, or assignment prompts. KlasUp reads what you're already teaching." },
-          { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized micro-learning, course health analysis, and career connection data — tailored to your exact content." },
+          { step: "01", icon: "📤", title: "Upload your content", desc: "Drop in your announcements, lecture slides, or assignment prompts. KlasUp reads what you're already teaching." },
+          { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized AI coaching, micro-learning, course health analysis, and career connection data — tailored to your exact content." },
           { step: "03", icon: "📈", title: "Watch your teaching grow", desc: "Track improvement over time with semester reflections, accreditation-ready reports, and a living course portfolio." },
         ].map((item, i) => (
           <RevealSection key={i} delay={i * 0.15}>
