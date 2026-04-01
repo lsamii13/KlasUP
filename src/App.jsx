@@ -4335,15 +4335,18 @@ export default function KlasUp() {
       {!sageOpen && (
         <button onClick={openSage} title="Chat with Sage"
           style={{
-            position: "fixed", bottom: mob ? 16 : 24, right: mob ? 16 : 24, width: mob ? 56 : 48, height: mob ? 56 : 48, borderRadius: "50%",
+            position: "fixed", bottom: mob ? 16 : 24, right: mob ? 16 : 24, width: 90, height: 90, borderRadius: "50%",
             background: C.sage, color: C.white, border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
             boxShadow: "0 4px 16px rgba(90,138,98,0.35)", zIndex: 9000,
-            fontFamily: F.display, fontSize: mob ? 26 : 22, transition: "transform 0.2s, box-shadow 0.2s",
+            transition: "transform 0.2s, box-shadow 0.2s",
           }}
           onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(90,138,98,0.5)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(90,138,98,0.35)"; }}
-        >S</button>
+        >
+          <svg width="32" height="32" viewBox="0 0 48 48" fill="none" style={{ filter: "drop-shadow(0 0 2px rgba(255,255,255,0.8))" }}><circle cx="24" cy="17" r="13" fill="white"/><rect x="17.5" y="25" width="13" height="5" rx="1.5" fill="white"/><rect x="19" y="29.5" width="10" height="3" rx="1" fill="rgba(255,255,255,0.8)"/><rect x="18" y="32" width="12" height="3.5" rx=".8" fill="white"/><rect x="19" y="36" width="10" height="3.5" rx=".8" fill="rgba(90,138,98,0.7)"/><rect x="20" y="40" width="8" height="3.5" rx="1" fill="white"/><rect x="21" y="9.5" width="2.8" height="14" rx="1.4" fill="#5A8A62"/><line x1="24" y1="17" x2="30" y2="9.5" stroke="#5A8A62" strokeWidth="2.8" strokeLinecap="round"/><line x1="24" y1="17" x2="30.5" y2="24" stroke="#5A8A62" strokeWidth="2.8" strokeLinecap="round"/></svg>
+          <span style={{ fontFamily: F.display, fontSize: 18, lineHeight: 1, color: C.white }}>Sage</span>
+        </button>
       )}
 
       {/* Chat panel */}
