@@ -44,6 +44,17 @@ export default function BetaAgreement({ onBack }) {
       });
       if (insertErr) throw insertErr;
       setSuccess(true);
+      // Notify admin via SMS — fire and forget, don't block success
+      try {
+        const smsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-sms`;
+        fetch(smsUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({
+            message: `New KlasUP beta tester signed! Name: ${form.full_name.trim()}, Email: ${form.email.trim()}, Institution: ${form.institution.trim() || "N/A"}`,
+          }),
+        }).catch(() => {});
+      } catch (_) {}
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again or email leilavsamii@gmail.com");
     }
