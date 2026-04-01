@@ -1238,13 +1238,13 @@ export default function KlasUp() {
         .filter((m, i) => !(i === 0 && m.role === "assistant"))
         .map(m => ({ role: m.role, content: m.content }));
 
-      console.log("[Sage] Sending to Edge Function:", JSON.stringify({ type: "sage-chat", messageCount: apiMessages.length, firstRole: apiMessages[0]?.role, currentPage: page }));
+      console.log("[Klas] Sending to Edge Function:", JSON.stringify({ type: "sage-chat", messageCount: apiMessages.length, firstRole: apiMessages[0]?.role, currentPage: page }));
       const reply = await sendSageChat({
         messages: apiMessages,
         currentPage: page,
         courseName: course || null,
       });
-      console.log("[Sage] Response received:", reply ? reply.slice(0, 100) + "..." : "EMPTY");
+      console.log("[Klas] Response received:", reply ? reply.slice(0, 100) + "..." : "EMPTY");
       if (!reply) throw new Error("Empty response");
       setSageMessages(prev => [...prev, { role: "assistant", content: reply }]);
 
@@ -1255,7 +1255,7 @@ export default function KlasUp() {
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       }
     } catch (err) {
-      console.error("[Sage] Chat error:", err);
+      console.error("[Klas] Chat error:", err);
       setSageMessages(prev => [...prev, { role: "assistant", content: "Hmm, I'm having trouble connecting right now. Try again in a moment! 🌿" }]);
     } finally {
       setSageSending(false);
@@ -2391,7 +2391,7 @@ export default function KlasUp() {
         {page === "Assignment Builder" && (
           <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🌿</div>
-            <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy, marginBottom: 8 }}>Assignment Builder has moved to Sage</div>
+            <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy, marginBottom: 8 }}>Assignment Builder has moved to Klas</div>
             <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, maxWidth: 420, margin: "0 auto 24px" }}>Building something new? Tell me about your students or the learning outcomes.</div>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               <button onClick={() => { setSageBuilderOpen(true); setPage("Dashboard"); if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "manual" }); }}
@@ -2400,7 +2400,7 @@ export default function KlasUp() {
               </button>
               <button onClick={() => { openSage(); setPage("Dashboard"); }}
                 style={{ background: C.white, color: C.sage, border: `1.5px solid ${C.sage}`, borderRadius: 10, padding: "11px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-                Chat with Sage
+                Chat with Klas
               </button>
             </div>
           </div>
@@ -4334,10 +4334,10 @@ export default function KlasUp() {
 
       {/* Floating bubble */}
       {!sageOpen && (
-        <button onClick={openSage} title="Chat with Sage"
+        <button onClick={openSage} title="Chat with Klas"
           style={{
             position: "fixed", bottom: mob ? 16 : 24, right: mob ? 16 : 24, width: 90, height: 90, borderRadius: "50%",
-            background: C.sage, color: C.white, border: "none", cursor: "pointer",
+            background: C.navy, color: C.white, border: "none", cursor: "pointer",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
             boxShadow: "0 4px 16px rgba(90,138,98,0.35)", zIndex: 9000,
             transition: "transform 0.2s, box-shadow 0.2s",
@@ -4346,7 +4346,7 @@ export default function KlasUp() {
           onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(90,138,98,0.35)"; }}
         >
           <svg width="32" height="32" viewBox="0 0 48 48" fill="none" style={{ filter: "drop-shadow(0 0 2px rgba(255,255,255,0.8))" }}><circle cx="24" cy="17" r="13" fill="white"/><rect x="17.5" y="25" width="13" height="5" rx="1.5" fill="white"/><rect x="19" y="29.5" width="10" height="3" rx="1" fill="rgba(255,255,255,0.8)"/><rect x="18" y="32" width="12" height="3.5" rx=".8" fill="white"/><rect x="19" y="36" width="10" height="3.5" rx=".8" fill="rgba(90,138,98,0.7)"/><rect x="20" y="40" width="8" height="3.5" rx="1" fill="white"/><rect x="21" y="9.5" width="2.8" height="14" rx="1.4" fill="#5A8A62"/><line x1="24" y1="17" x2="30" y2="9.5" stroke="#5A8A62" strokeWidth="2.8" strokeLinecap="round"/><line x1="24" y1="17" x2="30.5" y2="24" stroke="#5A8A62" strokeWidth="2.8" strokeLinecap="round"/></svg>
-          <span style={{ fontFamily: F.display, fontSize: 18, lineHeight: 1, color: C.white }}>Sage</span>
+          <span style={{ fontFamily: F.display, fontSize: 18, lineHeight: 1, color: C.white }}>Klas</span>
         </button>
       )}
 
@@ -4365,8 +4365,8 @@ export default function KlasUp() {
           {/* Header */}
           <div style={{ background: C.sage, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <div>
-              <div style={{ fontFamily: F.display, fontSize: 18, color: C.white }}>Sage</div>
-              <div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Your teaching coach</div>
+              <div style={{ fontFamily: F.display, fontSize: 18, color: C.white }}>Klas</div>
+              <div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Your instructional design partner</div>
             </div>
             <button onClick={() => setSageOpen(false)}
               style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
@@ -4401,7 +4401,7 @@ export default function KlasUp() {
           <div style={{ borderTop: `1px solid ${C.border}`, padding: 10, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ flex: 1, position: "relative" }}>
               <textarea value={sageInput} onChange={e => setSageInput(e.target.value)}
-                placeholder="Ask Sage anything..."
+                placeholder="What's on your mind today? Anything I can help with?"
                 rows={2}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSageSend(); } }}
                 style={{
