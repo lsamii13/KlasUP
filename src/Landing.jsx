@@ -306,7 +306,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
         {[
           {
             icon: "📅",
-            title: "PD Is a Checkbox. Teaching Is Every Day.",
+            title: "PD Is a Checkbox.",
             body: "One workshop. One day. One year to figure out the rest on your own. That's not professional development — that's a checkbox. But it's Tuesday in October. A student is checked out. An assignment isn't landing. You're tired. Teaching is a daily practice. KlasUp is too — every day, right where you are.",
           },
           {
