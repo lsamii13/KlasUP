@@ -1201,17 +1201,18 @@ export default function KlasUp() {
 
   // --- Sage helpers ---
   const SAGE_CONTEXT = {
-    "Dashboard": "Want to plan something for this week?",
-    "My Course": "Need help building something new from scratch?",
-    "Slide Studio": "Want me to help you plan your deck?",
+    "Dashboard": "What's on your mind today? Anything I can help with?",
+    "My Course": "Let's look at what you're teaching. What would you like to think through?",
+    "Slide Studio": "Let's give the students something they remember. What can we make?",
+    "Micro-Learning": "Something here catch your eye, or are you looking for something specific?",
+    "Think Tank": "Good thinking happens in community. What are you wrestling with?",
+    "Course Portfolio": "Your work, all in one place. What do you want to reflect on?",
+    "Reports": "Documentation doesn't have to feel like a chore. What do you need?",
+    "Wellness": "How are you doing — really?",
   };
 
   const sageGreeting = () => {
-    const ctx = SAGE_CONTEXT[page];
-    const base = "Hi! I'm Sage 🌿 I'm here to help you build something great.";
-    return ctx
-      ? `${base} ${ctx}`
-      : `${base} What are you working on today — a new assignment, a discussion board, a lesson plan, or something else?`;
+    return SAGE_CONTEXT[page] || "Good to see you. What are you working through today?";
   };
 
   const openSage = () => {
@@ -2391,7 +2392,7 @@ export default function KlasUp() {
           <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🌿</div>
             <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy, marginBottom: 8 }}>Assignment Builder has moved to Sage</div>
-            <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, maxWidth: 420, margin: "0 auto 24px" }}>Ask Sage to help you build an assignment, or open the builder directly.</div>
+            <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, maxWidth: 420, margin: "0 auto 24px" }}>Building something new? Tell me about your students or the learning outcomes.</div>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               <button onClick={() => { setSageBuilderOpen(true); setPage("Dashboard"); if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "manual" }); }}
                 style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "11px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
