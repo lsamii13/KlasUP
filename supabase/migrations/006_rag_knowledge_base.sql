@@ -40,7 +40,8 @@ create table if not exists research_articles (
     'Bloom''s Taxonomy',
     'Case Studies',
     'Reflective Practice',
-    'Community of Inquiry'
+    'Community of Inquiry',
+    'Trauma-Informed Teaching'
   )),
   embedding vector(1536),
   search_terms text[] not null default '{}',

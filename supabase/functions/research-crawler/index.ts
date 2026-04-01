@@ -41,6 +41,7 @@ const ERIC_SEARCHES: { query: string; dimension: string }[] = [
   { query: '"student wellbeing" OR "student well-being" higher education', dimension: 'Student Wellbeing' },
   { query: '"faculty development" teaching', dimension: 'Faculty Development' },
   { query: '"community of inquiry" education', dimension: 'Community of Inquiry' },
+  { query: '"trauma-informed" teaching pedagogy', dimension: 'Trauma-Informed Teaching' },
 ]
 
 const PUBMED_SEARCHES: { query: string; dimension: string }[] = [

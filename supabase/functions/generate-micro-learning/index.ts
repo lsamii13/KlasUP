@@ -54,7 +54,7 @@ Each recommendation MUST:
 3. Include a concrete, actionable next step the faculty member can take in their next class session
 
 Respond with a JSON array of exactly 4 objects. Each object must have these fields:
-- "tag": one of "Active Learning", "Socratic Seminar", "UDL", "Reflection", "Flipped Classroom", "Student Voice", "Assessment Design", "Scaffolding", "Metacognition", "Inclusive Pedagogy"
+- "tag": one of "Active Learning", "Socratic Seminar", "UDL", "Reflection", "Flipped Classroom", "Student Voice", "Assessment Design", "Scaffolding", "Metacognition", "Inclusive Pedagogy", "Trauma-Informed Teaching"
 - "title": a concise, compelling finding (max 12 words)
 - "summary": 1-2 sentence explanation of the research finding and why it matters for this faculty member's content
 - "article": full APA-style citation of a real, peer-reviewed study (author(s), year, journal, volume/issue if known)

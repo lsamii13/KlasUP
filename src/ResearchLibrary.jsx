@@ -26,7 +26,7 @@ const DIMENSIONS = [
   "Andragogy", "Action Research", "Universal Design for Learning",
   "Socratic Seminar", "Flipped Classroom", "Metacognition", "Feedback Quality",
   "Student Wellbeing", "Faculty Development", "Bloom's Taxonomy", "Case Studies",
-  "Reflective Practice", "Community of Inquiry",
+  "Reflective Practice", "Community of Inquiry", "Trauma-Informed Teaching",
 ];
 
 const DIM_COLORS = {
@@ -50,6 +50,7 @@ const DIM_COLORS = {
   "Case Studies": C.navy,
   "Reflective Practice": C.purple,
   "Community of Inquiry": C.tealBright,
+  "Trauma-Informed Teaching": C.sage,
 };
 
 function useWindowWidth() {

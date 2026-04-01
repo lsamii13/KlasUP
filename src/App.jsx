@@ -3300,12 +3300,6 @@ export default function KlasUp() {
             { emoji: "💭", title: "Processing Difficult Topics", duration: "3 min", desc: "Create space after emotionally heavy content or discussions.", inhale: 4, hold: 5, exhale: 6, rounds: 5, state: "Understanding Emotions" },
             { emoji: "🌱", title: "General Centering", duration: "2 min", desc: "A simple grounding exercise for any moment you need stillness.", inhale: 4, hold: 4, exhale: 4, rounds: 5, state: "Grounding" },
           ];
-          const TI_RESOURCES = [
-            { title: "Trauma-Aware Pedagogy Improves Student Engagement", cite: "Carello, J., & Butler, L. D. (2015). Practicing what we teach: Trauma-informed educational practice. Journal of Teaching in Social Work, 35(3), 262-278.", summary: "Creating predictable, safe classroom environments where students have choice and voice reduces stress responses and increases participation, especially for first-generation and underrepresented students." },
-            { title: "Compassion Fatigue in Faculty Is Real — And Preventable", cite: "Hoffman, S., Palladino, J. M., & Barnett, J. (2007). Compassion fatigue as a theoretical framework. Journal of Curriculum, Teaching, Learning and Leadership in Education, 2(2).", summary: "Faculty who regularly engage with students' struggles can develop secondary traumatic stress. Self-care routines, peer support, and institutional boundaries protect against burnout." },
-            { title: "Mindfulness Practices Reduce Faculty Burnout", cite: "Hue, M. T., & Lau, N. S. (2015). Promoting well-being and preventing burnout in teacher education. Journal of Education for Teaching, 41(1), 33-50.", summary: "Brief daily mindfulness practices — even 2-5 minutes — significantly reduce emotional exhaustion and increase job satisfaction among educators." },
-          ];
-
           // Weekly check-in history visual (last 4 weeks)
           const weeklyData = [];
           for (let w = 0; w < 4; w++) {
@@ -3396,17 +3390,6 @@ export default function KlasUp() {
                   ))}
                 </div>
 
-                {/* Trauma-informed resources */}
-                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Trauma-Informed Teaching</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {TI_RESOURCES.map((r, i) => (
-                    <Card key={i} style={{ borderLeft: `4px solid ${C.sage}` }}>
-                      <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 6 }}>{r.title}</div>
-                      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>{r.summary}</div>
-                      <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>{r.cite}</div>
-                    </Card>
-                  ))}
-                </div>
               </div>
             )}
 
@@ -3476,17 +3459,6 @@ export default function KlasUp() {
                   ))}
                 </div>
 
-                {/* Trauma-informed section (student tab) */}
-                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Trauma-Informed Teaching</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {TI_RESOURCES.map((r, i) => (
-                    <Card key={i} style={{ borderLeft: `4px solid ${C.sage}` }}>
-                      <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 6 }}>{r.title}</div>
-                      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>{r.summary}</div>
-                      <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>{r.cite}</div>
-                    </Card>
-                  ))}
-                </div>
               </div>
             )}
           </div>
@@ -4167,7 +4139,7 @@ export default function KlasUp() {
                     <input value={adminArticleForm.year} onChange={e => setAdminArticleForm(p => ({ ...p, year: e.target.value }))} placeholder="Year" type="number" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
                     <input value={adminArticleForm.journal} onChange={e => setAdminArticleForm(p => ({ ...p, journal: e.target.value }))} placeholder="Journal" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
                     <select value={adminArticleForm.dimension} onChange={e => setAdminArticleForm(p => ({ ...p, dimension: e.target.value }))} style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }}>
-                      {["Active Learning","Pedagogy","Experiential Learning","Kagan Structures","Problem-Based Learning","Project-Based Learning","Teamwork & Group Projects","Andragogy","Action Research","Universal Design for Learning","Socratic Seminar","Flipped Classroom","Metacognition","Feedback Quality","Student Wellbeing","Faculty Development","Bloom's Taxonomy","Case Studies","Reflective Practice","Community of Inquiry"].map(d => <option key={d} value={d}>{d}</option>)}
+                      {["Active Learning","Pedagogy","Experiential Learning","Kagan Structures","Problem-Based Learning","Project-Based Learning","Teamwork & Group Projects","Andragogy","Action Research","Universal Design for Learning","Socratic Seminar","Flipped Classroom","Metacognition","Feedback Quality","Student Wellbeing","Faculty Development","Bloom's Taxonomy","Case Studies","Reflective Practice","Community of Inquiry","Trauma-Informed Teaching"].map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                     <input value={adminArticleForm.search_terms} onChange={e => setAdminArticleForm(p => ({ ...p, search_terms: e.target.value }))} placeholder="Search terms (comma-separated)" style={{ padding: "8px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
                   </div>
