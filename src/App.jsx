@@ -3,6 +3,7 @@ import Landing from "./Landing";
 import ResearchLibrary from "./ResearchLibrary";
 import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
+import { useFeatureFlags } from "./hooks/useFeatureFlags";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -677,6 +678,26 @@ const EmailBtn = ({ subject, body, label }) => (
   </button>
 );
 
+// Maps feature_flags.name → NAV id
+const FLAG_GATED_PAGES = {
+  pricing: "Pricing",
+  accreditation: "Reports",
+  wellness: "Wellness",
+  think_tank: "Think Tank",
+};
+
+function ComingSoon() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400, textAlign: "center" }}>
+      <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#2A9D8F22", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+        <span style={{ fontSize: 28 }}>🚀</span>
+      </div>
+      <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#1B2B4B", marginBottom: 8 }}>Coming Soon</div>
+      <div style={{ color: "#2A9D8F", fontSize: 16, maxWidth: 360 }}>We're working on something great. Check back soon!</div>
+    </div>
+  );
+}
+
 export default function KlasUp() {
   // --- Auth state ---
   const [session, setSession] = useState(null);
@@ -725,11 +746,20 @@ export default function KlasUp() {
   const [adminCrawlerResult, setAdminCrawlerResult] = useState(null);
   const [adminCrawlerLoading, setAdminCrawlerLoading] = useState(false);
   const [adminEmbedResult, setAdminEmbedResult] = useState(null);
+  const [adminFeatureFlags, setAdminFeatureFlags] = useState([]);
 
   const [page, setPage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ww = useWindowWidth();
   const mob = ww < 768;
+  const { flags } = useFeatureFlags();
+
+  // Build a Set of NAV ids that are disabled by feature flags
+  const gatedPageIds = new Set(
+    Object.entries(FLAG_GATED_PAGES)
+      .filter(([flagName]) => flags[flagName] === false)
+      .map(([, pageId]) => pageId)
+  );
   // tier now comes from the database — no more demo toggle
   const tier = subStatus.tier;
   const [course, setCourse] = useState("");
@@ -1074,6 +1104,7 @@ export default function KlasUp() {
 
   // --- Admin panel loader ---
   const loadAdminData = useCallback(async () => {
+    console.log("loadAdminData called, profile.role:", profile?.role);
     if (profile?.role !== "admin") return;
     setAdminLoading(true);
     try {
@@ -1087,6 +1118,13 @@ export default function KlasUp() {
       setAdminFunnelData(funnel);
     } catch (err) { console.error("Admin load error:", err); }
     finally { setAdminLoading(false); }
+    // Fetch feature flags independently so a failure above doesn't block them
+    try {
+      const { data, error } = await supabase.from("feature_flags").select("*").order("name");
+      console.log("feature flags loaded:", data, "error:", error);
+      if (error) { console.error("feature_flags query error:", error); }
+      if (data) setAdminFeatureFlags(data);
+    } catch (err) { console.error("Feature flags load error:", err); }
   }, [profile?.role]);
 
   const loadAdminResearch = useCallback(async () => {
@@ -1721,7 +1759,7 @@ export default function KlasUp() {
 
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
-          {NAV.filter(n => !n.adminOnly || profile?.role === "admin").map(n => (
+          {NAV.filter(n => (!n.adminOnly || profile?.role === "admin") && !gatedPageIds.has(n.id)).map(n => (
             <button key={n.id} onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
               <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
             </button>
@@ -1827,6 +1865,9 @@ export default function KlasUp() {
               style={{ background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer", padding: "4px", flexShrink: 0 }}>×</button>
           </div>
         ))}
+
+        {/* ── COMING SOON gate for flag-disabled pages ── */}
+        {gatedPageIds.has(page) && <ComingSoon />}
 
         {/* ── DASHBOARD ── */}
         {page === "Dashboard" && (
@@ -2863,7 +2904,7 @@ export default function KlasUp() {
         )}
 
         {/* ── COHORT FORUM ── */}
-        {page === "Think Tank" && (
+        {page === "Think Tank" && !gatedPageIds.has("Think Tank") && (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Think Tank</div>
@@ -2960,7 +3001,7 @@ export default function KlasUp() {
         )}
 
         {/* ── REPORTS ── */}
-        {page === "Reports" && (
+        {page === "Reports" && !gatedPageIds.has("Reports") && (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Reports</div>
@@ -3314,7 +3355,7 @@ export default function KlasUp() {
         })()}
 
         {/* ── WELLNESS ── */}
-        {page === "Wellness" && (() => {
+        {page === "Wellness" && !gatedPageIds.has("Wellness") && (() => {
           const FACULTY_MEDITATIONS = [
             { title: "Before a Tough Class", duration: "3 min", desc: "Ground yourself and find your center before walking into a challenging session.", inhale: 4, hold: 4, exhale: 6, rounds: 6 },
             { title: "After a Draining Week", duration: "5 min", desc: "Release the weight of the week. You gave what you had — now restore.", inhale: 4, hold: 7, exhale: 8, rounds: 8 },
@@ -3980,6 +4021,49 @@ export default function KlasUp() {
               </button>
             </Card>
 
+            {/* Feature Flags */}
+            <Card style={{ marginBottom: 20, borderLeft: `3px solid ${C.tealBright}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: F.display, fontSize: 18 }}>Feature Flags</div>
+                <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted }}>{adminFeatureFlags.length} flag{adminFeatureFlags.length !== 1 ? "s" : ""}</div>
+              </div>
+              {adminFeatureFlags.length === 0 && (
+                <div style={{ fontSize: 13, color: C.muted, padding: "1rem 0", textAlign: "center" }}>No feature flags found. Add rows to the <span style={{ fontFamily: "monospace", background: C.ivoryDark, padding: "2px 6px", borderRadius: 4 }}>feature_flags</span> table to manage them here.</div>
+              )}
+              {adminFeatureFlags.map(ff => (
+                <div key={ff.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `0.5px solid ${C.border}` }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 13, color: C.navy }}>{ff.name}</div>
+                    {ff.description && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{ff.description}</div>}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const next = !ff.enabled;
+                      setAdminFeatureFlags(prev => prev.map(f => f.id === ff.id ? { ...f, enabled: next } : f));
+                      try {
+                        const { error } = await supabase.from("feature_flags").update({ enabled: next }).eq("id", ff.id);
+                        if (error) throw error;
+                      } catch (err) {
+                        setAdminFeatureFlags(prev => prev.map(f => f.id === ff.id ? { ...f, enabled: !next } : f));
+                        alert("Failed to update flag: " + err.message);
+                      }
+                    }}
+                    style={{
+                      position: "relative", width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", flexShrink: 0, marginLeft: 16,
+                      background: ff.enabled ? C.tealBright : C.border,
+                      transition: "background 0.2s",
+                    }}>
+                    <span style={{
+                      position: "absolute", top: 2, left: ff.enabled ? 22 : 2,
+                      width: 20, height: 20, borderRadius: "50%", background: C.white,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                      transition: "left 0.2s",
+                    }} />
+                  </button>
+                </div>
+              ))}
+            </Card>
+
             {/* Create Test Account */}
             <Card style={{ marginBottom: 20 }}>
               <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 12 }}>Create Test Account</div>
@@ -4268,7 +4352,7 @@ export default function KlasUp() {
         })()}
 
         {/* ── PRICING ── */}
-        {page === "Pricing" && (
+        {page === "Pricing" && !gatedPageIds.has("Pricing") && (
           <div>
             <div style={{ textAlign: "center", marginBottom: "2rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 32, marginBottom: 6 }}>Simple, transparent pricing.</div>
