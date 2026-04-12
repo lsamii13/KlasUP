@@ -36,7 +36,7 @@ import {
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
-  upsertKlasOtherResponse,
+  upsertKlasOtherResponse, getPromotedKlasOptions,
 } from "./supabase";
 
 const C = {
@@ -1294,18 +1294,38 @@ export default function KlasUp() {
     const text = reply.toLowerCase();
     let result;
     if (text.includes("type") || text.includes("active learning") || text.includes("group work") || text.includes("kind of assignment") || text.includes("what type")) {
-      result = { options: ["Active Learning", "Project-Based", "Team-Based", "Discussion", "Lecture", "Case Study", "Simulation", "Role Play", "Other"], multiSelect: true, questionType: "assignment_type" };
+      result = { options: ["Active Learning", "Project-Based", "Team-Based", "Discussion", "Lecture", "Case Study", "Simulation", "Role Play", "Other"], multiSelect: true, questionType: "assignment_type", promoted: [] };
     } else if (text.includes("long") || text.includes("session") || text.includes("minutes") || text.includes("hours") || text.includes("class time")) {
-      result = { options: ["30 minutes", "1 hour", "90 minutes", "2+ hours", "Other"], multiSelect: false, questionType: "session_length" };
+      result = { options: ["30 minutes", "1 hour", "90 minutes", "2+ hours", "Other"], multiSelect: false, questionType: "session_length", promoted: [] };
     } else if (text.includes("level") || text.includes("undergrad") || text.includes("graduate") || text.includes("freshman") || text.includes("sophomore") || text.includes("year are")) {
-      result = { options: ["Freshman", "Sophomore", "Junior", "Senior", "Graduate", "Mixed", "Other"], multiSelect: false, questionType: "student_level" };
+      result = { options: ["Freshman", "Sophomore", "Junior", "Senior", "Graduate", "Mixed", "Other"], multiSelect: false, questionType: "student_level", promoted: [] };
     } else if (text.includes("duration") || text.includes("weeks") || text.includes("deadline") || text.includes("timeframe") || text.includes("how long will")) {
-      result = { options: ["1 week", "2 weeks", "3-4 weeks", "Full semester", "Other"], multiSelect: false, questionType: "assignment_duration" };
+      result = { options: ["1 week", "2 weeks", "3-4 weeks", "Full semester", "Other"], multiSelect: false, questionType: "assignment_duration", promoted: [] };
     } else {
-      result = { options: [], multiSelect: false, questionType: null };
+      result = { options: [], multiSelect: false, questionType: null, promoted: [] };
     }
     console.log("[Klas] detectKlasQuickReplies result:", result);
     return result;
+  };
+
+  const loadPromotedOptions = (questionType) => {
+    if (!questionType) return;
+    getPromotedKlasOptions(questionType)
+      .then(promoted => {
+        if (promoted.length === 0) return;
+        setKlasOptions(prev => {
+          if (prev.questionType !== questionType) return prev;
+          const existing = new Set(prev.options.map(o => o.toLowerCase()));
+          const newOpts = promoted.filter(p => !existing.has(p.toLowerCase()));
+          if (newOpts.length === 0) return prev;
+          // Insert promoted options before "Other"
+          const otherIdx = prev.options.indexOf("Other");
+          const before = otherIdx >= 0 ? prev.options.slice(0, otherIdx) : prev.options;
+          const after = otherIdx >= 0 ? prev.options.slice(otherIdx) : [];
+          return { ...prev, options: [...before, ...newOpts, ...after], promoted: [...prev.promoted, ...newOpts] };
+        });
+      })
+      .catch(err => console.error("[Klas] Failed to load promoted options:", err));
   };
 
   const sendQuickReplyMessage = async (text) => {
@@ -1322,7 +1342,9 @@ export default function KlasUp() {
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleaned }]);
-      setKlasOptions(detectKlasQuickReplies(cleaned));
+      const detected = detectKlasQuickReplies(cleaned);
+      setKlasOptions(detected);
+      loadPromotedOptions(detected.questionType);
       if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleaned) ||
           /open(ing)? the assignment builder/i.test(cleaned)) {
         setSageBuilderOpen(true);
@@ -1398,8 +1420,10 @@ export default function KlasUp() {
       const cleaned = stripKlasFiller(reply);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleaned }]);
       console.log("KLAS DEBUG reply text:", cleaned);
-      setKlasOptions(detectKlasQuickReplies(cleaned));
-      console.log("KLAS DEBUG options set:", detectKlasQuickReplies(cleaned));
+      const detected = detectKlasQuickReplies(cleaned);
+      setKlasOptions(detected);
+      loadPromotedOptions(detected.questionType);
+      console.log("KLAS DEBUG options set:", detected);
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
       if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleaned) ||
@@ -4695,6 +4719,7 @@ export default function KlasUp() {
                 {klasOptions.options.map(opt => {
                   const isSelected = klasSelected.includes(opt);
                   const isOther = opt === "Other";
+                  const isPromoted = klasOptions.promoted && klasOptions.promoted.includes(opt);
                   if (klasOptions.multiSelect && !isOther) {
                     // Checkbox style
                     return (
@@ -4709,6 +4734,7 @@ export default function KlasUp() {
                           display: "flex", alignItems: "center", gap: 4,
                         }}>
                         <span style={{ fontSize: 11 }}>{isSelected ? "\u2713" : ""}</span>
+                        {isPromoted && <span style={{ color: isSelected ? "#fff" : "#2A9D8F", fontSize: 10, lineHeight: 1 }}>&#9733;</span>}
                         {opt}
                       </button>
                     );
@@ -4722,10 +4748,12 @@ export default function KlasUp() {
                         border: "none", borderRadius: 16, padding: "5px 12px",
                         fontFamily: F.body, fontSize: 12, fontWeight: 600,
                         cursor: "pointer", transition: "opacity 0.15s",
+                        display: "flex", alignItems: "center", gap: 4,
                       }}
                       onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
                       onMouseLeave={e => e.currentTarget.style.opacity = "1"}
                     >
+                      {isPromoted && <span style={{ color: "#fff", fontSize: 10, lineHeight: 1 }}>&#9733;</span>}
                       {opt}
                     </button>
                   );

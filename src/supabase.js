@@ -460,6 +460,17 @@ export async function upsertKlasOtherResponse(questionType, responseText) {
   }
 }
 
+export async function getPromotedKlasOptions(questionType) {
+  const { data, error } = await supabase
+    .from('klas_other_responses')
+    .select('response_text')
+    .eq('question_type', questionType)
+    .gte('count', 10)
+    .order('count', { ascending: false })
+  if (error) throw error
+  return (data || []).map(r => r.response_text)
+}
+
 export async function fetchArticlesByDimension(dimension, limit = 20) {
   const { data, error } = await supabase
     .from('research_articles')
