@@ -36,6 +36,7 @@ import {
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
+  upsertKlasOtherResponse,
 } from "./supabase";
 
 const C = {
@@ -829,6 +830,11 @@ export default function KlasUp() {
   const [sageInput, setSageInput] = useState("");
   const [sageSending, setSageSending] = useState(false);
   const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
+  const [klasOptions, setKlasOptions] = useState({ options: [], multiSelect: false, questionType: null });
+  const [klasSelected, setKlasSelected] = useState([]);
+  const [klasOtherMode, setKlasOtherMode] = useState(null); // tracks question_type when "Other" clicked
+  const [klasExpanded, setKlasExpanded] = useState(false);
+  const sageTextareaRef = useRef(null);
 
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
@@ -1279,13 +1285,100 @@ export default function KlasUp() {
     setSageOpen(true);
   };
 
-  const handleSageSend = async () => {
-    const text = sageInput.trim();
-    if (!text || sageSending) return;
+  const stripKlasFiller = (text) => {
+    return text.replace(/^(Great[,!]?\s*|Perfect[,!]?\s*)/i, "").trim();
+  };
+
+  const detectKlasQuickReplies = (reply) => {
+    console.log("[Klas] detectKlasQuickReplies input:", reply);
+    const text = reply.toLowerCase();
+    let result;
+    if (text.includes("type") || text.includes("active learning") || text.includes("group work") || text.includes("kind of assignment") || text.includes("what type")) {
+      result = { options: ["Active Learning", "Project-Based", "Team-Based", "Discussion", "Lecture", "Case Study", "Simulation", "Role Play", "Other"], multiSelect: true, questionType: "assignment_type" };
+    } else if (text.includes("long") || text.includes("session") || text.includes("minutes") || text.includes("hours") || text.includes("class time")) {
+      result = { options: ["30 minutes", "1 hour", "90 minutes", "2+ hours", "Other"], multiSelect: false, questionType: "session_length" };
+    } else if (text.includes("level") || text.includes("undergrad") || text.includes("graduate") || text.includes("freshman") || text.includes("sophomore") || text.includes("year are")) {
+      result = { options: ["Freshman", "Sophomore", "Junior", "Senior", "Graduate", "Mixed", "Other"], multiSelect: false, questionType: "student_level" };
+    } else if (text.includes("duration") || text.includes("weeks") || text.includes("deadline") || text.includes("timeframe") || text.includes("how long will")) {
+      result = { options: ["1 week", "2 weeks", "3-4 weeks", "Full semester", "Other"], multiSelect: false, questionType: "assignment_duration" };
+    } else {
+      result = { options: [], multiSelect: false, questionType: null };
+    }
+    console.log("[Klas] detectKlasQuickReplies result:", result);
+    return result;
+  };
+
+  const sendQuickReplyMessage = async (text) => {
     const userMsg = { role: "user", content: text };
     const updated = [...sageMessages, userMsg];
     setSageMessages(updated);
     setSageInput("");
+    setSageSending(true);
+    try {
+      const apiMessages = updated
+        .filter((m, i) => !(i === 0 && m.role === "assistant"))
+        .map(m => ({ role: m.role, content: m.content }));
+      const reply = await sendSageChat({ messages: apiMessages, currentPage: page, courseName: course || null });
+      if (!reply) throw new Error("Empty response");
+      const cleaned = stripKlasFiller(reply);
+      setSageMessages(prev => [...prev, { role: "assistant", content: cleaned }]);
+      setKlasOptions(detectKlasQuickReplies(cleaned));
+      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleaned) ||
+          /open(ing)? the assignment builder/i.test(cleaned)) {
+        setSageBuilderOpen(true);
+        if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
+      }
+    } catch (err) {
+      console.error("[Klas] Chat error:", err);
+      setSageMessages(prev => [...prev, { role: "assistant", content: "Hmm, I'm having trouble connecting right now. Try again in a moment! 🌿" }]);
+    } finally {
+      setSageSending(false);
+    }
+  };
+
+  const handleQuickReply = (option) => {
+    if (option === "Other") {
+      setKlasOtherMode(klasOptions.questionType);
+      setKlasOptions({ options: [], multiSelect: false, questionType: null });
+      setKlasSelected([]);
+      if (sageTextareaRef.current) sageTextareaRef.current.focus();
+      return;
+    }
+    if (klasOptions.multiSelect) {
+      // Toggle checkbox selection
+      setKlasSelected(prev => prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]);
+      return;
+    }
+    // Single-select: send immediately
+    setKlasOptions({ options: [], multiSelect: false, questionType: null });
+    setKlasSelected([]);
+    setKlasOtherMode(null);
+    sendQuickReplyMessage(option);
+  };
+
+  const handleMultiSelectSend = () => {
+    if (klasSelected.length === 0) return;
+    const text = klasSelected.join(", ");
+    setKlasOptions({ options: [], multiSelect: false, questionType: null });
+    setKlasSelected([]);
+    setKlasOtherMode(null);
+    sendQuickReplyMessage(text);
+  };
+
+  const handleSageSend = async () => {
+    const text = sageInput.trim();
+    if (!text || sageSending) return;
+    // If in "Other" mode, save the typed response to Supabase
+    if (klasOtherMode) {
+      upsertKlasOtherResponse(klasOtherMode, text).catch(err => console.error("[Klas] Other save error:", err));
+      setKlasOtherMode(null);
+    }
+    const userMsg = { role: "user", content: text };
+    const updated = [...sageMessages, userMsg];
+    setSageMessages(updated);
+    setSageInput("");
+    setKlasOptions({ options: [], multiSelect: false, questionType: null });
+    setKlasSelected([]);
     setSageSending(true);
     try {
       // Anthropic API requires first message to be role:"user".
@@ -1302,11 +1395,15 @@ export default function KlasUp() {
       });
       console.log("[Klas] Response received:", reply ? reply.slice(0, 100) + "..." : "EMPTY");
       if (!reply) throw new Error("Empty response");
-      setSageMessages(prev => [...prev, { role: "assistant", content: reply }]);
+      const cleaned = stripKlasFiller(reply);
+      setSageMessages(prev => [...prev, { role: "assistant", content: cleaned }]);
+      console.log("KLAS DEBUG reply text:", cleaned);
+      setKlasOptions(detectKlasQuickReplies(cleaned));
+      console.log("KLAS DEBUG options set:", detectKlasQuickReplies(cleaned));
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
-      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(reply) ||
-          /open(ing)? the assignment builder/i.test(reply)) {
+      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleaned) ||
+          /open(ing)? the assignment builder/i.test(cleaned)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       }
@@ -4531,12 +4628,14 @@ export default function KlasUp() {
         <div style={{
           position: "fixed",
           bottom: mob ? 0 : 24, right: mob ? 0 : 24,
-          width: mob ? "90vw" : 320, height: mob ? "70vh" : 480,
-          maxHeight: mob ? "calc(100vh - 20px)" : 480,
-          left: mob ? "5vw" : "auto",
+          width: mob ? "95vw" : (klasExpanded ? 520 : 320),
+          height: mob ? (klasExpanded ? "90vh" : "70vh") : (klasExpanded ? 680 : 480),
+          maxHeight: mob ? (klasExpanded ? "calc(100vh - 10px)" : "calc(100vh - 20px)") : (klasExpanded ? 680 : 480),
+          left: mob ? "2.5vw" : "auto",
           background: C.white, borderRadius: mob ? "16px 16px 0 0" : 16, boxShadow: "0 8px 40px rgba(15,31,61,0.18)",
           display: "flex", flexDirection: "column", zIndex: 9001, overflow: "hidden",
           animation: "sageSlideUp 0.25s ease-out",
+          transition: "width 0.3s ease, height 0.3s ease, max-height 0.3s ease",
         }}>
           {/* Header */}
           <div style={{ background: C.sage, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
@@ -4544,10 +4643,26 @@ export default function KlasUp() {
               <div style={{ fontFamily: F.display, fontSize: 18, color: C.white }}>Klas</div>
               <div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Your instructional design partner</div>
             </div>
-            <button onClick={() => setSageOpen(false)}
-              style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
-              ─
-            </button>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button onClick={() => setKlasExpanded(e => !e)}
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
+                {klasExpanded ? (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <polyline points="9,1 13,1 13,5" /><line x1="13" y1="1" x2="8" y2="6" />
+                    <polyline points="5,13 1,13 1,9" /><line x1="1" y1="13" x2="6" y2="8" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <polyline points="9,5 13,5 13,1" /><line x1="13" y1="5" x2="8" y2="0" />
+                    <polyline points="5,9 1,9 1,13" /><line x1="1" y1="9" x2="6" y2="14" />
+                  </svg>
+                )}
+              </button>
+              <button onClick={() => setSageOpen(false)}
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+                ─
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -4573,10 +4688,67 @@ export default function KlasUp() {
             )}
           </div>
 
+          {/* Quick-reply pills / checkboxes */}
+          {klasOptions.options && klasOptions.options.length > 0 && (
+            <div style={{ borderTop: `1px solid ${C.border}`, padding: "8px 10px 4px", flexShrink: 0 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {klasOptions.options.map(opt => {
+                  const isSelected = klasSelected.includes(opt);
+                  const isOther = opt === "Other";
+                  if (klasOptions.multiSelect && !isOther) {
+                    // Checkbox style
+                    return (
+                      <button key={opt} onClick={() => handleQuickReply(opt)}
+                        style={{
+                          background: isSelected ? "#2A9D8F" : "#F0F0F0",
+                          color: isSelected ? "#fff" : C.text,
+                          border: isSelected ? "2px solid #2A9D8F" : "2px solid #D0D0D0",
+                          borderRadius: 16, padding: "5px 12px",
+                          fontFamily: F.body, fontSize: 12, fontWeight: 600,
+                          cursor: "pointer", transition: "all 0.15s",
+                          display: "flex", alignItems: "center", gap: 4,
+                        }}>
+                        <span style={{ fontSize: 11 }}>{isSelected ? "\u2713" : ""}</span>
+                        {opt}
+                      </button>
+                    );
+                  }
+                  // Single-select pill or "Other"
+                  return (
+                    <button key={opt} onClick={() => handleQuickReply(opt)}
+                      style={{
+                        background: isOther ? "#E8E8E8" : "#2A9D8F",
+                        color: isOther ? C.text : "#fff",
+                        border: "none", borderRadius: 16, padding: "5px 12px",
+                        fontFamily: F.body, fontSize: 12, fontWeight: 600,
+                        cursor: "pointer", transition: "opacity 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+                      onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+              {klasOptions.multiSelect && klasSelected.length > 0 && (
+                <button onClick={handleMultiSelectSend}
+                  style={{
+                    marginTop: 8, background: "#2A9D8F", color: "#fff",
+                    border: "none", borderRadius: 10, padding: "6px 16px",
+                    fontFamily: F.accent, fontSize: 12, fontWeight: 700,
+                    cursor: "pointer",
+                  }}>
+                  Send
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Input */}
-          <div style={{ borderTop: `1px solid ${C.border}`, padding: 10, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+          <div style={{ borderTop: klasOptions.options && klasOptions.options.length > 0 ? "none" : `1px solid ${C.border}`, padding: 10, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ flex: 1, position: "relative" }}>
-              <textarea value={sageInput} onChange={e => setSageInput(e.target.value)}
+              <textarea ref={sageTextareaRef} value={sageInput} onChange={e => setSageInput(e.target.value)}
                 placeholder="What's on your mind today? Anything I can help with?"
                 rows={2}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSageSend(); } }}

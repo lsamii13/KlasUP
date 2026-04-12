@@ -432,6 +432,34 @@ export async function fetchTodayCheckin(userId) {
   return data?.[0] || null
 }
 
+// ── Klas "Other" response tracking ──────────────────────
+
+export async function upsertKlasOtherResponse(questionType, responseText) {
+  const cleaned = responseText.replace(/<[^>]*>/g, '').trim()
+  if (!cleaned) return
+
+  // Check if this exact response already exists for this question type
+  const { data: existing } = await supabase
+    .from('klas_other_responses')
+    .select('id, count')
+    .eq('question_type', questionType)
+    .eq('response_text', cleaned)
+    .single()
+
+  if (existing) {
+    const { error } = await supabase
+      .from('klas_other_responses')
+      .update({ count: existing.count + 1, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('klas_other_responses')
+      .insert({ question_type: questionType, response_text: cleaned })
+    if (error) throw error
+  }
+}
+
 export async function fetchArticlesByDimension(dimension, limit = 20) {
   const { data, error } = await supabase
     .from('research_articles')
