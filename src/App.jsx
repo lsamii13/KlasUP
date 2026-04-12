@@ -1123,6 +1123,7 @@ export default function KlasUp() {
         adminFetchUsageStats(),
         adminFetchFunnel(),
       ]);
+      console.log("Admin users loaded:", users?.length, users);
       setAdminUsers(users);
       setAdminStats(stats);
       setAdminFunnelData(funnel);

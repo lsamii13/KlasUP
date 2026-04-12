@@ -277,11 +277,7 @@ export async function dismissAnnouncement(userId, announcementId) {
 // ── Admin functions ───────────────────────────────────────
 
 export async function adminFetchAllUsers() {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(500)
+  const { data, error } = await supabase.rpc('get_all_profiles')
   if (error) throw error
   return data || []
 }
