@@ -855,6 +855,7 @@ export default function KlasUp() {
   const [settingsPwMsg, setSettingsPwMsg] = useState(null);
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // --- Wellness state ---
   const [wellnessScore, setWellnessScore] = useState(null);
@@ -969,9 +970,12 @@ export default function KlasUp() {
           .then(anns => setAnnouncements(anns))
           .catch(() => {});
 
-        // Show onboarding tour for new users who haven't completed it
-        if (p && p.onboarding_complete === false) {
-          setShowOnboardingTour(true);
+        // Show welcome banner for new users (created within 3 days, not dismissed, tour not completed)
+        if (p && p.created_at) {
+          const daysSinceCreated = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceCreated <= 3 && !localStorage.getItem("klasup_welcome_dismissed")) {
+            setShowWelcomeBanner(true);
+          }
         }
 
       } catch (err) {
@@ -1993,6 +1997,39 @@ export default function KlasUp() {
         {/* ── DASHBOARD ── */}
         {page === "Dashboard" && (
           <div>
+            {/* Welcome banner for new users */}
+            {showWelcomeBanner && (
+              <div style={{
+                background: "#1B2B4B", color: "#fff", borderRadius: 14, padding: "14px 20px",
+                marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 12, flexWrap: "wrap",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 200 }}>
+                  <span style={{ fontSize: 22 }}>&#10022;</span>
+                  <span style={{ fontFamily: F.body, fontSize: 14, fontWeight: 600 }}>
+                    You're in! Want to see what KlasUp can do?
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => { setShowWelcomeBanner(false); setShowOnboardingTour(true); }}
+                    style={{
+                      background: C.tealBright, color: "#fff", border: "none", borderRadius: 10,
+                      padding: "8px 18px", fontFamily: F.accent, fontWeight: 700, fontSize: 13,
+                      cursor: "pointer", whiteSpace: "nowrap",
+                    }}>
+                    Take the Tour
+                  </button>
+                  <button onClick={() => { setShowWelcomeBanner(false); localStorage.setItem("klasup_welcome_dismissed", "1"); }}
+                    style={{
+                      background: "none", border: "none", color: "rgba(255,255,255,0.6)",
+                      fontSize: 18, cursor: "pointer", padding: "4px 6px", lineHeight: 1,
+                    }}>
+                    &#10005;
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: mob ? 22 : 28, marginBottom: 2 }}>Good morning{profile?.name ? `, ${profile.name}` : ""}</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Week 8 of Fall 2025 · {can("pro") ? "8 insights" : "2 insights"} ready for you</div>

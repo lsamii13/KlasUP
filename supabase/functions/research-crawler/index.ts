@@ -42,6 +42,47 @@ const ERIC_SEARCHES: { query: string; dimension: string }[] = [
   { query: '"faculty development" teaching', dimension: 'Faculty Development' },
   { query: '"community of inquiry" education', dimension: 'Community of Inquiry' },
   { query: '"trauma-informed" teaching pedagogy', dimension: 'Trauma-Informed Teaching' },
+  { query: '"team based learning" higher education', dimension: 'Team-Based Learning' },
+  { query: '"culturally responsive teaching" higher education', dimension: 'Culturally Responsive Teaching' },
+  { query: '"inclusive teaching" higher education', dimension: 'Inclusive Teaching' },
+  { query: '"course design" higher education pedagogy', dimension: 'Course Design' },
+  { query: '"student engagement" higher education', dimension: 'Student Engagement' },
+  { query: '"assessment design" higher education', dimension: 'Assessment Design' },
+  { query: '"discussion based learning" higher education', dimension: 'Discussion-Based Learning' },
+  { query: '"case based learning" higher education', dimension: 'Case-Based Learning' },
+  { query: '"collaborative learning" higher education', dimension: 'Collaborative Learning' },
+  { query: '"simulation" learning higher education pedagogy', dimension: 'Simulation-Based Learning' },
+  // Boost low-count dimensions
+  { query: '"active learning strategies" college classroom', dimension: 'Active Learning' },
+  { query: '"active learning" undergraduate teaching', dimension: 'Active Learning' },
+  { query: '"experiential education" college students', dimension: 'Experiential Learning' },
+  { query: '"learning by doing" higher education', dimension: 'Experiential Learning' },
+  { query: '"problem based learning" undergraduate', dimension: 'Problem-Based Learning' },
+  { query: '"project based learning" college students', dimension: 'Project-Based Learning' },
+  { query: '"UDL" higher education accessibility', dimension: 'Universal Design for Learning' },
+  { query: '"adult learners" higher education motivation', dimension: 'Andragogy' },
+  { query: '"student feedback" formative assessment college', dimension: 'Feedback Quality' },
+  { query: '"feedback" learning improvement higher education', dimension: 'Feedback Quality' },
+  { query: '"classroom action research" teaching improvement', dimension: 'Action Research' },
+  { query: '"flipped learning" higher education outcomes', dimension: 'Flipped Classroom' },
+  { query: '"student mental health" higher education', dimension: 'Student Wellbeing' },
+  { query: '"online learning community" higher education', dimension: 'Community of Inquiry' },
+  { query: '"Bloom\'s taxonomy" higher education curriculum', dimension: "Bloom's Taxonomy" },
+  { query: '"reflective teaching" higher education faculty', dimension: 'Reflective Practice' },
+  { query: '"case study method" higher education teaching', dimension: 'Case Studies' },
+  { query: '"collaborative learning" group work college', dimension: 'Teamwork & Group Projects' },
+  // Contemplative Pedagogy
+  { query: '"contemplative pedagogy" higher education', dimension: 'Contemplative Pedagogy' },
+  { query: '"mindfulness" teaching higher education', dimension: 'Contemplative Pedagogy' },
+  { query: '"contemplative education" college faculty', dimension: 'Contemplative Pedagogy' },
+  { query: '"mindful learning" higher education classroom', dimension: 'Contemplative Pedagogy' },
+  // High Impact Practices
+  { query: '"high impact practices" higher education', dimension: 'High Impact Practices' },
+  { query: '"HIPs" undergraduate higher education engagement', dimension: 'High Impact Practices' },
+  { query: '"service learning" higher education', dimension: 'High Impact Practices' },
+  { query: '"undergraduate research" student learning', dimension: 'High Impact Practices' },
+  { query: '"capstone course" higher education learning', dimension: 'High Impact Practices' },
+  { query: '"internship" experiential higher education outcomes', dimension: 'High Impact Practices' },
 ]
 
 const PUBMED_SEARCHES: { query: string; dimension: string }[] = [
@@ -50,6 +91,8 @@ const PUBMED_SEARCHES: { query: string; dimension: string }[] = [
   { query: 'faculty development university assessment', dimension: 'Faculty Development' },
   { query: 'active learning student engagement university', dimension: 'Active Learning' },
   { query: 'metacognition self-regulation education', dimension: 'Metacognition' },
+  { query: 'student engagement motivation higher education', dimension: 'Student Engagement' },
+  { query: 'inclusive teaching diversity higher education', dimension: 'Inclusive Teaching' },
 ]
 
 // ── ERIC API crawler ─────────────────────────────────────────
@@ -65,7 +108,7 @@ interface CrawledArticle {
 }
 
 async function crawlERIC(query: string, dimension: string): Promise<CrawledArticle[]> {
-  const url = `https://api.ies.ed.gov/eric/?search=${encodeURIComponent(query)}&format=json&rows=10&fields=title,author,publicationdateyear,source,description,subject&start=0`
+  const url = `https://api.ies.ed.gov/eric/?search=${encodeURIComponent(query)}&format=json&rows=25&fields=title,author,publicationdateyear,source,description,subject&start=0`
 
   const res = await fetch(url)
   if (!res.ok) {
@@ -103,7 +146,7 @@ async function crawlERIC(query: string, dimension: string): Promise<CrawledArtic
 
 async function crawlPubMed(query: string, dimension: string): Promise<CrawledArticle[]> {
   // Step 1: Search for article IDs
-  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=10&retmode=json&sort=relevance`
+  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=25&retmode=json&sort=relevance`
 
   const searchRes = await fetch(searchUrl)
   if (!searchRes.ok) {
