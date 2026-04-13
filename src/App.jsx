@@ -4,6 +4,7 @@ import ResearchLibrary from "./ResearchLibrary";
 import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
+import StudentVoicePage from "./pages/StudentVoicePage";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -68,6 +69,7 @@ const NAV = [
   { id: "Course Portfolio", icon: "◆" },
   { id: "Reports", icon: "☑" },
   { id: "Wellness", icon: "🌿" },
+  { id: "Student Voice", icon: "🎤" },
   { id: "Pedagogical Resources", icon: "⊡" },
   { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
@@ -685,6 +687,7 @@ const FLAG_GATED_PAGES = {
   accreditation: "Reports",
   wellness: "Wellness",
   think_tank: "Think Tank",
+  student_voice: "Student Voice",
 };
 
 function ComingSoon() {
@@ -3512,6 +3515,11 @@ export default function KlasUp() {
           </div>
           );
         })()}
+
+        {/* ── STUDENT VOICE ── */}
+        {page === "Student Voice" && !gatedPageIds.has("Student Voice") && (
+          <StudentVoicePage canPro={can("pro")} onUpgrade={upgrade} />
+        )}
 
         {/* ── WELLNESS ── */}
         {page === "Wellness" && !gatedPageIds.has("Wellness") && (() => {
