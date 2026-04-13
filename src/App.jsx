@@ -690,6 +690,95 @@ const FLAG_GATED_PAGES = {
   student_voice: "Student Voice",
 };
 
+const FROM_KLASUP_ITEMS = [
+  { type: "feature", emoji: "🎤", title: "Klas is here!", body: "Your AI brainstorming partner is ready. Ask Klas anything about your course \u2014 one question at a time." },
+  { type: "tip", emoji: "💡", title: "Start with a question", body: "When using Klas, start vague \u2014 'I need help with an assignment' \u2014 and let Klas ask the right questions." },
+  { type: "research", emoji: "🔬", title: "Active learning works", body: "Students in active learning courses are 1.5x more likely to pass than those in traditional lectures. (Freeman et al., 2014)" },
+  { type: "feature", emoji: "📊", title: "Course Health Scores", body: "KlasUp tracks your teaching health week over week. Check your Up Score on the dashboard." },
+  { type: "tip", emoji: "📝", title: "Use voice input", body: "Every text field in KlasUp supports voice input. Tap the mic icon and just talk." },
+  { type: "research", emoji: "🧠", title: "Feedback matters", body: "Formative feedback improves student performance by 30% when given within 24 hours. (Hattie & Timperley, 2007)" },
+  { type: "feature", emoji: "🎓", title: "Student Voice", body: "A new dedicated section with strategies and prompts to amplify student voice in your classroom." },
+  { type: "tip", emoji: "📤", title: "Export everything", body: "Every assignment, slide deck, and report can be exported as PDF, Word, or PowerPoint." },
+  { type: "research", emoji: "💬", title: "Student voice drives retention", body: "Courses where faculty visibly act on student feedback see 23% higher end-of-term satisfaction scores." },
+];
+
+const TYPE_ACCENT = { feature: "#2A9D8F", tip: "#1B2B4B", research: "#7BAE7F" };
+const TYPE_LABEL = { feature: "New Feature", tip: "Tip", research: "Research" };
+
+function FromKlasUpPanel() {
+  const [idx, setIdx] = useState(0);
+  const total = FROM_KLASUP_ITEMS.length;
+
+  useEffect(() => {
+    const timer = setInterval(() => setIdx(i => (i + 1) % total), 6000);
+    return () => clearInterval(timer);
+  }, [total]);
+
+  const item = FROM_KLASUP_ITEMS[idx];
+  const accent = TYPE_ACCENT[item.type] || "#2A9D8F";
+
+  return (
+    <div>
+      <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 14, fontWeight: 700, color: "#1B2B4B", marginBottom: 10 }}>
+        From KlasUp
+      </div>
+      <div style={{
+        background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16,
+        overflow: "hidden", position: "relative",
+      }}>
+        {/* Accent bar */}
+        <div style={{ height: 4, background: accent, transition: "background 0.4s ease" }} />
+
+        {/* Card content */}
+        <div style={{ padding: "18px 16px 14px", minHeight: 140 }}>
+          <div style={{
+            fontFamily: "'Nunito', sans-serif", fontSize: 10, fontWeight: 800,
+            color: accent, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6,
+            transition: "color 0.4s ease",
+          }}>
+            {TYPE_LABEL[item.type]}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 20 }}>{item.emoji}</span>
+            <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 15, fontWeight: 700, color: "#1B2B4B", lineHeight: 1.3 }}>
+              {item.title}
+            </div>
+          </div>
+          <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: 13, color: "#5a6a85", lineHeight: 1.6 }}>
+            {item.body}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px 12px" }}>
+          <button onClick={() => setIdx(i => (i - 1 + total) % total)}
+            style={{ background: "none", border: "none", fontSize: 18, color: "#C0C0C0", cursor: "pointer", padding: "2px 6px", lineHeight: 1, transition: "color 0.15s" }}
+            onMouseEnter={e => e.currentTarget.style.color = "#2A9D8F"}
+            onMouseLeave={e => e.currentTarget.style.color = "#C0C0C0"}>
+            ‹
+          </button>
+          <div style={{ display: "flex", gap: 5 }}>
+            {FROM_KLASUP_ITEMS.map((_, i) => (
+              <button key={i} onClick={() => setIdx(i)}
+                style={{
+                  width: i === idx ? 16 : 6, height: 6, borderRadius: 3, border: "none", padding: 0,
+                  background: i === idx ? "#2A9D8F" : "#D0D0D0", cursor: "pointer",
+                  transition: "all 0.3s ease",
+                }} />
+            ))}
+          </div>
+          <button onClick={() => setIdx(i => (i + 1) % total)}
+            style={{ background: "none", border: "none", fontSize: 18, color: "#C0C0C0", cursor: "pointer", padding: "2px 6px", lineHeight: 1, transition: "color 0.15s" }}
+            onMouseEnter={e => e.currentTarget.style.color = "#2A9D8F"}
+            onMouseLeave={e => e.currentTarget.style.color = "#C0C0C0"}>
+            ›
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ComingSoon() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400, textAlign: "center" }}>
@@ -2031,7 +2120,8 @@ export default function KlasUp() {
 
         {/* ── DASHBOARD ── */}
         {page === "Dashboard" && (
-          <div>
+          <div style={{ display: "flex", gap: mob ? 0 : 20, flexDirection: mob ? "column" : "row" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: mob ? 22 : 28, marginBottom: 2 }}>Good morning{profile?.name ? `, ${profile.name}` : ""}</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Week 8 of Fall 2025 · {can("pro") ? "8 insights" : "2 insights"} ready for you</div>
@@ -2317,6 +2407,12 @@ export default function KlasUp() {
                 </div>
               </Card>
             )}
+          </div>
+
+          {/* Right sidebar — From KlasUp rotating panel */}
+          <div style={{ width: mob ? "100%" : 280, flexShrink: 0, marginTop: mob ? 16 : 0 }}>
+            <FromKlasUpPanel />
+          </div>
           </div>
         )}
 
