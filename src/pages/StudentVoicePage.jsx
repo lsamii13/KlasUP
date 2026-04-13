@@ -99,16 +99,18 @@ export default function StudentVoicePage({ canPro = false, onUpgrade }) {
   const mob = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <div style={{ maxWidth: 840, margin: "0 auto", padding: mob ? "20px 16px" : "32px 24px" }}>
+    <div>
 
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: F.display, fontSize: mob ? 26 : 34, fontWeight: 700, color: C.navy, marginBottom: 6 }}>
+      <div style={{ marginBottom: "1.25rem" }}>
+        <div style={{ fontFamily: F.display, fontSize: mob ? 22 : 28, fontWeight: 700, color: C.navy, marginBottom: 2 }}>
           Student Voice
         </div>
-        <div style={{ fontFamily: F.body, fontSize: 15, color: C.muted, marginBottom: 18, lineHeight: 1.6 }}>
+        <div style={{ fontFamily: F.body, fontSize: 14, color: C.muted }}>
           Give your students a seat at the table. Here's how.
         </div>
+      </div>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           background: `${C.teal}12`, border: `1px solid ${C.teal}33`,
           borderRadius: 12, padding: "14px 18px",
