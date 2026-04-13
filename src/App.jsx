@@ -858,7 +858,7 @@ export default function KlasUp() {
   const [settingsPwMsg, setSettingsPwMsg] = useState(null);
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
-  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
 
   // --- Wellness state ---
   const [wellnessScore, setWellnessScore] = useState(null);
