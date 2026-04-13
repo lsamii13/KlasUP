@@ -1298,7 +1298,7 @@ export default function KlasUp() {
     console.log("[Klas] detectKlasQuickReplies input:", reply);
     const text = reply.toLowerCase();
     let result;
-    if (text.includes("type") || text.includes("active learning") || text.includes("group work") || text.includes("kind of assignment") || text.includes("what type")) {
+    if (text.includes("type of assignment") || text.includes("what type of") || text.includes("kind of assignment")) {
       result = { options: ["Active Learning", "Project-Based", "Team-Based", "Discussion", "Lecture", "Case Study", "Simulation", "Role Play", "Other"], multiSelect: true, questionType: "assignment_type", promoted: [] };
     } else if (text.includes("long") || text.includes("session") || text.includes("minutes") || text.includes("hours") || text.includes("class time")) {
       result = { options: ["30 minutes", "1 hour", "90 minutes", "2+ hours", "Other"], multiSelect: false, questionType: "session_length", promoted: [] };
@@ -4768,15 +4768,16 @@ export default function KlasUp() {
                     return (
                       <button key={opt} onClick={() => handleQuickReply(opt)}
                         style={{
-                          background: isSelected ? "#2A9D8F" : "#F0F0F0",
+                          background: isSelected ? "#2A9D8F" : "#fff",
                           color: isSelected ? "#fff" : C.text,
                           border: isSelected ? "2px solid #2A9D8F" : "2px solid #D0D0D0",
                           borderRadius: 16, padding: "5px 12px",
                           fontFamily: F.body, fontSize: 12, fontWeight: 600,
                           cursor: "pointer", transition: "all 0.15s",
                           display: "flex", alignItems: "center", gap: 4,
+                          boxShadow: isSelected ? "0 2px 6px rgba(42,157,143,0.3)" : "none",
                         }}>
-                        <span style={{ fontSize: 11 }}>{isSelected ? "\u2713" : ""}</span>
+                        <span style={{ fontSize: 11, width: 14, textAlign: "center" }}>{isSelected ? "\u2713" : "\u25CB"}</span>
                         {isPromoted && <span style={{ color: isSelected ? "#fff" : "#2A9D8F", fontSize: 10, lineHeight: 1 }}>&#9733;</span>}
                         {opt}
                       </button>
@@ -4820,7 +4821,7 @@ export default function KlasUp() {
           <div style={{ borderTop: klasOptions.options && klasOptions.options.length > 0 ? "none" : `1px solid ${C.border}`, padding: 10, display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ flex: 1, position: "relative" }}>
               <textarea ref={sageTextareaRef} value={sageInput} onChange={e => setSageInput(e.target.value)}
-                placeholder="What's on your mind today? Anything I can help with?"
+                placeholder="Type your response or choose an option above..."
                 rows={2}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSageSend(); } }}
                 style={{
