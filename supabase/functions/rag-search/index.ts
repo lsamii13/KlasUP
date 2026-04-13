@@ -44,18 +44,135 @@ Deno.serve(async (req: Request) => {
     const body = await req.json()
     const { type } = body
 
-    // ── EMBED: Placeholder — no embedding provider configured ──
+    // ── EMBED: Generate embeddings for articles missing them ──
     if (type === 'embed') {
-      // Count how many articles are missing embeddings
-      const { count } = await supabase
+      const voyageKey = Deno.env.get('VOYAGE_API_KEY')
+      const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+      const useVoyage = !!voyageKey
+      const activeKey = voyageKey || anthropicKey
+
+      if (!activeKey) {
+        return new Response(JSON.stringify({
+          error: 'No API key configured. Set VOYAGE_API_KEY or ANTHROPIC_API_KEY.',
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Fetch articles missing embeddings (batch of 50 to avoid timeouts)
+      const { data: articles, error: fetchErr } = await supabase
         .from('research_articles')
-        .select('id', { count: 'exact', head: true })
+        .select('id, title, abstract, dimension')
         .is('embedding', null)
+        .limit(50)
+
+      if (fetchErr) throw new Error(`Failed to fetch articles: ${fetchErr.message}`)
+
+      if (!articles || articles.length === 0) {
+        return new Response(JSON.stringify({
+          message: 'All articles already have embeddings.',
+          processed: 0, succeeded: 0, failed: 0,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      let succeeded = 0
+      let failed = 0
+      const errors: string[] = []
+      const provider = useVoyage ? 'voyage-2' : 'claude-fallback'
+
+      for (const article of articles) {
+        try {
+          const inputText = `${article.title} ${article.abstract || ''} ${article.dimension}`.trim()
+          let embedding: number[]
+
+          if (useVoyage) {
+            // Voyage AI embeddings API
+            const embRes = await fetch('https://api.voyageai.com/v1/embeddings', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${voyageKey}`,
+              },
+              body: JSON.stringify({
+                model: 'voyage-2',
+                input: [inputText],
+                input_type: 'document',
+              }),
+            })
+
+            const voyageText = await embRes.text()
+            console.log('Voyage response status:', embRes.status)
+            console.log('Voyage response body:', voyageText)
+
+            if (!embRes.ok) {
+              throw new Error(`Voyage API ${embRes.status}: ${voyageText}`)
+            }
+
+            const embData = JSON.parse(voyageText)
+            embedding = embData.data?.[0]?.embedding
+            if (!embedding) throw new Error('No embedding returned from Voyage')
+          } else {
+            // Fallback: use Claude to generate a pseudo-embedding
+            const embRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey!,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 4000,
+                system: 'You are a semantic embedding generator. Given a text, return ONLY a JSON array of exactly 512 floating point numbers between -1 and 1 that represent the semantic meaning of the text. The numbers should capture the key topics, concepts, and relationships in the text. Return ONLY the JSON array, no other text.',
+                messages: [{ role: 'user', content: inputText.slice(0, 2000) }],
+              }),
+            })
+
+            if (!embRes.ok) {
+              const errText = await embRes.text()
+              throw new Error(`Claude API ${embRes.status}: ${errText}`)
+            }
+
+            const embData = await embRes.json()
+            const rawText = embData.content?.[0]?.text || ''
+            embedding = JSON.parse(rawText)
+            if (!Array.isArray(embedding) || embedding.length !== 512) {
+              throw new Error(`Invalid embedding: expected 512 numbers, got ${Array.isArray(embedding) ? embedding.length : typeof embedding}`)
+            }
+          }
+
+          console.log('Saving embedding for article:', article.id, 'vector length:', embedding.length)
+          const { error: updateErr } = await supabase
+            .from('research_articles')
+            .update({ embedding })
+            .eq('id', article.id)
+
+          if (updateErr) {
+            console.log('Supabase save error:', JSON.stringify(updateErr))
+            throw new Error(`DB update failed: ${updateErr.message}`)
+          }
+          console.log('Successfully saved embedding for article:', article.id)
+
+          succeeded++
+        } catch (e) {
+          failed++
+          errors.push(`"${article.title.substring(0, 40)}...": ${e.message}`)
+        }
+
+        // Rate limit — delay between API calls
+        await new Promise(r => setTimeout(r, useVoyage ? 100 : 500))
+      }
 
       return new Response(JSON.stringify({
-        message: `No embedding provider configured. ${count ?? 0} articles are missing embeddings. Keyword search is active and working. To enable vector search, add an embedding provider and re-deploy this function.`,
-        count: 0,
-        missing_embeddings: count ?? 0,
+        message: `Embedding complete (${provider}). ${succeeded} succeeded, ${failed} failed out of ${articles.length} processed.`,
+        processed: articles.length,
+        succeeded,
+        failed,
+        provider,
+        errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

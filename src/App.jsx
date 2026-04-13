@@ -973,12 +973,9 @@ export default function KlasUp() {
           .then(anns => setAnnouncements(anns))
           .catch(() => {});
 
-        // Show welcome banner for new users (created within 3 days, not dismissed, tour not completed)
-        if (p && p.created_at) {
-          const daysSinceCreated = (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24);
-          if (daysSinceCreated <= 3 && !localStorage.getItem("klasup_welcome_dismissed")) {
-            setShowWelcomeBanner(true);
-          }
+        // TEMP: Show welcome banner for all users for testing
+        if (p && !localStorage.getItem("klasup_welcome_dismissed")) {
+          setShowWelcomeBanner(true);
         }
 
       } catch (err) {
