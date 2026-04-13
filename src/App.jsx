@@ -1998,7 +1998,7 @@ export default function KlasUp() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: mob ? "1rem" : "2rem", overflowY: "auto", maxWidth: page === "My Course" || page === "Course Portfolio" || page === "Dashboard" ? 1200 : 900, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ flex: 1, padding: mob ? "1rem" : "2rem", overflowY: "auto", maxWidth: 1200, width: "100%", boxSizing: "border-box" }}>
 
         {/* Notification bar with hamburger on mobile */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, position: "relative" }}>

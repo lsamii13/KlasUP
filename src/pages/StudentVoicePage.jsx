@@ -7,7 +7,7 @@ const C = {
 };
 
 const F = {
-  display: "'Poppins', sans-serif",
+  display: "'Fredoka One', cursive",
   body: "'Nunito', sans-serif",
   accent: "'Nunito', sans-serif",
 };
@@ -103,7 +103,7 @@ export default function StudentVoicePage({ canPro = false, onUpgrade }) {
 
       {/* Header */}
       <div style={{ marginBottom: "1.25rem" }}>
-        <div style={{ fontFamily: F.display, fontSize: mob ? 22 : 28, fontWeight: 700, color: C.navy, marginBottom: 2 }}>
+        <div style={{ fontFamily: F.display, fontSize: mob ? 22 : 28, marginBottom: 2 }}>
           Student Voice
         </div>
         <div style={{ fontFamily: F.body, fontSize: 14, color: C.muted }}>
