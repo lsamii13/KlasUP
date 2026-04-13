@@ -2,12 +2,12 @@ import { useState } from "react";
 
 const C = {
   navy: "#1B2B4B", teal: "#2A9D8F", tealBright: "#0FB5B5", tealLight: "#D6F5F5",
-  ivory: "#F9F8F4", white: "#FFFFFF", text: "#1B2B4B", muted: "#6B7280",
+  ivory: "#F9F8F4", white: "#FFFFFF", text: "#1B2B4B", muted: "#5a6a85",
   border: "#E5E7EB",
 };
 
 const F = {
-  display: "'Poppins', 'Fredoka One', cursive",
+  display: "'Poppins', sans-serif",
   body: "'Nunito', sans-serif",
   accent: "'Nunito', sans-serif",
 };
