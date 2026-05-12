@@ -1372,6 +1372,9 @@ export default function KlasUp() {
   };
 
   const openSage = () => {
+    setKlasOptions({ options: [], multiSelect: false, questionType: null, promoted: [] });
+    setKlasSelected([]);
+    setKlasOtherMode(null);
     if (typeof gtag === "function") gtag("event", "sage_chat_opened");
     if (sageMessages.length === 0) {
       setSageMessages([{ role: "assistant", content: sageGreeting() }]);
@@ -1384,22 +1387,13 @@ export default function KlasUp() {
   };
 
   const detectKlasQuickReplies = (reply) => {
-    console.log("[Klas] detectKlasQuickReplies input:", reply);
-    const text = reply.toLowerCase();
-    let result;
-    if (text.includes("type of assignment") || text.includes("what type of") || text.includes("kind of assignment")) {
-      result = { options: ["Active Learning", "Project-Based", "Team-Based", "Discussion", "Lecture", "Case Study", "Simulation", "Role Play", "Other"], multiSelect: true, questionType: "assignment_type", promoted: [] };
-    } else if (text.includes("long") || text.includes("session") || text.includes("minutes") || text.includes("hours") || text.includes("class time")) {
-      result = { options: ["30 minutes", "1 hour", "90 minutes", "2+ hours", "Other"], multiSelect: false, questionType: "session_length", promoted: [] };
-    } else if (text.includes("level") || text.includes("undergrad") || text.includes("graduate") || text.includes("freshman") || text.includes("sophomore") || text.includes("year are")) {
-      result = { options: ["Freshman", "Sophomore", "Junior", "Senior", "Graduate", "Mixed", "Other"], multiSelect: false, questionType: "student_level", promoted: [] };
-    } else if (text.includes("duration") || text.includes("weeks") || text.includes("deadline") || text.includes("timeframe") || text.includes("how long will")) {
-      result = { options: ["1 week", "2 weeks", "3-4 weeks", "Full semester", "Other"], multiSelect: false, questionType: "assignment_duration", promoted: [] };
-    } else {
-      result = { options: [], multiSelect: false, questionType: null, promoted: [] };
+    const markerMatch = reply.match(/<<OPTIONS:\s*(.+?)>>/);
+    if (!markerMatch) {
+      return { options: [], cleanedReply: reply };
     }
-    console.log("[Klas] detectKlasQuickReplies result:", result);
-    return result;
+    const options = markerMatch[1].split("|").map(o => o.trim()).filter(Boolean);
+    const cleanedReply = reply.replace(/\s*<<OPTIONS:\s*.+?>>\s*$/, "").trim();
+    return { options, cleanedReply };
   };
 
   const loadPromotedOptions = (questionType) => {
@@ -1435,12 +1429,11 @@ export default function KlasUp() {
       const reply = await sendSageChat({ messages: apiMessages, currentPage: page, courseName: course || null });
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
-      setSageMessages(prev => [...prev, { role: "assistant", content: cleaned }]);
-      const detected = detectKlasQuickReplies(cleaned);
-      setKlasOptions(detected);
-      loadPromotedOptions(detected.questionType);
-      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleaned) ||
-          /open(ing)? the assignment builder/i.test(cleaned)) {
+      const { options, cleanedReply } = detectKlasQuickReplies(cleaned);
+      setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
+      setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
+      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
+          /open(ing)? the assignment builder/i.test(cleanedReply)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       }
@@ -1493,8 +1486,9 @@ export default function KlasUp() {
     const updated = [...sageMessages, userMsg];
     setSageMessages(updated);
     setSageInput("");
-    setKlasOptions({ options: [], multiSelect: false, questionType: null });
+    setKlasOptions({ options: [], multiSelect: false, questionType: null, promoted: [] });
     setKlasSelected([]);
+    setKlasOtherMode(null);
     setSageSending(true);
     try {
       // Anthropic API requires first message to be role:"user".
@@ -1509,19 +1503,15 @@ export default function KlasUp() {
         currentPage: page,
         courseName: course || null,
       });
-      console.log("[Klas] Response received:", reply ? reply.slice(0, 100) + "..." : "EMPTY");
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
-      setSageMessages(prev => [...prev, { role: "assistant", content: cleaned }]);
-      console.log("KLAS DEBUG reply text:", cleaned);
-      const detected = detectKlasQuickReplies(cleaned);
-      setKlasOptions(detected);
-      loadPromotedOptions(detected.questionType);
-      console.log("KLAS DEBUG options set:", detected);
+      const { options, cleanedReply } = detectKlasQuickReplies(cleaned);
+      setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
+      setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
-      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleaned) ||
-          /open(ing)? the assignment builder/i.test(cleaned)) {
+      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
+          /open(ing)? the assignment builder/i.test(cleanedReply)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       }
@@ -4822,7 +4812,7 @@ export default function KlasUp() {
                   </svg>
                 )}
               </button>
-              <button onClick={() => setSageOpen(false)}
+              <button onClick={() => { setKlasOptions({ options: [], multiSelect: false, questionType: null, promoted: [] }); setKlasSelected([]); setKlasOtherMode(null); setSageOpen(false); }}
                 style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
                 ─
               </button>
