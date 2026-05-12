@@ -926,6 +926,7 @@ export default function KlasUp() {
   const [klasSelected, setKlasSelected] = useState([]);
   const [klasOtherMode, setKlasOtherMode] = useState(null); // tracks question_type when "Other" clicked
   const [klasExpanded, setKlasExpanded] = useState(false);
+  const [sageClearConfirm, setSageClearConfirm] = useState(false);
   const sageTextareaRef = useRef(null);
 
   // --- Supabase courses ---
@@ -4812,6 +4813,13 @@ export default function KlasUp() {
                   </svg>
                 )}
               </button>
+              <button onClick={() => setSageClearConfirm(true)} title="Start new chat"
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 7a6 6 0 0 1 10.5-4" /><polyline points="11.5,1 11.5,3.5 9,3.5" />
+                  <path d="M13 7a6 6 0 0 1-10.5 4" /><polyline points="2.5,13 2.5,10.5 5,10.5" />
+                </svg>
+              </button>
               <button onClick={() => { setKlasOptions({ options: [], multiSelect: false, questionType: null, promoted: [] }); setKlasSelected([]); setKlasOtherMode(null); setSageOpen(false); }}
                 style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, color: C.white, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
                 ─
@@ -4934,6 +4942,33 @@ export default function KlasUp() {
               <FileUploadLink onText={t => setSageInput(p => p ? p + "\n" + t : t)} label="upload ↑" />
             </div>
           </div>
+
+          {/* Clear chat confirmation overlay */}
+          {sageClearConfirm && (
+            <div style={{ position: "absolute", inset: 0, background: "rgba(15,31,61,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, borderRadius: "inherit" }}>
+              <div style={{ background: C.white, borderRadius: 14, padding: "24px 22px", width: 260, textAlign: "center", boxShadow: "0 4px 20px rgba(15,31,61,0.15)" }}>
+                <div style={{ fontFamily: F.body, fontWeight: 700, fontSize: 15, color: C.navy, marginBottom: 8 }}>Start a new chat?</div>
+                <div style={{ fontFamily: F.body, fontSize: 13, color: C.muted, marginBottom: 18, lineHeight: 1.5 }}>The current conversation will be cleared from your view.</div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                  <button onClick={() => setSageClearConfirm(false)}
+                    style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => {
+                    setSageMessages([{ role: "assistant", content: sageGreeting() }]);
+                    setKlasOptions({ options: [], multiSelect: false, questionType: null, promoted: [] });
+                    setKlasSelected([]);
+                    setKlasOtherMode(null);
+                    setSageInput("");
+                    setSageClearConfirm(false);
+                  }}
+                    style={{ background: C.sage, color: C.white, border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    Yes, clear
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
