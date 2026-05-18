@@ -924,11 +924,14 @@ export default function KlasUp() {
   const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
   const [klasOptions, setKlasOptions] = useState({ options: [], multiSelect: false, questionType: null });
   const [klasCore4, setKlasCore4] = useState({ subject: "", level: "", building: "", goal: "" });
+  const klasCore4Ref = useRef({ subject: "", level: "", building: "", goal: "" });
+  useEffect(() => { klasCore4Ref.current = klasCore4; }, [klasCore4]);
   const [klasSelected, setKlasSelected] = useState([]);
   const [klasOtherMode, setKlasOtherMode] = useState(null); // tracks question_type when "Other" clicked
   const [klasExpanded, setKlasExpanded] = useState(false);
   const [sageClearConfirm, setSageClearConfirm] = useState(false);
   const [klasMode2Open, setKlasMode2Open] = useState(false);
+  const [klasConversationId, setKlasConversationId] = useState(null);
   const sageTextareaRef = useRef(null);
   const klasMode2TextareaRef = useRef(null);
 
@@ -1389,8 +1392,37 @@ export default function KlasUp() {
     if (sageMessages.length === 0) {
       setSageMessages([{ role: "assistant", content: sageGreeting() }]);
       setKlasCore4({ subject: "", level: "", building: "", goal: "" });
+      setKlasConversationId(null);
     }
     setSageOpen(true);
+  };
+
+  const createKlasConversation = async (coreContext, messagesArray, currentMode = 'confirming') => {
+    try {
+      const title = (coreContext.building && coreContext.subject)
+        ? `${coreContext.building} — ${coreContext.subject}${coreContext.level ? ` (${coreContext.level})` : ""}`
+        : "Untitled brainstorm";
+      const { data, error } = await supabase.from("klas_conversations").insert({
+        user_id: session.user.id,
+        title,
+        core_4_context: coreContext,
+        messages: messagesArray,
+        current_mode: currentMode,
+        message_count: messagesArray.length,
+        reached_mode_2: false,
+      }).select("id").single();
+      if (error) { console.warn("[Klas] Create conversation failed:", error.message); return null; }
+      return data.id;
+    } catch (e) { console.warn("[Klas] Create conversation error:", e.message); return null; }
+  };
+
+  const updateKlasConversation = async (conversationId, updates) => {
+    if (!conversationId) return false;
+    try {
+      const { error } = await supabase.from("klas_conversations").update(updates).eq("id", conversationId);
+      if (error) { console.warn("[Klas] Update conversation failed:", error.message); return false; }
+      return true;
+    } catch (e) { console.warn("[Klas] Update conversation error:", e.message); return false; }
   };
 
   const stripKlasFiller = (text) => {
@@ -1448,8 +1480,20 @@ export default function KlasUp() {
       const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
-      if (core4) setKlasCore4(prev => ({ subject: core4.subject || prev.subject, level: core4.level || prev.level, building: core4.building || prev.building, goal: core4.goal || prev.goal }));
+      const previousCore4 = klasCore4Ref.current;
+      const updatedCore4 = core4 ? { subject: core4.subject || previousCore4.subject, level: core4.level || previousCore4.level, building: core4.building || previousCore4.building, goal: core4.goal || previousCore4.goal } : previousCore4;
+      if (core4) { klasCore4Ref.current = updatedCore4; setKlasCore4(updatedCore4); }
+      const allMessages = [...updated, { role: "assistant", content: cleanedReply }];
+
+      // SAVE TRIGGER 1: Create conversation at Bridge (all 4 Core items filled, no conversation yet)
+      if (!klasConversationId && updatedCore4.subject && updatedCore4.level && updatedCore4.building && updatedCore4.goal) {
+        const newId = await createKlasConversation(updatedCore4, allMessages, 'confirming');
+        if (newId) setKlasConversationId(newId);
+      }
+
       if (expandStepTriggered) {
+        // SAVE TRIGGER 2: Mode 2 starts
+        if (klasConversationId) updateKlasConversation(klasConversationId, { current_mode: 'brainstorming', reached_mode_2: true, messages: allMessages, message_count: allMessages.length });
         setSageOpen(false);
         setKlasMode2Open(true);
         if (typeof gtag === "function") gtag("event", "klas_mode2_opened", { trigger: "expand_step" });
@@ -1457,6 +1501,9 @@ export default function KlasUp() {
           /open(ing)? the assignment builder/i.test(cleanedReply)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
+      } else if (klasConversationId) {
+        // SAVE TRIGGER 3: Update after any other message when conversation exists
+        updateKlasConversation(klasConversationId, { messages: allMessages, message_count: allMessages.length, core_4_context: updatedCore4 });
       }
     } catch (err) {
       console.error("[Klas] Chat error:", err);
@@ -1529,7 +1576,19 @@ export default function KlasUp() {
       const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
-      if (core4) setKlasCore4(prev => ({ subject: core4.subject || prev.subject, level: core4.level || prev.level, building: core4.building || prev.building, goal: core4.goal || prev.goal }));
+      const previousCore4H = klasCore4Ref.current;
+      const updatedCore4H = core4 ? { subject: core4.subject || previousCore4H.subject, level: core4.level || previousCore4H.level, building: core4.building || previousCore4H.building, goal: core4.goal || previousCore4H.goal } : previousCore4H;
+      if (core4) { klasCore4Ref.current = updatedCore4H; setKlasCore4(updatedCore4H); }
+      const allMessagesH = [...updated, { role: "assistant", content: cleanedReply }];
+
+      // SAVE TRIGGER 1: Create conversation at Bridge (all 4 filled, no conversation yet)
+      if (!klasConversationId && updatedCore4H.subject && updatedCore4H.level && updatedCore4H.building && updatedCore4H.goal) {
+        const newId = await createKlasConversation(updatedCore4H, allMessagesH, 'confirming');
+        if (newId) setKlasConversationId(newId);
+      } else if (klasConversationId) {
+        // SAVE TRIGGER 3: Update after any message when conversation exists
+        updateKlasConversation(klasConversationId, { messages: allMessagesH, message_count: allMessagesH.length, core_4_context: updatedCore4H });
+      }
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
       if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
@@ -5004,6 +5063,7 @@ export default function KlasUp() {
                     setKlasOtherMode(null);
                     setSageInput("");
                     setKlasCore4({ subject: "", level: "", building: "", goal: "" });
+                    setKlasConversationId(null);
                     setSageClearConfirm(false);
                   }}
                     style={{ background: C.sage, color: C.white, border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -5038,11 +5098,11 @@ export default function KlasUp() {
                   style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ↻
                 </button>
-                <button title="Minimize" onClick={() => { /* TODO: wire in sub-phase 2e */ }}
+                <button title="Minimize" onClick={() => { if (klasConversationId) updateKlasConversation(klasConversationId, { messages: sageMessages, message_count: sageMessages.length, core_4_context: klasCore4Ref.current }); setKlasMode2Open(false); setSageOpen(true); }}
                   style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ↘
                 </button>
-                <button onClick={() => { setKlasMode2Open(false); setSageOpen(true); }} title="Close"
+                <button onClick={() => { if (klasConversationId) updateKlasConversation(klasConversationId, { messages: sageMessages, message_count: sageMessages.length, core_4_context: klasCore4Ref.current }); setKlasMode2Open(false); setSageOpen(true); }} title="Close"
                   style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ✕
                 </button>
