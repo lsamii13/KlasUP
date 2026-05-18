@@ -923,8 +923,8 @@ export default function KlasUp() {
   const [sageSending, setSageSending] = useState(false);
   const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
   const [klasOptions, setKlasOptions] = useState({ options: [], multiSelect: false, questionType: null });
-  const [klasCore4, setKlasCore4] = useState({ subject: "", level: "", building: "", goal: "" });
-  const klasCore4Ref = useRef({ subject: "", level: "", building: "", goal: "" });
+  const [klasCore4, setKlasCore4] = useState({ subject: "", level: "", building: "", format: "", goal: "" });
+  const klasCore4Ref = useRef({ subject: "", level: "", building: "", format: "", goal: "" });
   useEffect(() => { klasCore4Ref.current = klasCore4; }, [klasCore4]);
   const [klasSelected, setKlasSelected] = useState([]);
   const [klasOtherMode, setKlasOtherMode] = useState(null); // tracks question_type when "Other" clicked
@@ -1391,7 +1391,7 @@ export default function KlasUp() {
     if (typeof gtag === "function") gtag("event", "sage_chat_opened");
     if (sageMessages.length === 0) {
       setSageMessages([{ role: "assistant", content: sageGreeting() }]);
-      setKlasCore4({ subject: "", level: "", building: "", goal: "" });
+      setKlasCore4({ subject: "", level: "", building: "", format: "", goal: "" });
       setKlasConversationId(null);
     }
     setSageOpen(true);
@@ -1399,8 +1399,9 @@ export default function KlasUp() {
 
   const createKlasConversation = async (coreContext, messagesArray, currentMode = 'confirming') => {
     try {
-      const title = (coreContext.building && coreContext.subject)
-        ? `${coreContext.building} — ${coreContext.subject}${coreContext.level ? ` (${coreContext.level})` : ""}`
+      const labelForTitle = coreContext.format || coreContext.building;
+      const title = (labelForTitle && coreContext.subject)
+        ? `${labelForTitle} — ${coreContext.subject}${coreContext.level ? ` (${coreContext.level})` : ""}`
         : "Untitled brainstorm";
       const { data, error } = await supabase.from("klas_conversations").insert({
         user_id: session.user.id,
@@ -1433,8 +1434,11 @@ export default function KlasUp() {
     const optionsMatch = reply.match(/<<OPTIONS:\s*(.+?)>>/);
     const options = optionsMatch ? optionsMatch[1].split("|").map(o => o.trim()).filter(Boolean) : [];
 
-    const core4Match = reply.match(/<<CORE_4:\s*subject="([^"]*)",\s*level="([^"]*)",\s*building="([^"]*)",\s*goal="([^"]*)"\s*>>/);
-    const core4 = core4Match ? { subject: core4Match[1], level: core4Match[2], building: core4Match[3], goal: core4Match[4] } : null;
+    const core4Match5 = reply.match(/<<CORE_4:\s*subject="([^"]*)",\s*level="([^"]*)",\s*building="([^"]*)",\s*format="([^"]*)",\s*goal="([^"]*)"\s*>>/);
+    const core4Match4 = !core4Match5 ? reply.match(/<<CORE_4:\s*subject="([^"]*)",\s*level="([^"]*)",\s*building="([^"]*)",\s*goal="([^"]*)"\s*>>/) : null;
+    const core4 = core4Match5 ? { subject: core4Match5[1], level: core4Match5[2], building: core4Match5[3], format: core4Match5[4], goal: core4Match5[5] }
+      : core4Match4 ? { subject: core4Match4[1], level: core4Match4[2], building: core4Match4[3], format: "", goal: core4Match4[4] }
+      : null;
 
     const cleanedReply = reply
       .replace(/\s*<<OPTIONS:\s*.+?>>/g, "")
@@ -1481,7 +1485,7 @@ export default function KlasUp() {
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
       const previousCore4 = klasCore4Ref.current;
-      const updatedCore4 = core4 ? { subject: core4.subject || previousCore4.subject, level: core4.level || previousCore4.level, building: core4.building || previousCore4.building, goal: core4.goal || previousCore4.goal } : previousCore4;
+      const updatedCore4 = core4 ? { subject: core4.subject || previousCore4.subject, level: core4.level || previousCore4.level, building: core4.building || previousCore4.building, format: core4.format || previousCore4.format, goal: core4.goal || previousCore4.goal } : previousCore4;
       if (core4) { klasCore4Ref.current = updatedCore4; setKlasCore4(updatedCore4); }
       const allMessages = [...updated, { role: "assistant", content: cleanedReply }];
 
@@ -1577,7 +1581,7 @@ export default function KlasUp() {
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
       const previousCore4H = klasCore4Ref.current;
-      const updatedCore4H = core4 ? { subject: core4.subject || previousCore4H.subject, level: core4.level || previousCore4H.level, building: core4.building || previousCore4H.building, goal: core4.goal || previousCore4H.goal } : previousCore4H;
+      const updatedCore4H = core4 ? { subject: core4.subject || previousCore4H.subject, level: core4.level || previousCore4H.level, building: core4.building || previousCore4H.building, format: core4.format || previousCore4H.format, goal: core4.goal || previousCore4H.goal } : previousCore4H;
       if (core4) { klasCore4Ref.current = updatedCore4H; setKlasCore4(updatedCore4H); }
       const allMessagesH = [...updated, { role: "assistant", content: cleanedReply }];
 
@@ -5062,7 +5066,7 @@ export default function KlasUp() {
                     setKlasSelected([]);
                     setKlasOtherMode(null);
                     setSageInput("");
-                    setKlasCore4({ subject: "", level: "", building: "", goal: "" });
+                    setKlasCore4({ subject: "", level: "", building: "", format: "", goal: "" });
                     setKlasConversationId(null);
                     setSageClearConfirm(false);
                   }}
@@ -5237,6 +5241,7 @@ export default function KlasUp() {
                   { label: "Subject", value: klasCore4.subject },
                   { label: "Level", value: klasCore4.level },
                   { label: "Building", value: klasCore4.building },
+                  ...(klasCore4.format ? [{ label: "Format", value: klasCore4.format }] : []),
                   { label: "Goal", value: klasCore4.goal },
                 ].map(item => (
                   <div key={item.label} style={{ marginBottom: 14 }}>
