@@ -927,7 +927,9 @@ export default function KlasUp() {
   const [klasOtherMode, setKlasOtherMode] = useState(null); // tracks question_type when "Other" clicked
   const [klasExpanded, setKlasExpanded] = useState(false);
   const [sageClearConfirm, setSageClearConfirm] = useState(false);
+  const [klasMode2Open, setKlasMode2Open] = useState(false);
   const sageTextareaRef = useRef(null);
+  const klasMode2TextareaRef = useRef(null);
 
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
@@ -1424,6 +1426,7 @@ export default function KlasUp() {
   };
 
   const sendQuickReplyMessage = async (text) => {
+    const expandStepTriggered = text === "Bigger view";
     const userMsg = { role: "user", content: text };
     const updated = [...sageMessages, userMsg];
     setSageMessages(updated);
@@ -1439,7 +1442,11 @@ export default function KlasUp() {
       const { options, cleanedReply } = detectKlasQuickReplies(cleaned);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
-      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
+      if (expandStepTriggered) {
+        setSageOpen(false);
+        setKlasMode2Open(true);
+        if (typeof gtag === "function") gtag("event", "klas_mode2_opened", { trigger: "expand_step" });
+      } else if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
           /open(ing)? the assignment builder/i.test(cleanedReply)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
@@ -4951,7 +4958,7 @@ export default function KlasUp() {
 
           {/* Clear chat confirmation overlay */}
           {sageClearConfirm && (
-            <div style={{ position: "absolute", inset: 0, background: "rgba(15,31,61,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, borderRadius: "inherit" }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(15,31,61,0.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9200 }}>
               <div style={{ background: C.white, borderRadius: 14, padding: "24px 22px", width: 260, textAlign: "center", boxShadow: "0 4px 20px rgba(15,31,61,0.15)" }}>
                 <div style={{ fontFamily: F.body, fontWeight: 700, fontSize: 15, color: C.navy, marginBottom: 8 }}>Start a new chat?</div>
                 <div style={{ fontFamily: F.body, fontSize: 13, color: C.muted, marginBottom: 18, lineHeight: 1.5 }}>The current conversation will be cleared from your view.</div>
@@ -4975,6 +4982,195 @@ export default function KlasUp() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── KLAS MODE 2 FULL-SCREEN MODAL ── */}
+      {klasMode2Open && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,31,61,0.55)", backdropFilter: "blur(4px)", zIndex: 9100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{
+            width: "85vw", height: "85vh", background: C.white, borderRadius: 16, overflow: "hidden",
+            display: "flex", flexDirection: "column", boxShadow: "0 16px 64px rgba(15,31,61,0.25)",
+            animation: "sageSlideUp 0.25s ease-out",
+          }}>
+            {/* SECTION A — Header */}
+            <div style={{
+              background: "#2A9D8F", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              flexShrink: 0, minHeight: 64, boxSizing: "border-box",
+            }}>
+              <div>
+                <div style={{ fontFamily: F.body, fontWeight: 700, fontSize: 18, color: C.white }}>Klas</div>
+                <div style={{ fontFamily: F.body, fontSize: 12, color: "rgba(255,255,255,0.9)" }}>Focused brainstorming</div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setSageClearConfirm(true)} title="Clear chat"
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  ↻
+                </button>
+                <button title="Minimize" onClick={() => { /* TODO: wire in sub-phase 2e */ }}
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  ↘
+                </button>
+                <button onClick={() => { setKlasMode2Open(false); setSageOpen(true); }} title="Close"
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION B — Body */}
+            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+              {/* Left column — conversation */}
+              <div style={{ flex: 1.5, display: "flex", flexDirection: "column", borderRight: "0.5px solid #eef1f5" }}>
+                <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}
+                  ref={el => { if (el) el.scrollTop = el.scrollHeight; }}>
+                  {sageMessages.map((m, i) => (
+                    <div key={i} style={{
+                      alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                      maxWidth: "85%",
+                      background: m.role === "user" ? C.tealBright : C.sageLight,
+                      color: m.role === "user" ? C.white : C.text,
+                      borderRadius: m.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                      padding: "10px 14px", fontSize: 13, fontFamily: F.body, lineHeight: 1.55,
+                      whiteSpace: "pre-wrap",
+                    }}>
+                      {m.content}
+                    </div>
+                  ))}
+                  {sageSending && (
+                    <div style={{ alignSelf: "flex-start", maxWidth: "85%", background: C.sageLight, borderRadius: "14px 14px 14px 4px", padding: "10px 14px", fontSize: 13, fontFamily: F.body, color: C.muted }}>
+                      <span style={{ animation: "sageDots 1.2s infinite" }}>Thinking...</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick-reply pills / checkboxes */}
+                {klasOptions.options && klasOptions.options.length > 0 && (
+                  <div style={{ borderTop: `1px solid ${C.border}`, padding: "8px 14px 4px", flexShrink: 0 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {klasOptions.options.map(opt => {
+                        const isSelected = klasSelected.includes(opt);
+                        const isOther = opt === "Other";
+                        const isPromoted = klasOptions.promoted && klasOptions.promoted.includes(opt);
+                        if (klasOptions.multiSelect && !isOther) {
+                          return (
+                            <button key={opt} onClick={() => handleQuickReply(opt)}
+                              style={{
+                                background: isSelected ? "#2A9D8F" : "#fff",
+                                color: isSelected ? "#fff" : C.text,
+                                border: isSelected ? "2px solid #2A9D8F" : "2px solid #D0D0D0",
+                                borderRadius: 16, padding: "5px 12px",
+                                fontFamily: F.body, fontSize: 12, fontWeight: 600,
+                                cursor: "pointer", transition: "all 0.15s",
+                                display: "flex", alignItems: "center", gap: 4,
+                                boxShadow: isSelected ? "0 2px 6px rgba(42,157,143,0.3)" : "none",
+                              }}>
+                              <span style={{ fontSize: 11, width: 14, textAlign: "center" }}>{isSelected ? "\u2713" : "\u25CB"}</span>
+                              {isPromoted && <span style={{ color: isSelected ? "#fff" : "#2A9D8F", fontSize: 10, lineHeight: 1 }}>&#9733;</span>}
+                              {opt}
+                            </button>
+                          );
+                        }
+                        return (
+                          <button key={opt} onClick={() => handleQuickReply(opt)}
+                            style={{
+                              background: isOther ? "#E8E8E8" : "#2A9D8F",
+                              color: isOther ? C.text : "#fff",
+                              border: "none", borderRadius: 16, padding: "5px 12px",
+                              fontFamily: F.body, fontSize: 12, fontWeight: 600,
+                              cursor: "pointer", transition: "opacity 0.15s",
+                              display: "flex", alignItems: "center", gap: 4,
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+                            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                          >
+                            {isPromoted && <span style={{ color: "#fff", fontSize: 10, lineHeight: 1 }}>&#9733;</span>}
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {klasOptions.multiSelect && klasSelected.length > 0 && (
+                      <button onClick={handleMultiSelectSend}
+                        style={{
+                          marginTop: 8, background: "#2A9D8F", color: "#fff",
+                          border: "none", borderRadius: 10, padding: "6px 16px",
+                          fontFamily: F.accent, fontSize: 12, fontWeight: 700,
+                          cursor: "pointer",
+                        }}>
+                        Send
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION C — Input area */}
+                <div style={{ borderTop: "0.5px solid #eef1f5", padding: "16px 24px", display: "flex", gap: 12, alignItems: "flex-end", flexShrink: 0 }}>
+                  <div style={{ flex: 1, position: "relative" }}>
+                    <textarea ref={klasMode2TextareaRef} value={sageInput} onChange={e => setSageInput(e.target.value)}
+                      placeholder="Type your response..."
+                      rows={2}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSageSend(); } }}
+                      style={{
+                        width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 40px 10px 14px",
+                        fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
+                        background: C.ivory, lineHeight: 1.5, maxHeight: 120, overflowY: "auto",
+                      }}
+                      onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
+                      onFocus={e => e.target.style.borderColor = C.sage}
+                      onBlur={e => e.target.style.borderColor = C.border}
+                    />
+                    <VoiceMic onTranscript={t => setSageInput(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 8, bottom: 8 }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                    <button onClick={handleSageSend} disabled={!sageInput.trim() || sageSending}
+                      style={{
+                        background: "#2A9D8F", color: C.white, border: "none", borderRadius: 8,
+                        padding: "8px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12,
+                        cursor: !sageInput.trim() || sageSending ? "default" : "pointer",
+                        opacity: !sageInput.trim() ? 0.5 : 1,
+                      }}>
+                      Send
+                    </button>
+                    <FileUploadLink onText={t => setSageInput(p => p ? p + "\n" + t : t)} label="upload ↑" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right column — context panel */}
+              <div style={{ flex: 1, background: "#f8f7f2", padding: "20px 24px", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+                <div style={{ fontFamily: F.body, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#5a6a85", marginBottom: 16 }}>
+                  What Klas knows
+                </div>
+                {[
+                  { label: "Subject", key: "subject" },
+                  { label: "Level", key: "level" },
+                  { label: "Building", key: "building" },
+                  { label: "Goal", key: "goal" },
+                ].map(item => (
+                  <div key={item.key} style={{ marginBottom: 14 }}>
+                    <div style={{ fontFamily: F.body, fontSize: 11, fontWeight: 700, color: "#5a6a85", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{item.label}</div>
+                    <div style={{ fontFamily: F.body, fontSize: 13, color: C.text, lineHeight: 1.4 }}>
+                      {(() => {
+                        const userMsgs = sageMessages.filter(m => m.role === "user").map(m => m.content);
+                        if (item.key === "subject" && course) return course;
+                        if (userMsgs.length === 0) return "(gathering...)";
+                        if (item.key === "goal") {
+                          const lastFew = userMsgs.slice(-3).join(" ");
+                          return lastFew.length > 80 ? lastFew.slice(0, 80) + "…" : lastFew || "(gathering...)";
+                        }
+                        return "(gathering...)";
+                      })()}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ flex: 1 }} />
+                <div style={{ fontFamily: F.body, fontSize: 12, color: C.muted, fontStyle: "italic", textAlign: "center", paddingTop: 20 }}>
+                  More coming in Phase 3
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
