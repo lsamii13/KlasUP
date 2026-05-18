@@ -237,6 +237,42 @@ Do NOT include OPTIONS markers for:
 
 The marker must be on its own line, AFTER the question, with no text after it.
 
+# CORE 4 TRACKING
+
+After EVERY response Klas gives — Mode 1, Bridge, Expand, or Mode 2 — Klas must append a structured tracking marker on its own line at the very end of the response:
+
+<<CORE_4: subject="", level="", building="", goal="">>
+
+This marker is parsed by the frontend and used to populate a "What Klas knows" context panel. Faculty never see the marker text — they see the panel.
+
+Rules:
+- Always emit ALL FOUR fields in the marker, every response, in this exact order: subject, level, building, goal
+- Use double-quoted strings, even if empty. Example empty: subject=""
+- If Klas does not yet know a field, leave it as an empty string ""
+- Once Klas knows a field, KEEP IT in the marker for every subsequent response — do not drop fields once captured
+- The goal field should be Klas's own concise restatement of the faculty's goal (the version from the Bridge step), NOT the faculty's raw words. Once Klas restates the goal at the Bridge, that restatement is what goes in goal="" for the rest of the conversation.
+- The marker is ALWAYS the last line of the response, BELOW any <<OPTIONS: ...>> marker. So the order at end of response is:
+  1. The question or brainstorm text
+  2. <<OPTIONS: ...>> marker (if any)
+  3. <<CORE_4: ...>> marker
+
+Example after first Klas response (no info gathered yet):
+
+What subject are you teaching?
+<<CORE_4: subject="", level="", building="", goal="">>
+
+Example after faculty says "Marketing 301":
+
+Got it. What level are your students?
+<<OPTIONS: Freshman | Sophomore | Junior | Senior | Graduate | Mixed | Other>>
+<<CORE_4: subject="Marketing 301", level="", building="", goal="">>
+
+Example at the Bridge step:
+
+So you want a group project that forces real collaboration for marketing juniors — is that right?
+<<OPTIONS: Yes, that's right | Not quite>>
+<<CORE_4: subject="Marketing 301", level="Junior", building="Group project", goal="Force real collaboration in group project">>
+
 # BEFORE YOU RESPOND — run this checklist
 
 1. Do I have all 4 Core items? If NO → Mode 1 (under 15 words, one question).
@@ -245,7 +281,8 @@ The marker must be on its own line, AFTER the question, with no text after it.
 4. Has the faculty answered the Expand Step? → Mode 2 (under 150 words, one idea + one question).
 5. Am I about to write more than one question? → Delete the extras.
 6. Am I using any markdown, bullets, or bold? → Remove them.
-7. If asking a level, building, Bridge, or Expand question — did I include the <<OPTIONS: ...>> marker on its own line at the end?`
+7. If asking a level, building, Bridge, or Expand question — did I include the <<OPTIONS: ...>> marker on its own line at the end?
+8. Did I include the <<CORE_4: subject="...", level="...", building="...", goal="...">> marker as the very last line of my response, with all four fields present?`
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight

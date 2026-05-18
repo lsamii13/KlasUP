@@ -923,6 +923,7 @@ export default function KlasUp() {
   const [sageSending, setSageSending] = useState(false);
   const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
   const [klasOptions, setKlasOptions] = useState({ options: [], multiSelect: false, questionType: null });
+  const [klasCore4, setKlasCore4] = useState({ subject: "", level: "", building: "", goal: "" });
   const [klasSelected, setKlasSelected] = useState([]);
   const [klasOtherMode, setKlasOtherMode] = useState(null); // tracks question_type when "Other" clicked
   const [klasExpanded, setKlasExpanded] = useState(false);
@@ -1387,6 +1388,7 @@ export default function KlasUp() {
     if (typeof gtag === "function") gtag("event", "sage_chat_opened");
     if (sageMessages.length === 0) {
       setSageMessages([{ role: "assistant", content: sageGreeting() }]);
+      setKlasCore4({ subject: "", level: "", building: "", goal: "" });
     }
     setSageOpen(true);
   };
@@ -1396,13 +1398,17 @@ export default function KlasUp() {
   };
 
   const detectKlasQuickReplies = (reply) => {
-    const markerMatch = reply.match(/<<OPTIONS:\s*(.+?)>>/);
-    if (!markerMatch) {
-      return { options: [], cleanedReply: reply };
-    }
-    const options = markerMatch[1].split("|").map(o => o.trim()).filter(Boolean);
-    const cleanedReply = reply.replace(/\s*<<OPTIONS:\s*.+?>>\s*$/, "").trim();
-    return { options, cleanedReply };
+    const optionsMatch = reply.match(/<<OPTIONS:\s*(.+?)>>/);
+    const options = optionsMatch ? optionsMatch[1].split("|").map(o => o.trim()).filter(Boolean) : [];
+
+    const core4Match = reply.match(/<<CORE_4:\s*subject="([^"]*)",\s*level="([^"]*)",\s*building="([^"]*)",\s*goal="([^"]*)"\s*>>/);
+    const core4 = core4Match ? { subject: core4Match[1], level: core4Match[2], building: core4Match[3], goal: core4Match[4] } : null;
+
+    const cleanedReply = reply
+      .replace(/\s*<<OPTIONS:\s*.+?>>/g, "")
+      .replace(/\s*<<CORE_4:\s*.+?>>/g, "")
+      .trim();
+    return { options, core4, cleanedReply };
   };
 
   const loadPromotedOptions = (questionType) => {
@@ -1439,9 +1445,10 @@ export default function KlasUp() {
       const reply = await sendSageChat({ messages: apiMessages, currentPage: page, courseName: course || null });
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
-      const { options, cleanedReply } = detectKlasQuickReplies(cleaned);
+      const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
+      if (core4) setKlasCore4(prev => ({ subject: core4.subject || prev.subject, level: core4.level || prev.level, building: core4.building || prev.building, goal: core4.goal || prev.goal }));
       if (expandStepTriggered) {
         setSageOpen(false);
         setKlasMode2Open(true);
@@ -1519,9 +1526,10 @@ export default function KlasUp() {
       });
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
-      const { options, cleanedReply } = detectKlasQuickReplies(cleaned);
+      const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
       setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
+      if (core4) setKlasCore4(prev => ({ subject: core4.subject || prev.subject, level: core4.level || prev.level, building: core4.building || prev.building, goal: core4.goal || prev.goal }));
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
       if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
@@ -4973,6 +4981,7 @@ export default function KlasUp() {
                     setKlasSelected([]);
                     setKlasOtherMode(null);
                     setSageInput("");
+                    setKlasCore4({ subject: "", level: "", building: "", goal: "" });
                     setSageClearConfirm(false);
                   }}
                     style={{ background: C.sage, color: C.white, border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -5143,31 +5152,18 @@ export default function KlasUp() {
                   What Klas knows
                 </div>
                 {[
-                  { label: "Subject", key: "subject" },
-                  { label: "Level", key: "level" },
-                  { label: "Building", key: "building" },
-                  { label: "Goal", key: "goal" },
+                  { label: "Subject", value: klasCore4.subject },
+                  { label: "Level", value: klasCore4.level },
+                  { label: "Building", value: klasCore4.building },
+                  { label: "Goal", value: klasCore4.goal },
                 ].map(item => (
-                  <div key={item.key} style={{ marginBottom: 14 }}>
+                  <div key={item.label} style={{ marginBottom: 14 }}>
                     <div style={{ fontFamily: F.body, fontSize: 11, fontWeight: 700, color: "#5a6a85", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{item.label}</div>
-                    <div style={{ fontFamily: F.body, fontSize: 13, color: C.text, lineHeight: 1.4 }}>
-                      {(() => {
-                        const userMsgs = sageMessages.filter(m => m.role === "user").map(m => m.content);
-                        if (item.key === "subject" && course) return course;
-                        if (userMsgs.length === 0) return "(gathering...)";
-                        if (item.key === "goal") {
-                          const lastFew = userMsgs.slice(-3).join(" ");
-                          return lastFew.length > 80 ? lastFew.slice(0, 80) + "…" : lastFew || "(gathering...)";
-                        }
-                        return "(gathering...)";
-                      })()}
+                    <div style={{ fontFamily: F.body, fontSize: 13, color: item.value ? C.text : C.muted, lineHeight: 1.4, fontStyle: item.value ? "normal" : "italic" }}>
+                      {item.value || "(gathering...)"}
                     </div>
                   </div>
                 ))}
-                <div style={{ flex: 1 }} />
-                <div style={{ fontFamily: F.body, fontSize: 12, color: C.muted, fontStyle: "italic", textAlign: "center", paddingTop: 20 }}>
-                  More coming in Phase 3
-                </div>
               </div>
             </div>
           </div>
