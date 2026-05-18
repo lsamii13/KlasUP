@@ -4506,6 +4506,17 @@ export default function KlasUp() {
                     <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: adminCrawlerResult.error ? C.rose : C.sage }}>
                       {adminCrawlerResult.error ? `Error: ${adminCrawlerResult.error}` : adminCrawlerResult.message}
                     </div>
+                    {adminCrawlerResult.errors && adminCrawlerResult.errors.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, marginBottom: 4 }}>Insert errors (first 5 shown)</div>
+                        {adminCrawlerResult.errors.slice(0, 5).map((err, i) => (
+                          <div key={i} style={{ fontSize: 12, fontFamily: F.body, color: C.navy, background: "#fef2f2", borderRadius: 6, padding: "6px 10px", marginBottom: 4, lineHeight: 1.4 }}>{err}</div>
+                        ))}
+                        {adminCrawlerResult.errors.length > 5 && (
+                          <div style={{ fontSize: 11, fontFamily: F.body, color: C.muted, fontStyle: "italic" }}>...and {adminCrawlerResult.errors.length - 5} more</div>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 )}
                 {adminEmbedResult && (
@@ -4513,6 +4524,17 @@ export default function KlasUp() {
                     <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: adminEmbedResult.error ? C.rose : C.sage }}>
                       {adminEmbedResult.error ? `Error: ${adminEmbedResult.error}` : adminEmbedResult.message}
                     </div>
+                    {adminEmbedResult.errors && adminEmbedResult.errors.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, marginBottom: 4 }}>Errors (first 5 shown)</div>
+                        {adminEmbedResult.errors.slice(0, 5).map((err, i) => (
+                          <div key={i} style={{ fontSize: 12, fontFamily: F.body, color: C.navy, background: "#fef2f2", borderRadius: 6, padding: "6px 10px", marginBottom: 4, lineHeight: 1.4 }}>{err}</div>
+                        ))}
+                        {adminEmbedResult.errors.length > 5 && (
+                          <div style={{ fontSize: 11, fontFamily: F.body, color: C.muted, fontStyle: "italic" }}>...and {adminEmbedResult.errors.length - 5} more</div>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 )}
 
