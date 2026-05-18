@@ -948,7 +948,7 @@ export default function KlasUp() {
   const [settingsPwMsg, setSettingsPwMsg] = useState(null);
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
-  const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // --- Wellness state ---
   const [wellnessScore, setWellnessScore] = useState(null);
@@ -1063,9 +1063,15 @@ export default function KlasUp() {
           .then(anns => setAnnouncements(anns))
           .catch(() => {});
 
-        // TEMP: Show welcome banner for all users for testing
+        // Show welcome banner only during the first 3 days after signup,
+        // unless the user has manually dismissed it.
         if (p && !localStorage.getItem("klasup_welcome_dismissed")) {
-          setShowWelcomeBanner(true);
+          const signupTime = new Date(p.created_at).getTime();
+          const now = Date.now();
+          const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+          if (now - signupTime < threeDaysMs) {
+            setShowWelcomeBanner(true);
+          }
         }
 
       } catch (err) {
@@ -2075,7 +2081,7 @@ export default function KlasUp() {
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => { setShowWelcomeBanner(false); setShowOnboardingTour(true); }}
+              <button onClick={() => { localStorage.setItem("klasup_welcome_dismissed", "1"); setShowWelcomeBanner(false); setShowOnboardingTour(true); }}
                 style={{
                   background: "#2A9D8F", color: "#fff", border: "none", borderRadius: 8,
                   padding: "5px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12,
