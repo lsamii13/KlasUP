@@ -919,6 +919,8 @@ export default function KlasUp() {
   // --- Sage AI Coach state ---
   const [sageOpen, setSageOpen] = useState(false);
   const [sageMessages, setSageMessages] = useState([]);
+  const sageMessagesRef = useRef([]);
+  useEffect(() => { sageMessagesRef.current = sageMessages; }, [sageMessages]);
   const [sageInput, setSageInput] = useState("");
   const [sageSending, setSageSending] = useState(false);
   const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
@@ -1470,7 +1472,8 @@ export default function KlasUp() {
   const sendQuickReplyMessage = async (text) => {
     const expandStepTriggered = text === "Bigger view";
     const userMsg = { role: "user", content: text };
-    const updated = [...sageMessages, userMsg];
+    const updated = [...sageMessagesRef.current, userMsg];
+    sageMessagesRef.current = updated;
     setSageMessages(updated);
     setSageInput("");
     setSageSending(true);
@@ -1482,22 +1485,23 @@ export default function KlasUp() {
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
       const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
-      setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
+      const withReply = [...updated, { role: "assistant", content: cleanedReply }];
+      sageMessagesRef.current = withReply;
+      setSageMessages(withReply);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
       const previousCore4 = klasCore4Ref.current;
       const updatedCore4 = core4 ? { subject: core4.subject || previousCore4.subject, level: core4.level || previousCore4.level, building: core4.building || previousCore4.building, format: core4.format || previousCore4.format, goal: core4.goal || previousCore4.goal } : previousCore4;
       if (core4) { klasCore4Ref.current = updatedCore4; setKlasCore4(updatedCore4); }
-      const allMessages = [...updated, { role: "assistant", content: cleanedReply }];
 
       // SAVE TRIGGER 1: Create conversation at Bridge (all 4 Core items filled, no conversation yet)
       if (!klasConversationId && updatedCore4.subject && updatedCore4.level && updatedCore4.building && updatedCore4.goal) {
-        const newId = await createKlasConversation(updatedCore4, allMessages, 'confirming');
+        const newId = await createKlasConversation(updatedCore4, withReply, 'confirming');
         if (newId) setKlasConversationId(newId);
       }
 
       if (expandStepTriggered) {
         // SAVE TRIGGER 2: Mode 2 starts
-        if (klasConversationId) updateKlasConversation(klasConversationId, { current_mode: 'brainstorming', reached_mode_2: true, messages: allMessages, message_count: allMessages.length });
+        if (klasConversationId) updateKlasConversation(klasConversationId, { current_mode: 'brainstorming', reached_mode_2: true, messages: withReply, message_count: withReply.length });
         setSageOpen(false);
         setKlasMode2Open(true);
         if (typeof gtag === "function") gtag("event", "klas_mode2_opened", { trigger: "expand_step" });
@@ -1507,7 +1511,7 @@ export default function KlasUp() {
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       } else if (klasConversationId) {
         // SAVE TRIGGER 3: Update after any other message when conversation exists
-        updateKlasConversation(klasConversationId, { messages: allMessages, message_count: allMessages.length, core_4_context: updatedCore4 });
+        updateKlasConversation(klasConversationId, { messages: withReply, message_count: withReply.length, core_4_context: updatedCore4 });
       }
     } catch (err) {
       console.error("[Klas] Chat error:", err);
@@ -1555,7 +1559,8 @@ export default function KlasUp() {
       setKlasOtherMode(null);
     }
     const userMsg = { role: "user", content: text };
-    const updated = [...sageMessages, userMsg];
+    const updated = [...sageMessagesRef.current, userMsg];
+    sageMessagesRef.current = updated;
     setSageMessages(updated);
     setSageInput("");
     setKlasOptions({ options: [], multiSelect: false, questionType: null, promoted: [] });
@@ -1578,20 +1583,21 @@ export default function KlasUp() {
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
       const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
-      setSageMessages(prev => [...prev, { role: "assistant", content: cleanedReply }]);
+      const withReplyH = [...updated, { role: "assistant", content: cleanedReply }];
+      sageMessagesRef.current = withReplyH;
+      setSageMessages(withReplyH);
       setKlasOptions({ options, multiSelect: false, questionType: null, promoted: [] });
       const previousCore4H = klasCore4Ref.current;
       const updatedCore4H = core4 ? { subject: core4.subject || previousCore4H.subject, level: core4.level || previousCore4H.level, building: core4.building || previousCore4H.building, format: core4.format || previousCore4H.format, goal: core4.goal || previousCore4H.goal } : previousCore4H;
       if (core4) { klasCore4Ref.current = updatedCore4H; setKlasCore4(updatedCore4H); }
-      const allMessagesH = [...updated, { role: "assistant", content: cleanedReply }];
 
       // SAVE TRIGGER 1: Create conversation at Bridge (all 4 filled, no conversation yet)
       if (!klasConversationId && updatedCore4H.subject && updatedCore4H.level && updatedCore4H.building && updatedCore4H.goal) {
-        const newId = await createKlasConversation(updatedCore4H, allMessagesH, 'confirming');
+        const newId = await createKlasConversation(updatedCore4H, withReplyH, 'confirming');
         if (newId) setKlasConversationId(newId);
       } else if (klasConversationId) {
         // SAVE TRIGGER 3: Update after any message when conversation exists
-        updateKlasConversation(klasConversationId, { messages: allMessagesH, message_count: allMessagesH.length, core_4_context: updatedCore4H });
+        updateKlasConversation(klasConversationId, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H });
       }
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
