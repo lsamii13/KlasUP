@@ -2085,16 +2085,18 @@ export default function KlasUp() {
               const startIdx = visible.findIndex(n => n.cluster === cl);
               clusterHasItems[cl] = startIdx !== -1;
             }
-            return visible.map((n, i) => (
-              <React.Fragment key={n.id}>
-                {n.cluster && clusterHasItems[n.cluster] && (
-                  <div style={{ fontFamily: F.display, fontWeight: 700, fontSize: 10, color: C.tealMid, textTransform: "uppercase", letterSpacing: "1.5px", padding: "12px 14px 4px" }}>{n.cluster}</div>
-                )}
-                <button onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
+            return visible.flatMap(n => {
+              const items = [];
+              if (n.cluster && clusterHasItems[n.cluster]) {
+                items.push(<div key={`cluster-${n.cluster}`} style={{ fontFamily: F.display, fontWeight: 700, fontSize: 10, color: C.tealMid, textTransform: "uppercase", letterSpacing: "1.5px", padding: "12px 14px 4px" }}>{n.cluster}</div>);
+              }
+              items.push(
+                <button key={n.id} onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
                   <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
                 </button>
-              </React.Fragment>
-            ));
+              );
+              return items;
+            });
           })()}
         </div>
 
