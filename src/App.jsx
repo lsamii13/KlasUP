@@ -5,6 +5,7 @@ import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import StudentVoicePage from "./pages/StudentVoicePage";
+import CourseArchitect from "./pages/CourseArchitect";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -998,6 +999,14 @@ export default function KlasUp() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // --- Deep-link: #/course-architect ---
+  useEffect(() => {
+    if (session && window.location.hash === "#/course-architect") {
+      setPage("Course Architect");
+      window.location.hash = "";
+    }
+  }, [session]);
 
   // --- Session timeout (24h inactivity) ---
   useEffect(() => {
@@ -3694,6 +3703,11 @@ export default function KlasUp() {
         {/* ── STUDENT VOICE ── */}
         {page === "Student Voice" && !gatedPageIds.has("Student Voice") && (
           <StudentVoicePage canPro={can("pro")} onUpgrade={upgrade} />
+        )}
+
+        {/* ── COURSE ARCHITECT ── */}
+        {page === "Course Architect" && (
+          <CourseArchitect setPage={setPage} />
         )}
 
         {/* ── WELLNESS ── */}
