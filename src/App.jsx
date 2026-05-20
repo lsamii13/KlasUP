@@ -74,6 +74,7 @@ const NAV = [
   { id: "Pedagogical Resources", icon: "⊡" },
   { id: "Settings", icon: "⚙" },
   { id: "Pricing", icon: "◇" },
+  { id: "Course Architect", icon: "📐", adminOnly: true },
   { id: "Admin", icon: "⛨", adminOnly: true },
 ];
 
@@ -689,6 +690,7 @@ const FLAG_GATED_PAGES = {
   wellness: "Wellness",
   think_tank: "Think Tank",
   student_voice: "Student Voice",
+  course_architect: "Course Architect",
 };
 
 const FROM_KLASUP_ITEMS = [
