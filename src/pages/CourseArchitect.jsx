@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -395,16 +395,27 @@ function ExportBar() {
   );
 }
 
-export default function CourseArchitect({ setPage }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse }) {
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [semesterView, setSemesterView] = useState("list");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef(null);
   const [ww, setWw] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
   useEffect(() => {
     const onResize = () => setWw(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handleClick = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target)) setPickerOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [pickerOpen]);
   const mob = ww < 768;
+
+  // Resolve active course — fall back to most recently created
+  const activeCourse = courses.find(c => c.id === activeCourseId) || courses[0] || null;
 
   return (
     <div style={{ fontFamily: CA_FONTS.body, color: CA_COLORS.navy, background: CA_COLORS.ivory, minHeight: "100vh", padding: mob ? "1rem" : "2rem 2.5rem" }}>
@@ -426,19 +437,56 @@ export default function CourseArchitect({ setPage }) {
           </p>
         </div>
 
-        {/* Course pill */}
-        <div style={{
-          background: CA_COLORS.tealSoft,
-          border: `1px solid ${CA_COLORS.border}`,
-          borderRadius: 999,
-          padding: "0.45rem 1.1rem",
-          fontSize: 13,
-          fontWeight: 600,
-          color: CA_COLORS.navy,
-          whiteSpace: "nowrap",
-          flexShrink: 0,
-        }}>
-          📚 Intro to Marketing · Fall 2026 · 15 weeks
+        {/* Course picker */}
+        <div ref={pickerRef} style={{ position: "relative", flexShrink: 0 }}>
+          {activeCourse ? (
+            <button onClick={() => setPickerOpen(p => !p)}
+              onMouseEnter={e => e.currentTarget.style.borderColor = CA_COLORS.teal}
+              onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
+              style={{
+                background: CA_COLORS.tealSoft, border: `1px solid ${CA_COLORS.border}`, borderRadius: 999,
+                padding: "0.45rem 1.1rem", fontSize: 13, fontWeight: 600, color: CA_COLORS.navy,
+                whiteSpace: "nowrap", cursor: "pointer", fontFamily: CA_FONTS.body, transition: "border-color 0.2s",
+              }}>
+              📚 {activeCourse.course_name} · {activeCourse.semester_code}{activeCourse.num_weeks ? ` · ${activeCourse.num_weeks} weeks` : ""} ▾
+            </button>
+          ) : (
+            <div onClick={() => alert("Course setup coming soon — for now, courses can be created in the Pedagogy Studio page.")}
+              style={{ fontSize: 13, color: CA_COLORS.textSoft, cursor: "pointer", fontFamily: CA_FONTS.body, fontWeight: 600 }}>
+              📚 No course yet — let's set one up
+            </div>
+          )}
+          {pickerOpen && courses.length > 0 && (
+            <div style={{
+              position: "absolute", right: 0, top: 42, background: "#fff", border: `1px solid ${CA_COLORS.border}`,
+              borderRadius: 12, padding: "6px 0", boxShadow: "0 8px 24px rgba(27,43,75,0.1)", zIndex: 100, minWidth: 240,
+            }}>
+              {courses.map(c => (
+                <div key={c.id}
+                  onClick={() => { onSetActiveCourse(c.id); setPickerOpen(false); }}
+                  onMouseEnter={e => e.currentTarget.style.background = CA_COLORS.tealSoft}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px",
+                    cursor: "pointer", fontSize: 13, fontFamily: CA_FONTS.heading, color: CA_COLORS.navy, transition: "background 0.15s",
+                  }}>
+                  <span>{c.course_name} · {c.semester_code}</span>
+                  {c.id === (activeCourse?.id) && <span style={{ color: CA_COLORS.teal, fontWeight: 700, marginLeft: 8 }}>✓</span>}
+                </div>
+              ))}
+              <div style={{ borderTop: "1px solid #f0f0f0", margin: "4px 0" }} />
+              <div
+                onClick={() => { setPickerOpen(false); alert("Course setup coming soon — for now, courses can be created in the Pedagogy Studio page."); }}
+                onMouseEnter={e => e.currentTarget.style.background = CA_COLORS.tealSoft}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                style={{
+                  padding: "8px 14px", cursor: "pointer", fontSize: 13, fontFamily: CA_FONTS.heading,
+                  color: CA_COLORS.teal, fontWeight: 600, transition: "background 0.15s",
+                }}>
+                + Add new course
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

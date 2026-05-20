@@ -948,6 +948,7 @@ export default function KlasUp() {
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
+  const [activeCourseId, setActiveCourseId] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({ course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 });
   const [onboardingCourses, setOnboardingCourses] = useState([]);
@@ -1050,6 +1051,7 @@ export default function KlasUp() {
           console.warn("fetchProfile failed, treating as new user:", fetchErr);
         }
         setProfile(p);
+        if (p?.active_course_id) setActiveCourseId(p.active_course_id);
 
         if (!p) {
           // New user — show profile setup (Step 1 of onboarding)
@@ -1189,6 +1191,13 @@ export default function KlasUp() {
       }
     } finally {
       setAuthSubmitting(false);
+    }
+  };
+
+  const handleSetActiveCourse = async (courseId) => {
+    setActiveCourseId(courseId);
+    if (session?.user) {
+      await supabase.from("profiles").update({ active_course_id: courseId }).eq("id", session.user.id);
     }
   };
 
@@ -3748,7 +3757,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} />
         )}
 
         {/* ── WELLNESS ── */}
