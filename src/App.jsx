@@ -62,20 +62,25 @@ const F = {
 
 const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
 const NAV = [
+  // Top-level
   { id: "Dashboard", icon: "⊞" },
-  { id: "My Course", icon: "◎" },
-  { id: "Slide Studio", icon: "◫" },
-  { id: "Micro-Learning", icon: "◉" },
-  { id: "Think Tank", icon: "◈" },
-  { id: "Course Portfolio", icon: "◆" },
-  { id: "Reports", icon: "☑" },
+  { id: "Course Architect", icon: "🏛️", adminOnly: true },
   { id: "Wellness", icon: "🌿" },
   { id: "Student Voice", icon: "🎤" },
+  // Learning Hub
+  { id: "Micro-Learning", icon: "◉", cluster: "LEARNING HUB" },
   { id: "Pedagogical Resources", icon: "⊡" },
+  { id: "Think Tank", icon: "◈" },
+  // The Vault
+  { id: "Course Portfolio", icon: "◆", cluster: "THE VAULT" },
+  { id: "Reports", icon: "☑" },
   { id: "Settings", icon: "⚙" },
+  // Outside clusters
   { id: "Pricing", icon: "◇" },
-  { id: "Course Architect", icon: "📐", adminOnly: true },
   { id: "Admin", icon: "⛨", adminOnly: true },
+  // Hidden from sidebar when Course Architect is accessible (still renderable as pages)
+  { id: "Pedagogy Studio", icon: "◎", hiddenViaCourseArchitect: true },
+  { id: "Slide Studio", icon: "◫", hiddenViaCourseArchitect: true },
 ];
 
 const CAREER_DATA = {
@@ -1384,7 +1389,7 @@ export default function KlasUp() {
   // --- Sage helpers ---
   const SAGE_CONTEXT = {
     "Dashboard": "What's on your mind today? Anything I can help with?",
-    "My Course": "Let's look at what you're teaching. What would you like to think through?",
+    "Pedagogy Studio": "Let's look at what you're teaching. What would you like to think through?",
     "Slide Studio": "Let's give the students something they remember. What can we make?",
     "Micro-Learning": "Something here catch your eye, or are you looking for something specific?",
     "Think Tank": "Good thinking happens in community. What are you wrestling with?",
@@ -2066,11 +2071,31 @@ export default function KlasUp() {
 
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
-          {NAV.filter(n => (!n.adminOnly || profile?.role === "admin") && !gatedPageIds.has(n.id)).map(n => (
-            <button key={n.id} onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
-              <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
-            </button>
-          ))}
+          {(() => {
+            const canSeeCourseArchitect = profile?.role === "admin" && !gatedPageIds.has("Course Architect");
+            const visible = NAV.filter(n =>
+              (!n.adminOnly || profile?.role === "admin") &&
+              !gatedPageIds.has(n.id) &&
+              !(n.hiddenViaCourseArchitect && canSeeCourseArchitect)
+            );
+            // Cluster labels: only show if at least one item in that cluster is visible
+            const CLUSTERS = ["LEARNING HUB", "THE VAULT"];
+            const clusterHasItems = {};
+            for (const cl of CLUSTERS) {
+              const startIdx = visible.findIndex(n => n.cluster === cl);
+              clusterHasItems[cl] = startIdx !== -1;
+            }
+            return visible.map((n, i) => (
+              <React.Fragment key={n.id}>
+                {n.cluster && clusterHasItems[n.cluster] && (
+                  <div style={{ fontFamily: F.display, fontWeight: 700, fontSize: 10, color: C.tealMid, textTransform: "uppercase", letterSpacing: "1.5px", padding: "12px 14px 4px" }}>{n.cluster}</div>
+                )}
+                <button onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
+                  <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
+                </button>
+              </React.Fragment>
+            ));
+          })()}
         </div>
 
         {/* Impact widget */}
@@ -2509,7 +2534,7 @@ export default function KlasUp() {
         )}
 
         {/* ── MY COURSE ── */}
-        {page === "My Course" && (() => {
+        {page === "Pedagogy Studio" && (() => {
           const TAG_COLORS = {
             "Active Learning": { color: C.sage, bg: C.sageLight },
             "Socratic Seminar": { color: C.teal, bg: C.tealLight },
@@ -2560,10 +2585,15 @@ export default function KlasUp() {
               .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
           };
 
+          const canSeeCourseArchitect = profile?.role === "admin" && !gatedPageIds.has("Course Architect");
           return (
           <div>
+            {canSeeCourseArchitect && (
+              <div onClick={() => setPage("Course Architect")} onMouseEnter={e => e.currentTarget.style.color = C.teal} onMouseLeave={e => e.currentTarget.style.color = C.muted}
+                style={{ fontFamily: F.body, fontSize: 13, color: C.muted, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "inline-block" }}>← Back to Course Architect</div>
+            )}
             <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>My Course</div>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Pedagogy Studio</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Share what's happening in your classroom. KlasUp turns it into growth.</div>
             </div>
             <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
@@ -2824,8 +2854,14 @@ export default function KlasUp() {
         )}
 
         {/* ── SLIDE STUDIO (PowerPoint Planner) ── */}
-        {page === "Slide Studio" && (
+        {page === "Slide Studio" && (() => {
+          const canSeeCourseArchitect = profile?.role === "admin" && !gatedPageIds.has("Course Architect");
+          return (
           <div>
+            {canSeeCourseArchitect && (
+              <div onClick={() => setPage("Course Architect")} onMouseEnter={e => e.currentTarget.style.color = C.teal} onMouseLeave={e => e.currentTarget.style.color = C.muted}
+                style={{ fontFamily: F.body, fontSize: 13, color: C.muted, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "inline-block" }}>← Back to Course Architect</div>
+            )}
             <div style={{ marginBottom: "1.25rem" }}>
               <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Slide Studio</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Plan your deck or upload an existing one for AI analysis.</div>
@@ -3147,7 +3183,8 @@ export default function KlasUp() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ── MICRO-LEARNING ── */}
         {page === "Micro-Learning" && (
@@ -3525,7 +3562,7 @@ export default function KlasUp() {
                 <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.3 }}>◆</div>
                 <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 6, color: C.navy }}>No uploads yet</div>
                 <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Head to <strong>My Course</strong> to upload content. Each submission and its AI-generated micro-learnings will appear here automatically.</div>
-                <button onClick={() => setPage("My Course")} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Go to My Course</button>
+                <button onClick={() => setPage("Pedagogy Studio")} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Go to Pedagogy Studio</button>
               </Card>
             )}
 

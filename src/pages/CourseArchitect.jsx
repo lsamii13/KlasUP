@@ -26,7 +26,7 @@ const LAUNCHPAD_CARDS = [
       { value: "3", label: "Need attention" },
     ],
     cta: "Open Pedagogy Studio →",
-    navigateTo: "My Course",
+    navigateTo: "Pedagogy Studio",
   },
   {
     emoji: "📊",
@@ -414,11 +414,11 @@ export default function CourseArchitect({ setPage }) {
         <div>
           {/* Breadcrumb */}
           <div style={{ fontSize: 13, color: CA_COLORS.textSoft, marginBottom: 6 }}>
-            🏠 Dashboard › <span style={{ color: CA_COLORS.teal, fontWeight: 600 }}>📐 Course Architect</span>
+            🏠 Dashboard › <span style={{ color: CA_COLORS.teal, fontWeight: 600 }}>🏛️ Course Architect</span>
           </div>
           {/* Title */}
           <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 26 : 34, margin: "0 0 4px 0", color: CA_COLORS.navy }}>
-            📐 Course Architect
+            🏛️ Course Architect
           </h1>
           {/* Subtitle */}
           <p style={{ margin: 0, fontSize: 15, color: CA_COLORS.textSoft, lineHeight: 1.5 }}>
