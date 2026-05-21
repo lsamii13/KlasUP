@@ -11,7 +11,7 @@
  */
 
 const F = {
-  display: "'Fredoka One', cursive",
+  display: "'Bricolage Grotesque', sans-serif",
 };
 
 const sizes = {
