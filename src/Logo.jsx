@@ -21,109 +21,14 @@ const sizes = {
 };
 
 function LogoMark({ size = 58, dark = false }) {
-  // All proportions are relative to `size` which controls the total height.
-  // The bulb is the top ~65%, neck ~8%, base/socket ~27%.
-  const s = size;
-
-  // --- Bulb ---
-  const bulbR = s * 0.34;          // bulb circle radius
-  const bulbCx = s * 0.5;          // bulb center x
-  const bulbCy = s * 0.34;         // bulb center y
-
-  // --- Taper: connects bulb bottom to neck smoothly ---
-  const taperW = s * 0.34;
-  const taperH = bulbR * 0.5;
-  const taperTop = bulbCy + bulbR * 0.5;
-
-  // --- Neck: slightly darker teal connector ---
-  const neckW = s * 0.26;
-  const neckH = s * 0.07;
-  const neckTop = taperTop + taperH - s * 0.02;
-  const neckX = bulbCx - neckW / 2;
-
-  // --- Socket bars: wider and more pronounced for small sizes ---
-  const socketTop = neckTop + neckH + s * 0.01;  // gap for separator line
-  const barH = s * 0.06;
-  const barGap = s * 0.02;
-  const bar1W = s * 0.34;
-  const bar2W = s * 0.30;
-  const bar3W = s * 0.25;
-
-  // --- K letterform inside bulb ---
-  const kCx = bulbCx;
-  const kCy = bulbCy;
-  const kH = bulbR * 1.05;
-  const stemX = kCx - bulbR * 0.18;
-  const stemTop = kCy - kH * 0.48;
-  const stemBot = kCy + kH * 0.48;
-  const stemW = s * 0.065;
-  const sw = s * 0.065;            // stroke width for diagonals
-
-  const midY = kCy;
-  const diagJoinX = stemX + stemW * 0.8;
-  const diagTopX = kCx + bulbR * 0.35;
-  const diagTopY = stemTop;
-  const diagBotX = kCx + bulbR * 0.38;
-  const diagBotY = stemBot;
-
-  // --- Shine dots ---
-  const sh1r = s * 0.028;
-  const sh2r = s * 0.020;
-  const sh3r = s * 0.014;
-
-  // --- Outline stroke for dark backgrounds ---
-  const outlineW = dark ? Math.max(1.5, s * 0.025) : 0;
-
   return (
-    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Bulb — teal circle with optional white outline */}
-      <circle cx={bulbCx} cy={bulbCy} r={bulbR} fill="#0FB5B5"
-        stroke={dark ? "rgba(255,255,255,0.35)" : "none"} strokeWidth={outlineW} />
-
-      {/* Taper: rounded rect connecting bulb bottom to neck */}
-      <rect
-        x={bulbCx - taperW / 2}
-        y={taperTop}
-        width={taperW}
-        height={taperH}
-        rx={s * 0.04}
-        fill="#0FB5B5"
-      />
-
-      {/* Neck — slightly darker teal connector */}
-      <rect x={neckX} y={neckTop} width={neckW} height={neckH} rx={s * 0.02} fill="#0A9E9E" />
-
-      {/* Separator line between neck and socket */}
-      <line
-        x1={bulbCx - bar1W * 0.45} y1={socketTop - s * 0.006}
-        x2={bulbCx + bar1W * 0.45} y2={socketTop - s * 0.006}
-        stroke="white" strokeWidth={Math.max(1, s * 0.018)} strokeLinecap="round" opacity="0.85"
-      />
-
-      {/* Base/Socket bars — light on dark bg, dark on light bg */}
-      <rect x={bulbCx - bar1W / 2} y={socketTop} width={bar1W} height={barH} rx={s * 0.018}
-        fill={dark ? "rgba(255,255,255,0.9)" : "#1A3260"} />
-      <rect x={bulbCx - bar2W / 2} y={socketTop + barH + barGap} width={bar2W} height={barH} rx={s * 0.018}
-        fill={dark ? "rgba(255,255,255,0.75)" : "#243D75"} />
-      <rect x={bulbCx - bar3W / 2} y={socketTop + (barH + barGap) * 2} width={bar3W} height={barH} rx={s * 0.025}
-        fill={dark ? "rgba(255,255,255,0.6)" : "#2D4A8A"} />
-
-      {/* K vertical stem */}
-      <rect x={stemX - stemW / 2} y={stemTop} width={stemW} height={stemBot - stemTop} rx={stemW / 2} fill="white" />
-
-      {/* K upper diagonal */}
-      <line x1={diagJoinX} y1={midY} x2={diagTopX} y2={diagTopY}
-        stroke="white" strokeWidth={sw} strokeLinecap="round" />
-
-      {/* K lower diagonal */}
-      <line x1={diagJoinX} y1={midY} x2={diagBotX} y2={diagBotY}
-        stroke="white" strokeWidth={sw} strokeLinecap="round" />
-
-      {/* Shine dots — upper right of bulb */}
-      <circle cx={bulbCx + bulbR * 0.52} cy={bulbCy - bulbR * 0.48} r={sh1r} fill="white" opacity="0.9" />
-      <circle cx={bulbCx + bulbR * 0.68} cy={bulbCy - bulbR * 0.25} r={sh2r} fill="white" opacity="0.6" />
-      <circle cx={bulbCx + bulbR * 0.50} cy={bulbCy - bulbR * 0.22} r={sh3r} fill="white" opacity="0.45" />
-    </svg>
+    <img
+      src={dark ? "/logo/klasup-icon-dark.png" : "/logo/klasup-icon.png"}
+      alt="KlasUp logo"
+      width={size}
+      height={size}
+      style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+    />
   );
 }
 
