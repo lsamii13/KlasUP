@@ -4,11 +4,14 @@
  * Renders the KlasUp lightbulb-K mark + optional wordmark.
  *
  * Props:
- *   size  — "sm" (38px mark), "md" (58px mark), "lg" (96px mark)
- *   dark  — true for dark backgrounds (white wordmark), false for light (navy wordmark)
- *   mark  — render only the mark, no wordmark (default false)
- *   style — optional wrapper style overrides
+ *   size    — "sm" (38px mark), "md" (58px mark), "lg" (96px mark)
+ *   dark    — true for dark backgrounds (white wordmark), false for light (navy wordmark)
+ *   mark    — render only the mark, no wordmark (default false)
+ *   style   — optional wrapper style overrides
+ *   onClick — optional click handler (adds pointer cursor + hover opacity)
  */
+
+import { useState } from "react";
 
 const F = {
   display: "'Bricolage Grotesque', sans-serif",
@@ -20,26 +23,48 @@ const sizes = {
   lg: { mark: 96, font: 53, gap: 16 },
 };
 
-function LogoMark({ size = 58, dark = false }) {
+function LogoMark({ size = 58, dark = false, onClick }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <img
-      src={dark ? "/logo/klasup-icon-dark.png" : "/logo/klasup-icon.png"}
-      alt="KlasUp logo"
-      width={size}
-      height={size}
-      style={{ width: size, height: size, objectFit: "contain", display: "block" }}
-    />
+    <div
+      onClick={onClick}
+      onMouseEnter={onClick ? () => setHovered(true) : undefined}
+      onMouseLeave={onClick ? () => setHovered(false) : undefined}
+      style={{
+        display: "inline-block",
+        cursor: onClick ? "pointer" : undefined,
+        opacity: onClick && hovered ? 0.85 : 1,
+        transition: onClick ? "opacity 0.2s ease" : undefined,
+      }}
+    >
+      <img
+        src={dark ? "/logo/klasup-icon-dark.png" : "/logo/klasup-icon.png"}
+        alt="KlasUp logo"
+        width={size}
+        height={size}
+        style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+      />
+    </div>
   );
 }
 
-export default function Logo({ size = "md", dark = false, mark = false, style }) {
+export default function Logo({ size = "md", dark = false, mark = false, style, onClick }) {
+  const [hovered, setHovered] = useState(false);
   const cfg = sizes[size] || sizes.md;
 
   return (
-    <div style={{
-      display: "inline-flex", alignItems: "center", gap: cfg.gap,
-      ...style,
-    }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={onClick ? () => setHovered(true) : undefined}
+      onMouseLeave={onClick ? () => setHovered(false) : undefined}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: cfg.gap,
+        cursor: onClick ? "pointer" : undefined,
+        opacity: onClick && hovered ? 0.85 : 1,
+        transition: onClick ? "opacity 0.2s ease" : undefined,
+        ...style,
+      }}
+    >
       <LogoMark size={cfg.mark} dark={dark} />
       {!mark && (
         <div style={{ fontFamily: F.display, fontSize: cfg.font, lineHeight: 1 }}>

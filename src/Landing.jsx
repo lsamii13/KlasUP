@@ -151,7 +151,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div style={{ maxWidth: 1100, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Logo size="sm" dark />
+        <Logo size="sm" dark onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
         {mob ? (
           <>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -248,7 +248,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       <div style={{ textAlign: "center", maxWidth: 780, position: "relative", zIndex: 1 }}>
         {/* Hero brand moment — stacked mark + wordmark */}
         <div style={{ marginBottom: mob ? 20 : 32, display: "flex", flexDirection: "column", alignItems: "center", gap: mob ? 10 : 16 }}>
-          <LogoMark size={mob ? 150 : 220} dark />
+          <LogoMark size={mob ? 150 : 220} dark onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
           <div style={{ fontFamily: F.display, fontSize: "clamp(40px, 5vw, 56px)", lineHeight: 1 }}>
             <span style={{ color: "#FFFFFF" }}>Klas</span>
             <span style={{ color: "#0FB5B5" }}>Up</span>
@@ -583,7 +583,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           {/* Logo + tagline */}
           <div>
             <div style={{ marginBottom: 10 }}>
-              <Logo size="sm" dark />
+              <Logo size="sm" dark onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
             </div>
             <p style={{ fontFamily: F.body, fontSize: 13, color: "rgba(255,255,255,0.4)", margin: 0, maxWidth: 280 }}>
               Teach smarter. Not harder.

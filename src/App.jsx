@@ -1730,7 +1730,7 @@ export default function KlasUp() {
           {/* Logo & tagline */}
           <div style={{ textAlign: "center", marginBottom: 36 }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-              <Logo size="md" dark />
+              <Logo size="md" dark onClick={() => setShowLanding(true)} />
             </div>
             <div style={{ fontSize: 15, color: C.tealMid, fontStyle: "italic" }}>Teach smarter. Not harder.</div>
           </div>
@@ -2075,7 +2075,7 @@ export default function KlasUp() {
         {/* Logo */}
         <div style={{ padding: "1.5rem 1.25rem 1rem", borderBottom: "0.5px solid rgba(255,255,255,0.08)" }}>
           <div style={{ marginBottom: 4 }}>
-            <Logo size="sm" dark />
+            <Logo size="sm" dark onClick={() => setPage("Dashboard")} />
           </div>
           <div style={{ fontSize: 11, color: C.tealMid, fontStyle: "italic", paddingLeft: 42 }}>Teach smarter. Not harder.</div>
         </div>
