@@ -949,6 +949,7 @@ export default function KlasUp() {
   const [dbCourses, setDbCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [activeCourseId, setActiveCourseId] = useState(null);
+  const [learningOutcomes, setLearningOutcomes] = useState([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({ course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 });
   const [onboardingCourses, setOnboardingCourses] = useState([]);
@@ -1200,6 +1201,22 @@ export default function KlasUp() {
       await supabase.from("profiles").update({ active_course_id: courseId }).eq("id", session.user.id);
     }
   };
+
+  // Fetch learning outcomes when active course changes
+  useEffect(() => {
+    if (!activeCourseId) { setLearningOutcomes([]); return; }
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("learning_outcomes")
+          .select("*")
+          .eq("course_id", activeCourseId)
+          .order("sort_order", { ascending: true });
+        if (error) { console.error("learning_outcomes fetch error:", error); }
+        setLearningOutcomes(data || []);
+      } catch (e) { console.error("learning_outcomes load error:", e); }
+    })();
+  }, [activeCourseId]);
 
   const handleSignOut = async () => {
     if (session?.user) await logSecurityEvent(session.user.id, "logout");
@@ -3757,7 +3774,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} learningOutcomes={learningOutcomes} />
         )}
 
         {/* ── WELLNESS ── */}

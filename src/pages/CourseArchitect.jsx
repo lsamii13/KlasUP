@@ -395,7 +395,8 @@ function ExportBar() {
   );
 }
 
-export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, learningOutcomes: learningOutcomesProp }) {
+  const los = Array.isArray(learningOutcomesProp) ? learningOutcomesProp : [];
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [semesterView, setSemesterView] = useState("list");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -494,7 +495,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: "2rem" }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: CA_COLORS.textSoft, marginRight: 4 }}>Course Outcomes:</span>
 
-        {PLACEHOLDER_LOS.map((lo) => {
+        {los.length > 0 ? los.map((lo) => {
           const active = activeLOFilter === lo.code;
           return (
             <button
@@ -521,10 +522,15 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
               <span>{lo.label}</span>
             </button>
           );
-        })}
+        }) : (
+          <span style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, fontStyle: "italic" }}>
+            No outcomes yet — click + Add outcome to get started
+          </span>
+        )}
 
         {/* + Add outcome */}
         <button
+          onClick={() => alert("LO creation coming soon — for now, add outcomes via Supabase Table Editor")}
           style={{
             display: "inline-flex",
             alignItems: "center",
