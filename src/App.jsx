@@ -978,6 +978,36 @@ export default function KlasUp() {
   const [wellnessReflectionResult, setWellnessReflectionResult] = useState(null);
   const [wellnessReflectionLoading, setWellnessReflectionLoading] = useState(false);
   const [breathingOpen, setBreathingOpen] = useState(null);
+  const [breathExerciseOpen, setBreathExerciseOpen] = useState(null);
+  const [audioDurations, setAudioDurations] = useState({});
+
+  // Load real audio durations from Supabase meditation files
+  const MEDITATION_AUDIO_BASE = "https://thbfibtknxivegybhupw.supabase.co/storage/v1/object/public/meditations/";
+  const MEDITATION_AUDIO_URLS = [
+    MEDITATION_AUDIO_BASE + "before-tough-class.mp3",
+    MEDITATION_AUDIO_BASE + "after-a-draining-week.mp3",
+    MEDITATION_AUDIO_BASE + "purpose.mp3",
+    MEDITATION_AUDIO_BASE + "reset.mp3",
+    MEDITATION_AUDIO_BASE + "creativity.mp3",
+    MEDITATION_AUDIO_BASE + "communication.mp3",
+    MEDITATION_AUDIO_BASE + "burnout.mp3",
+  ];
+  useEffect(() => {
+    MEDITATION_AUDIO_URLS.forEach(url => {
+      if (audioDurations[url]) return;
+      const a = new Audio();
+      a.preload = "metadata";
+      a.addEventListener("loadedmetadata", () => {
+        setAudioDurations(prev => {
+          if (prev[url]) return prev;
+          return { ...prev, [url]: a.duration };
+        });
+        a.src = "";
+      });
+      a.addEventListener("error", () => { a.src = ""; });
+      a.src = url;
+    });
+  }, []);
 
   const courseNames = dbCourses.map(c => c.course_code);
   const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
@@ -3779,20 +3809,30 @@ export default function KlasUp() {
 
         {/* ── WELLNESS ── */}
         {page === "Wellness" && !gatedPageIds.has("Wellness") && (() => {
+          const MEDITATION_AUDIO_BASE = "https://thbfibtknxivegybhupw.supabase.co/storage/v1/object/public/meditations/";
           const FACULTY_MEDITATIONS = [
-            { title: "Before a Tough Class", duration: "3 min", desc: "Ground yourself and find your center before walking into a challenging session.", inhale: 4, hold: 4, exhale: 6, rounds: 6 },
-            { title: "After a Draining Week", duration: "5 min", desc: "Release the weight of the week. You gave what you had — now restore.", inhale: 4, hold: 7, exhale: 8, rounds: 8 },
-            { title: "Reconnect with Purpose", duration: "4 min", desc: "Remember why you teach. Reconnect with the impact you make every day.", inhale: 5, hold: 5, exhale: 5, rounds: 7 },
-            { title: "Midday Reset", duration: "2 min", desc: "A quick energy refresh between classes or meetings.", inhale: 3, hold: 3, exhale: 4, rounds: 5 },
+            { title: "Before a Tough Class", duration: "3 min", desc: "Ground yourself and find your center before walking into a challenging session.", inhale: 4, hold: 4, exhale: 6, rounds: 6, audioUrl: MEDITATION_AUDIO_BASE + "before-tough-class.mp3" },
+            { title: "After a Draining Week", duration: "5 min", desc: "Release the weight of the week. You gave what you had — now restore.", inhale: 4, hold: 7, exhale: 8, rounds: 8, audioUrl: MEDITATION_AUDIO_BASE + "after-a-draining-week.mp3" },
+            { title: "Reconnect with Purpose", duration: "4 min", desc: "Remember why you teach. Reconnect with the impact you make every day.", inhale: 5, hold: 5, exhale: 5, rounds: 7, audioUrl: MEDITATION_AUDIO_BASE + "purpose.mp3" },
+            { title: "Midday Reset", duration: "2 min", desc: "A quick energy refresh between classes or meetings.", inhale: 3, hold: 3, exhale: 4, rounds: 5, audioUrl: MEDITATION_AUDIO_BASE + "reset.mp3" },
           ];
           const STUDENT_MEDITATIONS = [
-            { emoji: "🎨", title: "Before a Creative Assignment", duration: "2 min", desc: "Open up to new ideas and let go of perfectionism.", inhale: 4, hold: 3, exhale: 5, rounds: 4, state: "Creativity" },
-            { emoji: "💬", title: "Before Presentations or Discussions", duration: "2 min", desc: "Calm nerves and find your voice before speaking up.", inhale: 4, hold: 4, exhale: 6, rounds: 4, state: "Communication" },
-            { emoji: "📝", title: "Before an Exam", duration: "3 min", desc: "Settle anxiety and access what you already know.", inhale: 4, hold: 7, exhale: 8, rounds: 5, state: "Test Anxiety" },
-            { emoji: "🔥", title: "Mid-Semester Reset", duration: "4 min", desc: "When everything feels like too much — pause and recharge.", inhale: 5, hold: 5, exhale: 7, rounds: 6, state: "Burnout" },
-            { emoji: "💭", title: "Processing Difficult Topics", duration: "3 min", desc: "Create space after emotionally heavy content or discussions.", inhale: 4, hold: 5, exhale: 6, rounds: 5, state: "Understanding Emotions" },
-            { emoji: "🌱", title: "General Centering", duration: "2 min", desc: "A simple grounding exercise for any moment you need stillness.", inhale: 4, hold: 4, exhale: 4, rounds: 5, state: "Grounding" },
+            { emoji: "🎨", title: "Before a Creative Assignment", duration: "2 min", desc: "Open up to new ideas and let go of perfectionism.", inhale: 4, hold: 3, exhale: 5, rounds: 4, state: "Creativity", audioUrl: MEDITATION_AUDIO_BASE + "creativity.mp3" },
+            { emoji: "💬", title: "Before Presentations or Discussions", duration: "2 min", desc: "Calm nerves and find your voice before speaking up.", inhale: 4, hold: 4, exhale: 6, rounds: 4, state: "Communication", audioUrl: MEDITATION_AUDIO_BASE + "communication.mp3" },
+            { emoji: "📝", title: "Before an Exam", duration: "3 min", desc: "Settle anxiety and access what you already know.", inhale: 4, hold: 7, exhale: 8, rounds: 5, state: "Test Anxiety", audioUrl: null },
+            { emoji: "🔥", title: "Mid-Semester Reset", duration: "4 min", desc: "When everything feels like too much — pause and recharge.", inhale: 5, hold: 5, exhale: 7, rounds: 6, state: "Burnout", audioUrl: MEDITATION_AUDIO_BASE + "burnout.mp3" },
+            { emoji: "💭", title: "Processing Difficult Topics", duration: "3 min", desc: "Create space after emotionally heavy content or discussions.", inhale: 4, hold: 5, exhale: 6, rounds: 5, state: "Understanding Emotions", audioUrl: null },
+            { emoji: "🌱", title: "General Centering", duration: "2 min", desc: "A simple grounding exercise for any moment you need stillness.", inhale: 4, hold: 4, exhale: 4, rounds: 5, state: "Grounding", audioUrl: null },
           ];
+
+          const fmtDuration = (m) => {
+            const d = audioDurations[m.audioUrl];
+            if (!d) return m.duration; // fallback while loading
+            const mins = Math.floor(d / 60);
+            const secs = Math.floor(d % 60);
+            return secs > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${mins}:00`;
+          };
+
           // Weekly check-in history visual (last 4 weeks)
           const weeklyData = [];
           for (let w = 0; w < 4; w++) {
@@ -3810,8 +3850,8 @@ export default function KlasUp() {
           return (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
-              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2, color: C.sage }}>Wellness 🌿</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Your wellbeing matters. Teaching is a practice — and so is taking care of yourself.</div>
+              <div style={{ fontFamily: F.display, fontSize: 26, marginBottom: 2 }}>Wellness 🌿</div>
+              <div style={{ fontFamily: F.body, color: C.muted, fontSize: 14 }}>Your wellbeing matters. Teaching is a practice — and so is taking care of yourself.</div>
             </div>
 
             {/* Tabs */}
@@ -3827,54 +3867,69 @@ export default function KlasUp() {
             {/* ── TAB 1: FACULTY WELLBEING ── */}
             {wellnessTab === "faculty" && (
               <div>
-                {/* Weekly check-in */}
-                <div style={{ background: "#EAF3DE", borderRadius: 14, padding: "1.25rem", marginBottom: 16, border: `1px solid ${C.sage}22` }}>
-                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.sage, marginBottom: 8 }}>How are you feeling this week?</div>
-                  <div style={{ display: "flex", gap: mob ? 10 : 14, marginBottom: wellnessMsg ? 12 : 0 }}>
-                    {WELLNESS_EMOJIS.map((e, i) => (
-                      <button key={i} onClick={() => handleWellnessCheckin(i + 1)}
-                        style={{ fontSize: mob ? 28 : 34, background: wellnessScore === i + 1 ? `${C.sage}22` : "transparent", border: wellnessScore === i + 1 ? `2px solid ${C.sage}` : "2px solid transparent", borderRadius: "50%", width: mob ? 48 : 56, height: mob ? 48 : 56, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                  {wellnessMsg && (
-                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginTop: 8 }}>
-                      <div style={{ fontSize: 14, color: C.sage, fontWeight: 600, lineHeight: 1.5, marginBottom: 4 }}>{wellnessMsg.message}</div>
-                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>💡 {wellnessMsg.tip}</div>
-                    </div>
-                  )}
-                  {wellnessBurnoutFlag && (
-                    <div style={{ background: C.roseLight, borderRadius: 8, padding: "8px 12px", marginTop: 10, fontSize: 13, color: C.rose, lineHeight: 1.5 }}>
-                      You've had a tough few days. Be gentle with yourself. 🌿
-                    </div>
-                  )}
-                </div>
-
-                {/* Burnout risk tracker */}
-                <Card style={{ marginBottom: 16 }}>
-                  <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Your Last 4 Weeks</div>
+                {/* Your Last 4 Weeks — top */}
+                <Card style={{ marginBottom: 16, background: `linear-gradient(135deg, #1B2B4B 0%, #2A9D8F 100%)`, border: "none" }}>
+                  <div style={{ fontFamily: F.display, fontSize: 17, color: "#FAF7F2", marginBottom: 12 }}>Your Last 4 Weeks</div>
                   <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 10 }}>
                     {weeklyData.map((w, i) => (
                       <div key={i} style={{ background: w.avg === 0 ? C.ivoryDark : w.avg <= 2 ? C.roseLight : w.avg <= 3 ? "#FFF8E7" : "#EAF3DE", borderRadius: 10, padding: "12px", textAlign: "center" }}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}>{w.avg > 0 ? WELLNESS_EMOJIS[w.avg - 1] : "—"}</div>
-                        <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted }}>{w.week}</div>
-                        <div style={{ fontSize: 10, color: C.muted }}>{w.count} check-in{w.count !== 1 ? "s" : ""}</div>
+                        <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.navy }}>{w.week}</div>
+                        <div style={{ fontSize: 10, fontFamily: F.body, color: C.navy }}>{w.count} check-in{w.count !== 1 ? "s" : ""}</div>
                       </div>
                     ))}
                   </div>
                 </Card>
 
+                {/* Check-in + Breathing — side by side on desktop, stacked on mobile */}
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  {/* Weekly check-in */}
+                  <div style={{ background: C.white, borderRadius: 14, padding: "1.25rem", border: `1px solid ${C.border}` }}>
+                    <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 8 }}>How are you feeling?</div>
+                    <div style={{ display: "flex", gap: mob ? 8 : 10, marginBottom: wellnessMsg ? 12 : 0 }}>
+                      {WELLNESS_EMOJIS.map((e, i) => (
+                        <button key={i} onClick={() => handleWellnessCheckin(i + 1)}
+                          style={{ fontSize: mob ? 26 : 30, background: wellnessScore === i + 1 ? `${C.sage}22` : "transparent", border: wellnessScore === i + 1 ? `2px solid ${C.sage}` : "2px solid transparent", borderRadius: "50%", width: mob ? 42 : 48, height: mob ? 42 : 48, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                    {wellnessMsg && (
+                      <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px", marginTop: 8 }}>
+                        <div style={{ fontSize: 13, fontFamily: F.body, color: C.navy, fontWeight: 600, lineHeight: 1.5, marginBottom: 4 }}>{wellnessMsg.message}</div>
+                        <div style={{ fontSize: 12, fontFamily: F.body, color: C.muted, lineHeight: 1.5 }}>💡 {wellnessMsg.tip}</div>
+                      </div>
+                    )}
+                    {wellnessBurnoutFlag && (
+                      <div style={{ background: C.roseLight, borderRadius: 8, padding: "8px 12px", marginTop: 10, fontSize: 13, fontFamily: F.body, color: C.rose, lineHeight: 1.5 }}>
+                        You've had a tough few days. Be gentle with yourself. 🌿
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Breathing exercise card */}
+                  <div style={{ background: C.white, borderRadius: 14, padding: "1.25rem", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 4 }}>Breathing Exercise</div>
+                      <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, lineHeight: 1.5 }}>Choose a pattern and duration. Just breathe.</div>
+                    </div>
+                    <button onClick={() => setBreathExerciseOpen({ step: "settings", pattern: "box", minutes: 3 })}
+                      style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginTop: 12, alignSelf: "flex-start" }}>
+                      Begin 🌿
+                    </button>
+                  </div>
+                </div>
+
                 {/* Faculty meditations */}
-                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Breathing for Faculty</div>
+                <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Meditations for Faculty</div>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                  {FACULTY_MEDITATIONS.map((m, i) => (
+                  {FACULTY_MEDITATIONS.filter(m => m.audioUrl).map((m, i) => (
                     <Card key={i} style={{ background: "#EAF3DE", border: `1px solid ${C.sage}22` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.sage }}>{m.title}</div>
-                        <Tag label={m.duration} color={C.sage} bg={`${C.sage}18`} />
+                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy }}>{m.title}</div>
+                        <Tag label={fmtDuration(m)} color={C.sage} bg={`${C.sage}18`} />
                       </div>
-                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
+                      <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
                       <button onClick={() => setBreathingOpen(m)}
                         style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                         Begin 🌿
@@ -3891,7 +3946,7 @@ export default function KlasUp() {
               <div>
                 {/* Weekly reflection */}
                 <Card style={{ marginBottom: 16, background: "#EAF3DE", border: `1px solid ${C.sage}22` }}>
-                  <div style={{ fontFamily: F.display, fontSize: 17, color: C.sage, marginBottom: 8 }}>What have you done to support the whole student this week?</div>
+                  <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 8 }}>What have you done to support the whole student this week?</div>
                   <textarea value={wellnessReflection} onChange={e => setWellnessReflection(e.target.value)}
                     placeholder="Share a moment — big or small — where you saw or supported the whole student..."
                     rows={4}
@@ -3915,7 +3970,7 @@ export default function KlasUp() {
                     </button>
                   </div>
                   {wellnessReflectionResult && (
-                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: 14, color: C.sage, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
+                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: 14, fontFamily: F.body, color: C.navy, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
                       {wellnessReflectionResult}
                     </div>
                   )}
@@ -3924,24 +3979,24 @@ export default function KlasUp() {
                 {/* Student exercises */}
                 <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Exercises for Students</div>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                  {STUDENT_MEDITATIONS.map((m, i) => (
+                  {STUDENT_MEDITATIONS.filter(m => m.audioUrl).map((m, i) => (
                     <Card key={i} style={{ border: `1px solid ${C.sage}22` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                         <div>
                           <span style={{ fontSize: 20, marginRight: 8 }}>{m.emoji}</span>
                           <span style={{ fontFamily: F.display, fontSize: 15, color: C.navy }}>{m.title}</span>
                         </div>
-                        <Tag label={m.duration} color={C.sage} bg={`${C.sage}18`} />
+                        <Tag label={fmtDuration(m)} color={C.sage} bg={`${C.sage}18`} />
                       </div>
-                      <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.sage, marginBottom: 6 }}>{m.state}</div>
-                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, marginBottom: 6 }}>{m.state}</div>
+                      <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button onClick={() => setBreathingOpen(m)}
                           style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                           Begin
                         </button>
                         <button onClick={() => {
-                          const text = `🌿 ${m.title} (${m.duration})\n\n${m.desc}\n\nTry this before ${m.state.toLowerCase()}: Close your eyes. Breathe in for ${m.inhale} seconds, hold for ${m.hold}, breathe out for ${m.exhale}. Repeat ${m.rounds} times.\n\n— Shared via KlasUp (klasup.com)`;
+                          const text = `🌿 ${m.title} (${fmtDuration(m)})\n\n${m.desc}\n\nTry this before ${m.state.toLowerCase()}: Close your eyes. Breathe in for ${m.inhale} seconds, hold for ${m.hold}, breathe out for ${m.exhale}. Repeat ${m.rounds} times.\n\n— Shared via KlasUp (klasup.com)`;
                           navigator.clipboard.writeText(text);
                         }}
                           style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
@@ -4868,18 +4923,31 @@ export default function KlasUp() {
         />
       )}
 
-      {/* ── BREATHING GUIDE MODAL ── */}
+      {/* ── MEDITATION AUDIO MODAL ── */}
       {breathingOpen && (() => {
         const m = breathingOpen;
         const totalSeconds = (m.inhale + m.hold + m.exhale) * m.rounds;
         const cycleSeconds = m.inhale + m.hold + m.exhale;
 
-        const BreathingGuide = () => {
+        const MeditationPlayer = () => {
+          // Text-only breathing fallback state
           const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
-          const [phase, setPhase] = useState("in"); // "in" | "hold" | "out"
+          const [phase, setPhase] = useState("in");
           const [cyclePos, setCyclePos] = useState(0);
 
+          // Audio state
+          const audioRef = useRef(null);
+          const [audioReady, setAudioReady] = useState(false);
+          const [audioFailed, setAudioFailed] = useState(false);
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+          const [audioDuration, setAudioDuration] = useState(0);
+          const [audioComplete, setAudioComplete] = useState(false);
+          const hasAudio = !!m.audioUrl;
+
+          // Text-only breathing timer (fallback when audio fails or no audioUrl)
           useEffect(() => {
+            if (hasAudio && !audioFailed) return; // audio path handles its own state
             if (secondsLeft <= 0) return;
             const timer = setInterval(() => {
               setSecondsLeft(prev => {
@@ -4895,13 +4963,82 @@ export default function KlasUp() {
               });
             }, 1000);
             return () => clearInterval(timer);
+          }, [audioFailed]);
+
+          // Audio setup + cleanup
+          useEffect(() => {
+            if (!hasAudio) return;
+            const audio = new Audio(m.audioUrl);
+            audioRef.current = audio;
+
+            const onLoaded = () => {
+              setAudioReady(true);
+              setAudioDuration(audio.duration);
+              audio.play().then(() => setIsPlaying(true)).catch(() => {
+                console.warn("KlasUp: Auto-play blocked, user must tap play");
+              });
+            };
+            const onError = () => {
+              console.warn("KlasUp: Audio failed to load for", m.title);
+              setAudioFailed(true);
+            };
+            const onTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
+            const onEnded = () => { setIsPlaying(false); setAudioComplete(true); };
+
+            audio.addEventListener("loadedmetadata", onLoaded);
+            audio.addEventListener("error", onError);
+            audio.addEventListener("timeupdate", onTimeUpdate);
+            audio.addEventListener("ended", onEnded);
+
+            return () => {
+              audio.pause();
+              audio.removeEventListener("loadedmetadata", onLoaded);
+              audio.removeEventListener("error", onError);
+              audio.removeEventListener("timeupdate", onTimeUpdate);
+              audio.removeEventListener("ended", onEnded);
+              audio.src = "";
+              audioRef.current = null;
+            };
           }, []);
 
-          const mins = Math.floor(secondsLeft / 60);
-          const secs = secondsLeft % 60;
+          const handleClose = () => {
+            if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
+            setBreathingOpen(null);
+          };
+
+          const togglePlayPause = () => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            if (audio.paused) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
+            else { audio.pause(); setIsPlaying(false); }
+          };
+
+          const handleScrub = (e) => {
+            const audio = audioRef.current;
+            if (!audio || !audioDuration) return;
+            const val = parseFloat(e.target.value);
+            audio.currentTime = val;
+            setAudioCurrentTime(val);
+          };
+
+          const fmtTime = (t) => {
+            const mn = Math.floor(t / 60);
+            const sc = Math.floor(t % 60);
+            return `${mn}:${sc.toString().padStart(2, "0")}`;
+          };
+
+          const breathDone = secondsLeft <= 0;
+          const showAudio = hasAudio && audioReady && !audioFailed;
+          const fallbackMode = !hasAudio || audioFailed;
+          const done = audioComplete || (fallbackMode && breathDone);
+          const scrubberPct = audioDuration ? (audioCurrentTime / audioDuration) * 100 : 0;
+          const scrubberTrackBg = `linear-gradient(to right, #2A9D8F ${scrubberPct}%, rgba(255,255,255,0.15) ${scrubberPct}%)`;
+
+          // Fallback breathing text
           const circleScale = phase === "in" ? 1.4 : phase === "hold" ? 1.4 : 0.85;
           const phaseText = phase === "in" ? "Breathe in..." : phase === "hold" ? "Hold..." : "Breathe out...";
-          const done = secondsLeft <= 0;
+          const mins = Math.floor(secondsLeft / 60);
+          const secs = secondsLeft % 60;
 
           return (
             <div style={{
@@ -4910,45 +5047,368 @@ export default function KlasUp() {
               display: "flex", alignItems: "center", justifyContent: "center",
               flexDirection: "column", padding: 24,
             }}>
-              <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 24, color: C.white, marginBottom: 6 }}>{m.title}</div>
-              <div style={{ fontSize: 13, color: C.tealMid, marginBottom: 40, fontFamily: F.accent, fontWeight: 600 }}>{m.duration}</div>
+              {/* Scrubber CSS */}
+              <style>{`
+                .klasup-scrubber { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; outline: none; cursor: pointer; }
+                .klasup-scrubber::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #2A9D8F; border: 2px solid rgba(255,255,255,0.3); cursor: pointer; margin-top: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+                .klasup-scrubber::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #2A9D8F; border: 2px solid rgba(255,255,255,0.3); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+                .klasup-scrubber::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; }
+                .klasup-scrubber::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.15); }
+              `}</style>
 
-              {/* Breathing circle */}
-              <div style={{
-                width: mob ? 160 : 200, height: mob ? 160 : 200, borderRadius: "50%",
-                background: `radial-gradient(circle, ${C.sage}44 0%, ${C.sage}11 70%, transparent 100%)`,
-                border: `3px solid ${C.sage}88`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transform: `scale(${done ? 1 : circleScale})`,
-                transition: phase === "in" ? `transform ${m.inhale}s ease-in-out` : phase === "hold" ? "none" : `transform ${m.exhale}s ease-in-out`,
-                marginBottom: 32,
-              }}>
-                <div style={{ fontFamily: F.display, fontSize: done ? 20 : 18, color: C.white, textAlign: "center" }}>
-                  {done ? "Well done 🌿" : phaseText}
-                </div>
+              {/* Back button — top left */}
+              <button onClick={handleClose}
+                style={{
+                  position: "absolute", top: 20, left: 20,
+                  background: "none", border: "none", color: "rgba(255,255,255,0.5)",
+                  fontFamily: F.accent, fontSize: 14, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6, padding: "8px 4px",
+                }}>
+                <span style={{ fontSize: 18, lineHeight: 1 }}>&larr;</span> Back
+              </button>
+
+              {/* Title + duration */}
+              <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 26, color: C.white, marginBottom: 6, textAlign: "center" }}>{m.title}</div>
+              <div style={{ fontSize: 13, color: C.tealMid, marginBottom: done ? 40 : 60, fontFamily: F.accent, fontWeight: 600 }}>
+                {showAudio ? fmtTime(audioDuration) : m.duration}
               </div>
 
-              {/* Instructions */}
-              {!done && (
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textAlign: "center", maxWidth: 320, lineHeight: 1.6, marginBottom: 20 }}>
-                  In for {m.inhale}s · Hold for {m.hold}s · Out for {m.exhale}s
+              {/* ── AUDIO PATH (primary) ── */}
+              {showAudio && !done && (
+                <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  {/* Large play/pause */}
+                  <button onClick={togglePlayPause}
+                    style={{
+                      width: 72, height: 72, borderRadius: "50%",
+                      border: "2px solid rgba(42,157,143,0.4)",
+                      background: "rgba(42,157,143,0.15)", color: C.white, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 28, marginBottom: 32, flexShrink: 0,
+                      transition: "background 0.2s",
+                    }}>
+                    {isPlaying ? "⏸" : "▶"}
+                  </button>
+
+                  {/* Scrubber + times */}
+                  <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontFamily: F.accent, fontSize: 12, color: "rgba(255,255,255,0.6)", minWidth: 38, textAlign: "right" }}>
+                      {fmtTime(audioCurrentTime)}
+                    </span>
+                    <input
+                      type="range" min={0} max={audioDuration || 0} step={0.5} value={audioCurrentTime}
+                      onChange={handleScrub}
+                      className="klasup-scrubber"
+                      style={{ flex: 1, background: scrubberTrackBg }}
+                    />
+                    <span style={{ fontFamily: F.accent, fontSize: 12, color: "rgba(255,255,255,0.6)", minWidth: 38 }}>
+                      {fmtTime(audioDuration)}
+                    </span>
+                  </div>
                 </div>
               )}
 
-              {/* Timer */}
-              <div style={{ fontFamily: F.accent, fontSize: 28, fontWeight: 700, color: done ? C.sage : C.tealMid, marginBottom: 32 }}>
-                {done ? "" : `${mins}:${secs.toString().padStart(2, "0")}`}
-              </div>
+              {/* ── AUDIO LOADING STATE ── */}
+              {hasAudio && !audioReady && !audioFailed && !done && (
+                <div style={{ fontFamily: F.accent, fontSize: 14, color: "rgba(255,255,255,0.4)", marginBottom: 32 }}>
+                  Loading audio...
+                </div>
+              )}
 
-              <button onClick={() => setBreathingOpen(null)}
-                style={{ background: "rgba(255,255,255,0.1)", border: `1px solid rgba(255,255,255,0.2)`, borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, color: C.white, cursor: "pointer", minHeight: 44 }}>
+              {/* ── TEXT FALLBACK PATH (no audio or audio failed) ── */}
+              {fallbackMode && !done && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  {audioFailed && (
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 16, fontFamily: F.accent }}>
+                      Audio unavailable — follow the breathing guide below
+                    </div>
+                  )}
+                  <div style={{
+                    width: mob ? 160 : 200, height: mob ? 160 : 200, borderRadius: "50%",
+                    background: `radial-gradient(circle, ${C.sage}44 0%, ${C.sage}11 70%, transparent 100%)`,
+                    border: `3px solid ${C.sage}88`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transform: `scale(${circleScale})`,
+                    transition: phase === "in" ? `transform ${m.inhale}s ease-in-out` : phase === "hold" ? "none" : `transform ${m.exhale}s ease-in-out`,
+                    marginBottom: 24,
+                  }}>
+                    <div style={{ fontFamily: F.display, fontSize: 18, color: C.white, textAlign: "center" }}>
+                      {phaseText}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textAlign: "center", maxWidth: 320, lineHeight: 1.6, marginBottom: 16 }}>
+                    In for {m.inhale}s · Hold for {m.hold}s · Out for {m.exhale}s
+                  </div>
+                  <div style={{ fontFamily: F.accent, fontSize: 28, fontWeight: 700, color: C.tealMid, marginBottom: 24 }}>
+                    {`${mins}:${secs.toString().padStart(2, "0")}`}
+                  </div>
+                </div>
+              )}
+
+              {/* ── DONE STATE ── */}
+              {done && (
+                <div style={{ fontFamily: F.display, fontSize: 22, color: C.sage, marginBottom: 40, textAlign: "center" }}>
+                  Session complete 🌿
+                </div>
+              )}
+
+              {/* End Session / Close */}
+              <button onClick={handleClose}
+                style={{
+                  background: done ? "rgba(42,157,143,0.2)" : "rgba(255,255,255,0.1)",
+                  border: `1px solid ${done ? "rgba(42,157,143,0.3)" : "rgba(255,255,255,0.2)"}`,
+                  borderRadius: 10, padding: "10px 28px",
+                  fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                  color: C.white, cursor: "pointer", minHeight: 44,
+                  marginTop: showAudio && !done ? 32 : 0,
+                }}>
                 {done ? "Close" : "End Session"}
               </button>
             </div>
           );
         };
 
-        return <BreathingGuide />;
+        return <MeditationPlayer />;
+      })()}
+
+      {/* ── STANDALONE BREATHING EXERCISE MODAL ── */}
+      {breathExerciseOpen && (() => {
+        const PATTERNS = [
+          { id: "box", label: "Box", inhale: 4, hold: 4, exhale: 4, holdAfter: 4 },
+          { id: "coherent", label: "Coherent", inhale: 5, hold: 0, exhale: 5, holdAfter: 0 },
+          { id: "extended", label: "Extended Exhale", inhale: 4, hold: 0, exhale: 6, holdAfter: 0 },
+        ];
+        const DURATIONS = [1, 3, 5, 10];
+
+        const BreathExercise = () => {
+          const [step, setStep] = useState("settings"); // "settings" | "active"
+          const [patternId, setPatternId] = useState(breathExerciseOpen.pattern || "box");
+          const [durationMin, setDurationMin] = useState(breathExerciseOpen.minutes || 3);
+
+          // Active session state
+          const [secondsLeft, setSecondsLeft] = useState(0);
+          const [phase, setPhase] = useState("in");
+          const [cyclePos, setCyclePos] = useState(0);
+          const [done, setDone] = useState(false);
+          const audioCtxRef = useRef(null);
+
+          const pattern = PATTERNS.find(p => p.id === patternId);
+          const cycleSeconds = pattern.inhale + pattern.hold + pattern.exhale + pattern.holdAfter;
+
+          // Chime: soft sine wave tone via Web Audio API
+          const playChime = useCallback((freq = 396, duration = 0.18) => {
+            try {
+              if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+              const ctx = audioCtxRef.current;
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = "sine";
+              osc.frequency.value = freq;
+              gain.gain.setValueAtTime(0, ctx.currentTime);
+              gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.03);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start(ctx.currentTime);
+              osc.stop(ctx.currentTime + duration);
+            } catch (e) { /* Web Audio not available — silent fallback */ }
+          }, []);
+
+          const startSession = () => {
+            setSecondsLeft(durationMin * 60);
+            setPhase("in");
+            setCyclePos(0);
+            setDone(false);
+            setStep("active");
+            playChime(528, 0.2); // initial inhale chime
+          };
+
+          // Session timer
+          useEffect(() => {
+            if (step !== "active" || done) return;
+            if (secondsLeft <= 0) { setDone(true); return; }
+
+            const timer = setInterval(() => {
+              setSecondsLeft(prev => {
+                if (prev <= 1) { clearInterval(timer); setDone(true); return 0; }
+                return prev - 1;
+              });
+              setCyclePos(prev => {
+                const next = (prev + 1) % cycleSeconds;
+                // Determine phase and play chimes at transitions
+                let newPhase;
+                if (next < pattern.inhale) {
+                  newPhase = "in";
+                } else if (pattern.hold > 0 && next < pattern.inhale + pattern.hold) {
+                  newPhase = "hold";
+                } else if (next < pattern.inhale + pattern.hold + pattern.exhale) {
+                  newPhase = "out";
+                } else {
+                  newPhase = "holdAfter";
+                }
+                if (next === 0) playChime(528, 0.2); // inhale start — higher tone
+                else if (next === pattern.inhale) playChime(396, 0.15); // hold/exhale transition
+                else if (next === pattern.inhale + pattern.hold) playChime(330, 0.2); // exhale start — lower tone
+                else if (pattern.holdAfter > 0 && next === pattern.inhale + pattern.hold + pattern.exhale) playChime(396, 0.15);
+                setPhase(newPhase);
+                return next;
+              });
+            }, 1000);
+            return () => clearInterval(timer);
+          }, [step, done]);
+
+          const handleClose = () => {
+            if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
+            setBreathExerciseOpen(null);
+          };
+
+          const mins = Math.floor(secondsLeft / 60);
+          const secs = secondsLeft % 60;
+          const circleScale = phase === "in" ? 1.4 : (phase === "hold" || phase === "holdAfter") ? 1.4 : 0.85;
+          const phaseLabel = phase === "in" ? "Breathe in..." : phase === "hold" ? "Hold..." : phase === "out" ? "Breathe out..." : "Hold...";
+
+          const pillStyle = (active) => ({
+            padding: "8px 16px", borderRadius: 20, border: `1.5px solid ${active ? "#2A9D8F" : "rgba(255,255,255,0.15)"}`,
+            background: active ? "rgba(42,157,143,0.2)" : "transparent",
+            color: active ? "#2A9D8F" : "rgba(255,255,255,0.6)",
+            fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer",
+            transition: "all 0.2s",
+          });
+
+          return (
+            <div style={{
+              position: "fixed", inset: 0, zIndex: 10000,
+              background: "rgba(15,31,61,0.95)", backdropFilter: "blur(8px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexDirection: "column", padding: 24,
+            }}>
+              {/* Back button — top left */}
+              <button onClick={handleClose}
+                style={{
+                  position: "absolute", top: 20, left: 20,
+                  background: "none", border: "none", color: "rgba(255,255,255,0.5)",
+                  fontFamily: F.accent, fontSize: 14, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6, padding: "8px 4px",
+                }}>
+                <span style={{ fontSize: 18, lineHeight: 1 }}>&larr;</span> Back
+              </button>
+
+              <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 26, color: C.white, marginBottom: 6, marginTop: 40 }}>Breathing Exercise</div>
+
+              {/* ── SETTINGS STEP ── */}
+              {step === "settings" && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 24, width: "100%", maxWidth: 360 }}>
+                  {/* Pattern picker */}
+                  <div style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: "rgba(255,255,255,0.4)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>Pattern</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 28 }}>
+                    {PATTERNS.map(p => (
+                      <button key={p.id} onClick={() => setPatternId(p.id)} style={pillStyle(patternId === p.id)}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Pattern description */}
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", textAlign: "center", marginBottom: 28, lineHeight: 1.5 }}>
+                    {pattern.hold > 0
+                      ? `In ${pattern.inhale}s · Hold ${pattern.hold}s · Out ${pattern.exhale}s · Hold ${pattern.holdAfter}s`
+                      : `In ${pattern.inhale}s · Out ${pattern.exhale}s`
+                    }
+                  </div>
+
+                  {/* Duration picker */}
+                  <div style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: "rgba(255,255,255,0.4)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>Duration</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 36 }}>
+                    {DURATIONS.map(d => (
+                      <button key={d} onClick={() => setDurationMin(d)} style={pillStyle(durationMin === d)}>
+                        {d} min
+                      </button>
+                    ))}
+                  </div>
+
+                  <button onClick={startSession}
+                    style={{
+                      background: "#2A9D8F", color: "#FAF7F2", border: "none", borderRadius: 12,
+                      padding: "12px 36px", fontFamily: F.accent, fontWeight: 700, fontSize: 15,
+                      cursor: "pointer", minHeight: 44,
+                    }}>
+                    Begin
+                  </button>
+                </div>
+              )}
+
+              {/* ── ACTIVE SESSION ── */}
+              {step === "active" && !done && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 16 }}>
+                  {/* Breathing circle — wrapper adds padding so scale(1.4) doesn't overlap */}
+                  <div style={{ padding: mob ? 30 : 40, marginBottom: 8 }}>
+                    <div style={{
+                      width: mob ? 150 : 180, height: mob ? 150 : 180, borderRadius: "50%",
+                      background: `radial-gradient(circle, #2A9D8F44 0%, #2A9D8F11 70%, transparent 100%)`,
+                      border: "3px solid rgba(42,157,143,0.5)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transform: `scale(${circleScale})`,
+                      transition: phase === "in" ? `transform ${pattern.inhale}s ease-in-out` : (phase === "hold" || phase === "holdAfter") ? "none" : `transform ${pattern.exhale}s ease-in-out`,
+                    }}>
+                      <div style={{ fontFamily: F.display, fontSize: 18, color: C.white, textAlign: "center" }}>
+                        {phaseLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pattern info */}
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textAlign: "center", marginBottom: 12 }}>
+                    {pattern.hold > 0
+                      ? `In ${pattern.inhale}s · Hold ${pattern.hold}s · Out ${pattern.exhale}s · Hold ${pattern.holdAfter}s`
+                      : `In ${pattern.inhale}s · Out ${pattern.exhale}s`
+                    }
+                  </div>
+
+                  {/* Countdown */}
+                  <div style={{ fontFamily: F.accent, fontSize: 28, fontWeight: 700, color: "#2A9D8F", marginBottom: 24 }}>
+                    {`${mins}:${secs.toString().padStart(2, "0")}`}
+                  </div>
+
+                  <button onClick={handleClose}
+                    style={{
+                      background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
+                      borderRadius: 10, padding: "10px 28px",
+                      fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                      color: C.white, cursor: "pointer", minHeight: 44,
+                    }}>
+                    End Session
+                  </button>
+                </div>
+              )}
+
+              {/* ── DONE STATE ── */}
+              {step === "active" && done && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 40 }}>
+                  <div style={{
+                    width: mob ? 160 : 200, height: mob ? 160 : 200, borderRadius: "50%",
+                    background: `radial-gradient(circle, #2A9D8F33 0%, #2A9D8F11 70%, transparent 100%)`,
+                    border: "3px solid rgba(42,157,143,0.4)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    marginBottom: 32,
+                  }}>
+                    <div style={{ fontFamily: F.display, fontSize: 20, color: C.white, textAlign: "center" }}>
+                      Session complete 🌿
+                    </div>
+                  </div>
+                  <button onClick={handleClose}
+                    style={{
+                      background: "rgba(42,157,143,0.2)", border: "1px solid rgba(42,157,143,0.3)",
+                      borderRadius: 10, padding: "10px 28px",
+                      fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                      color: C.white, cursor: "pointer", minHeight: 44,
+                    }}>
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        return <BreathExercise />;
       })()}
 
       {/* ── SAGE FLOATING CHAT ── */}
