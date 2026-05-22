@@ -38,6 +38,9 @@ import {
   adminFetchUsageStats, adminFetchFunnel,
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension,
+  insertUpload, fetchUploads,
+  insertMicroLearning, fetchMicroLearnings,
+  upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
   upsertKlasOtherResponse, getPromotedKlasOptions,
 } from "./supabase";
@@ -1116,6 +1119,25 @@ export default function KlasUp() {
           setPortfolioCourse(rows[0].course_code);
         }
 
+        // Fetch uploads + micro-learnings (non-critical)
+        fetchUploads(userId).then(uploadRows => {
+          const log = uploadRows.map(r => {
+            const c = rows.find(x => x.id === r.course_id);
+            return { content: r.content, category: r.category, course: c?.course_code || "", week: `Week ${r.week}`, timestamp: new Date(r.created_at).getTime(), _dbId: r.id };
+          });
+          setUploadLog(log);
+        }).catch(e => console.warn("Upload load:", e));
+
+        fetchMicroLearnings(userId).then(rows => {
+          const hist = {};
+          rows.forEach(r => {
+            const cat = r.tag || "General";
+            if (!hist[cat]) hist[cat] = [];
+            hist[cat].push({ recs: [r], week: "", course: "", timestamp: new Date(r.created_at).getTime() });
+          });
+          setMicroHistory(hist);
+        }).catch(e => console.warn("Micro-learning load:", e));
+
         // Fetch announcements (non-critical)
         fetchActiveAnnouncements(userId)
           .then(anns => setAnnouncements(anns))
@@ -1348,6 +1370,16 @@ export default function KlasUp() {
   }, [session?.user?.id]);
 
   useEffect(() => { if (session?.user) loadWellnessData(); }, [session?.user, loadWellnessData]);
+
+  // Load saved reflection when portfolio page is viewed
+  useEffect(() => {
+    if (page !== "Course Portfolio" || !session?.user || !portfolioCourse || reflectionText) return;
+    const cObj = dbCourses.find(c => c.course_code === portfolioCourse);
+    if (!cObj) return;
+    fetchReflection(session.user.id, cObj.id, cObj.term_code || "")
+      .then(r => { if (r) setReflectionText(r.edited_content || r.content || ""); })
+      .catch(e => console.warn("Reflection load:", e));
+  }, [page, portfolioCourse, session?.user?.id]);
 
   const WELLNESS_EMOJIS = ["😔", "😕", "😐", "🙂", "😊"];
   const WELLNESS_MESSAGES = [
@@ -2347,7 +2379,7 @@ export default function KlasUp() {
                     <div style={{ fontSize: 13, color: C.sage, fontWeight: 600 }}>Checked in today</div>
                     <div style={{ fontSize: 12, color: C.muted }}>{WELLNESS_MESSAGES[wellnessTodayCheckin.check_in_score - 1]}</div>
                   </div>
-                  <button onClick={() => { setWellnessMsg(null); setWellnessScore(null); setWellnessTodayCheckin(null); }}
+                  <button onClick={() => { setWellnessMsg(null); setWellnessScore(null); }}
                     style={{ background: "none", border: "none", fontSize: 12, color: C.sage, fontFamily: F.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
                     Update
                   </button>
@@ -2612,7 +2644,7 @@ export default function KlasUp() {
           });
           const currentCat = UPLOADS.find(u => u.label === myCourseCategory) || UPLOADS[0];
 
-          const handleSubmit = () => {
+          const handleSubmit = async () => {
             const text = uploadText.trim();
             if (!text) return;
             const prevTotal = Object.values(uploaded).reduce((a, b) => a + b, 0);
@@ -2620,6 +2652,15 @@ export default function KlasUp() {
             setUploaded(p => ({ ...p, [myCourseCategory]: (p[myCourseCategory] || 0) + 1 }));
             setUploadLog(prev => [{ content: text, category: myCourseCategory, course, week, timestamp: Date.now() }, ...prev]);
             setUploadText("");
+
+            // Persist upload to DB
+            const courseObj = dbCourses.find(c => c.course_code === course);
+            let uploadRow = null;
+            if (session?.user && courseObj) {
+              try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text); }
+              catch (e) { console.warn("Upload DB insert failed:", e); }
+            }
+
             setMyCourseFeedbackLoading(true);
             setMyCourseFeedback(null);
             setAiMicroError(null);
@@ -2637,6 +2678,12 @@ export default function KlasUp() {
                     ...(prev[myCourseCategory] || []),
                   ],
                 }));
+                // Persist micro-learnings to DB
+                if (session?.user && uploadRow) {
+                  recs.forEach(rec => {
+                    insertMicroLearning(session.user.id, uploadRow.id, rec).catch(e => console.warn("Micro-learning DB insert failed:", e));
+                  });
+                }
               })
               .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
           };
@@ -3681,7 +3728,17 @@ export default function KlasUp() {
                   </div>
                   {reflectionText && (
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => setReflectionEditing(!reflectionEditing)}
+                      <button onClick={() => {
+                          if (reflectionEditing) {
+                            // Save edited reflection to DB
+                            const cObj = dbCourses.find(c => c.course_code === portfolioCourse);
+                            if (session?.user && cObj) {
+                              upsertReflection(session.user.id, cObj.id, cObj.term_code || "", null, reflectionText)
+                                .catch(e => console.warn("Reflection edit save failed:", e));
+                            }
+                          }
+                          setReflectionEditing(!reflectionEditing);
+                        }}
                         style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: reflectionEditing ? C.tealBright : "rgba(255,255,255,0.1)", color: reflectionEditing ? C.navy : "rgba(255,255,255,0.6)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
                         {reflectionEditing ? "Done Editing" : "Edit"}
                       </button>
@@ -3715,7 +3772,15 @@ export default function KlasUp() {
                     setReflectionLoading(true);
                     setReflectionError(null);
                     generateSemesterReflection({ course: portfolioCourse, uploadLog, microHistory })
-                      .then(text => { setReflectionText(text); setReflectionLoading(false); })
+                      .then(text => {
+                        setReflectionText(text); setReflectionLoading(false);
+                        // Persist reflection to DB
+                        const cObj = dbCourses.find(c => c.course_code === portfolioCourse);
+                        if (session?.user && cObj) {
+                          upsertReflection(session.user.id, cObj.id, cObj.term_code || "", text)
+                            .catch(e => console.warn("Reflection save failed:", e));
+                        }
+                      })
                       .catch(err => { console.error(err); setReflectionError(err.message); setReflectionLoading(false); });
                   }}
                     style={{ background: courseUploads.length > 0 ? C.tealBright : "rgba(255,255,255,0.1)", color: courseUploads.length > 0 ? C.navy : "rgba(255,255,255,0.3)", border: "none", borderRadius: 10, padding: "12px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: courseUploads.length > 0 ? "pointer" : "default" }}>

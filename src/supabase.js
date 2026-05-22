@@ -381,6 +381,113 @@ export async function keywordSearchArticles(queryText, dimension = null, count =
   return data
 }
 
+// ── Uploads ───────────────────────────────────────────────────
+
+// Parse "Week 8" or "8" or 8 → integer 8; returns null on failure
+function parseWeek(w) {
+  if (w == null) return null
+  const n = typeof w === 'number' ? w : parseInt(String(w).replace(/\D/g, ''), 10)
+  if (Number.isNaN(n)) { console.warn('parseWeek: could not parse week value:', w); return null }
+  return n
+}
+
+export async function insertUpload(userId, courseId, week, category, content) {
+  const weekInt = parseWeek(week)
+  if (weekInt == null) { console.warn('insertUpload: skipping DB insert — invalid week'); return null }
+  const { data, error } = await supabase
+    .from('uploads')
+    .insert({ user_id: userId, course_id: courseId, week: weekInt, category: sanitize(category), content: sanitize(content) })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchUploads(userId) {
+  const { data, error } = await supabase
+    .from('uploads')
+    .select('id, course_id, week, category, content, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+// ── Micro-learnings ──────────────────────────────────────────
+
+export async function insertMicroLearning(userId, uploadId, rec) {
+  const { data, error } = await supabase
+    .from('micro_learnings')
+    .insert({
+      user_id: userId,
+      upload_id: uploadId,
+      tag: rec.tag || null,
+      title: sanitize(rec.title),
+      summary: rec.summary ? sanitize(rec.summary) : null,
+      article: rec.article || null,
+      action: rec.action ? sanitize(rec.action) : null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchMicroLearnings(userId) {
+  const { data, error } = await supabase
+    .from('micro_learnings')
+    .select('id, upload_id, tag, title, summary, article, action, rating, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+// ── Reflections ──────────────────────────────────────────────
+
+export async function upsertReflection(userId, courseId, semesterCode, content, editedContent = null) {
+  // Check if a reflection already exists for this user + course + semester
+  const { data: existing } = await supabase
+    .from('reflections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('course_id', courseId)
+    .eq('semester_code', semesterCode)
+    .single()
+
+  if (existing) {
+    const updates = editedContent != null ? { content, edited_content: editedContent } : { content }
+    const { data, error } = await supabase
+      .from('reflections')
+      .update(updates)
+      .eq('id', existing.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } else {
+    const { data, error } = await supabase
+      .from('reflections')
+      .insert({ user_id: userId, course_id: courseId, semester_code: semesterCode, content, edited_content: editedContent })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+}
+
+export async function fetchReflection(userId, courseId, semesterCode) {
+  const { data, error } = await supabase
+    .from('reflections')
+    .select('id, content, edited_content, created_at')
+    .eq('user_id', userId)
+    .eq('course_id', courseId)
+    .eq('semester_code', semesterCode)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error  // PGRST116 = no rows
+  return data || null
+}
+
 // ── Wellness check-ins ─────────────────────────────────────
 
 export async function insertWellnessCheckin(userId, score, note = null) {
