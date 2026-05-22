@@ -198,8 +198,8 @@ export async function insertCourse(course, userId) {
       course_code: sanitize(course.course_code),
       course_name: sanitize(course.course_name),
       section: sanitize(course.section),
-      semester_code: sanitize(course.semester_code),
-      semester_start: course.semester_start || null,
+      term_code: sanitize(course.term_code),
+      term_start: course.term_start || null,
       num_weeks: course.num_weeks,
       user_id: userId,
     })
@@ -214,7 +214,7 @@ export async function updateCourse(id, updates) {
   if (cleaned.course_code) cleaned.course_code = sanitize(cleaned.course_code)
   if (cleaned.course_name) cleaned.course_name = sanitize(cleaned.course_name)
   if (cleaned.section !== undefined) cleaned.section = sanitize(cleaned.section)
-  if (cleaned.semester_code) cleaned.semester_code = sanitize(cleaned.semester_code)
+  if (cleaned.term_code) cleaned.term_code = sanitize(cleaned.term_code)
   const { data, error } = await supabase
     .from('courses')
     .update(cleaned)

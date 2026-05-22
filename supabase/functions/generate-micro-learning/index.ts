@@ -63,16 +63,16 @@ Respond with a JSON array of exactly 4 objects. Each object must have these fiel
 
 Only output the JSON array — no markdown, no commentary.`
 
-const REFLECTION_PROMPT = `You are KlasUp's Semester Reflection Engine — an AI pedagogical advisor for higher-education faculty.
+const REFLECTION_PROMPT = `You are KlasUp's Term Reflection Engine — an AI pedagogical advisor for higher-education faculty.
 
-Given a faculty member's complete semester upload history (announcements, assignments, discussion prompts, learning outcomes, post-class notes, student voice data) along with the AI micro-learning recommendations that were generated for each upload, draft a rich, narrative semester reflection.
+Given a faculty member's complete term upload history (announcements, assignments, discussion prompts, learning outcomes, post-class notes, student voice data) along with the AI micro-learning recommendations that were generated for each upload, draft a rich, narrative term reflection.
 
 The reflection should:
-1. Open with a brief overview of the semester arc — what themes emerged, what evolved
+1. Open with a brief overview of the term arc — what themes emerged, what evolved
 2. Highlight 3-5 key pedagogical strengths demonstrated across the uploads
 3. Identify 2-3 growth areas with specific evidence from the uploads
 4. Reference the micro-learning recommendations that were most relevant and whether they align with observed patterns
-5. Close with a forward-looking paragraph on goals for next semester
+5. Close with a forward-looking paragraph on goals for next term
 6. Be written in first person (as if the faculty member is writing it) but in a professional, reflective tone suitable for a teaching portfolio or accreditation narrative
 7. Be approximately 600-900 words
 
@@ -80,15 +80,15 @@ Output ONLY the reflection text — no markdown headers, no JSON, no commentary.
 
 const ASSIGNMENT_DOC_PROMPT = `You are KlasUp's Assignment Document Generator — an AI assistant for higher-education faculty.
 
-Given a faculty member's plain-English description of an assignment, their semester calendar information, and their course learning outcomes, generate a complete, professionally formatted assignment document.
+Given a faculty member's plain-English description of an assignment, their term calendar information, and their course learning outcomes, generate a complete, professionally formatted assignment document.
 
 The document MUST include ALL of these sections:
 1. ASSIGNMENT TITLE — a clear, descriptive title
-2. COURSE & SEMESTER — course name and semester info
+2. COURSE & TERM — course name and term info
 3. OVERVIEW — 2-3 sentence summary of what students will do and why
 4. LEARNING OBJECTIVES — 3-5 specific objectives this assignment addresses (drawn from the provided course outcomes)
 5. DETAILED INSTRUCTIONS — step-by-step instructions for completing the assignment, written clearly for students
-6. TIMELINE & DEADLINES — auto-calculate REAL calendar dates from the semester start date and week numbers mentioned in the description. Format dates as "Day, Month Date, Year" (e.g., "Thursday, February 13, 2025"). If the class meets on a specific day, use that day for deadlines.
+6. TIMELINE & DEADLINES — auto-calculate REAL calendar dates from the term start date and week numbers mentioned in the description. Format dates as "Day, Month Date, Year" (e.g., "Thursday, February 13, 2025"). If the class meets on a specific day, use that day for deadlines.
 7. GRADING RUBRIC — a detailed rubric with criteria, point values, and descriptions for each performance level (Excellent, Proficient, Developing, Beginning)
 8. SUBMISSION GUIDELINES — format, file type, where to submit, naming conventions
 
@@ -390,28 +390,28 @@ Deno.serve(async (req: Request) => {
 
       userMessage = `Faculty member teaching ${course}.
 
-SEMESTER UPLOADS:
+TERM UPLOADS:
 ${uploadSummary || '(No uploads recorded)'}
 
 AI MICRO-LEARNING RECOMMENDATIONS GENERATED:
 ${microSummary || '(No recommendations generated)'}
 
-Based on this complete semester record, draft a reflective semester narrative for this faculty member's teaching portfolio.`
+Based on this complete term record, draft a reflective term narrative for this faculty member's teaching portfolio.`
 
     } else if (type === 'assignment-doc') {
-      const { description, course, semesterStart, numWeeks, outcomes } = body
+      const { description, course, termStart, numWeeks, outcomes } = body
       systemPrompt = ASSIGNMENT_DOC_PROMPT
       maxTokens = 4000
 
-      const calendarInfo = semesterStart
-        ? `Semester starts: ${semesterStart}. Total weeks: ${numWeeks || 16}.`
-        : `Total weeks in semester: ${numWeeks || 16}. (No specific start date provided — use relative week numbers for dates.)`
+      const calendarInfo = termStart
+        ? `Term starts: ${termStart}. Total weeks: ${numWeeks || 16}.`
+        : `Total weeks in term: ${numWeeks || 16}. (No specific start date provided — use relative week numbers for dates.)`
 
       const outcomesText = (outcomes || []).map((o: string, i: number) => `${i + 1}. ${o}`).join('\n')
 
       userMessage = `Faculty member teaching ${course}.
 
-SEMESTER CALENDAR:
+TERM CALENDAR:
 ${calendarInfo}
 
 COURSE LEARNING OUTCOMES:
@@ -422,7 +422,7 @@ ASSIGNMENT DESCRIPTION (plain English):
 ${description}
 ---
 
-Generate a complete, professionally formatted assignment document based on this description. Auto-calculate real calendar dates from the semester start date and week references.`
+Generate a complete, professionally formatted assignment document based on this description. Auto-calculate real calendar dates from the term start date and week references.`
 
     } else if (type === 'assignment-doc-update') {
       const { currentDoc, instruction } = body

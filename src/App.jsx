@@ -148,7 +148,7 @@ const DIMENSIONS = [
   { label: "Flipped Classroom & Pacing", score: 84, note: "Module sequencing is clear", tier: "pro", color: C.tealBright },
   { label: "Learning Outcome Alignment", score: 69, note: "3 assignments lack outcome mapping", tier: "pro", color: C.sage },
   { label: "Reflection & Feedback", score: 58, note: "Few reflection or exit ticket prompts", tier: "pro", color: C.rose },
-  { label: "Student Voice Integration", score: 66, note: "No mid-semester feedback uploaded", tier: "pro", color: C.gold },
+  { label: "Student Voice Integration", score: 66, note: "No mid-term feedback uploaded", tier: "pro", color: C.gold },
   { label: "Universal Design for Learning", score: 61, note: "Limited multimodal content detected", tier: "pro", color: C.sage },
   { label: "Wellbeing & Sustainability", score: 74, note: "Moderate workload signals detected", tier: "pro", color: C.rose },
 ];
@@ -159,7 +159,7 @@ const MICRO = [
   { tag: "UDL", title: "Multimodal content expands access and engagement", summary: "Courses in three or more formats show higher completion across diverse learners.", article: "Rose & Meyer (2002). Teaching Every Student. ASCD.", action: "Add one audio or video alternative to a text-heavy module.", tier: "pro", color: C.rose, bg: C.roseLight },
   { tag: "Reflection", title: "Exit tickets improve student self-regulation", summary: "Weekly metacognitive prompts reduce exam anxiety and improve self-directed study.", article: "Flavell (1979). American Psychologist.", action: "Add a two-question exit ticket: What clicked? What didn't?", tier: "pro", color: C.rose, bg: C.roseLight },
   { tag: "Flipped Classroom", title: "Pre-class content shifts time to application", summary: "Flipped classrooms show 19% improvement in exam performance with well-scaffolded pre-class materials.", article: "Bishop & Verleger (2013). ASEE Annual Conference.", action: "Upload one pre-class video and redesign that session as a workshop.", tier: "pro", color: C.sage, bg: C.sageLight },
-  { tag: "Student Voice", title: "Mid-semester check-ins reverse disengagement", summary: "Acting visibly on mid-semester feedback improves end-of-term satisfaction by 23%.", article: "Nilufar et al. (2019). JOLT.", action: "Run a 3-question anonymous pulse survey and share one change you made.", tier: "pro", color: C.gold, bg: C.goldLight },
+  { tag: "Student Voice", title: "Mid-term check-ins reverse disengagement", summary: "Acting visibly on mid-term feedback improves end-of-term satisfaction by 23%.", article: "Nilufar et al. (2019). JOLT.", action: "Run a 3-question anonymous pulse survey and share one change you made.", tier: "pro", color: C.gold, bg: C.goldLight },
 ];
 
 const UPLOADS = [
@@ -168,7 +168,7 @@ const UPLOADS = [
   { label: "Assignments", icon: "📝", desc: "Assignment sheets & rubrics", tier: "pro" },
   { label: "Discussions", icon: "💬", desc: "Discussion prompts & threads", tier: "pro" },
   { label: "Learning Outcomes", icon: "🎯", desc: "Syllabus & course outcomes", tier: "pro" },
-  { label: "Student Voice", icon: "🗣", desc: "Anonymized mid-semester themes", tier: "pro" },
+  { label: "Student Voice", icon: "🗣", desc: "Anonymized mid-term themes", tier: "pro" },
   { label: "PowerPoints", icon: "📊", desc: "Slide content & topics", tier: "pro" },
 ];
 
@@ -276,7 +276,7 @@ function formatCourseLabel(c) {
   if (typeof c === "string") return c;
   let label = c.course_code || "";
   if (c.section) label += ` - ${c.section}`;
-  if (c.semester_code) label += ` | ${c.semester_code}`;
+  if (c.term_code) label += ` | ${c.term_code}`;
   return label;
 }
 
@@ -952,7 +952,7 @@ export default function KlasUp() {
   const [activeCourseId, setActiveCourseId] = useState(null);
   const [learningOutcomes, setLearningOutcomes] = useState([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingForm, setOnboardingForm] = useState({ course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 });
+  const [onboardingForm, setOnboardingForm] = useState({ course_code: "", course_name: "", section: "", term_code: "", term_start: "", num_weeks: 16 });
   const [onboardingCourses, setOnboardingCourses] = useState([]);
   const [settingsEditing, setSettingsEditing] = useState(null);
   const [settingsForm, setSettingsForm] = useState({});
@@ -1151,8 +1151,8 @@ export default function KlasUp() {
       course_code: form.course_code.trim(),
       course_name: form.course_name.trim(),
       section: form.section.trim() || null,
-      semester_code: form.semester_code.trim(),
-      semester_start: form.semester_start || null,
+      term_code: form.term_code.trim(),
+      term_start: form.term_start || null,
       num_weeks: parseInt(form.num_weeks) || 16,
     }, session.user.id);
     setDbCourses(prev => [...prev, row]);
@@ -2008,7 +2008,7 @@ export default function KlasUp() {
 
           <Card style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: F.display, fontSize: 22, marginBottom: 4 }}>Welcome! Let's set up your courses.</div>
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Add the courses you're teaching this semester. You can always change these later in Settings.</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Add the courses you're teaching this term. You can always change these later in Settings.</div>
 
             {/* Added courses list */}
             {onboardingCourses.length > 0 && (
@@ -2020,7 +2020,7 @@ export default function KlasUp() {
                       <span style={{ fontSize: 13, color: C.muted, marginLeft: 8 }}>{c.course_name}</span>
                       {c.section && <span style={{ fontSize: 11, color: C.teal, marginLeft: 8 }}>Sec {c.section}</span>}
                     </div>
-                    <span style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>{c.semester_code}</span>
+                    <span style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700 }}>{c.term_code}</span>
                   </div>
                 ))}
               </div>
@@ -2044,13 +2044,13 @@ export default function KlasUp() {
                   placeholder="e.g. 001" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
               </div>
               <div>
-                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Code *</label>
-                <input value={onboardingForm.semester_code} onChange={e => setOnboardingForm(p => ({ ...p, semester_code: e.target.value }))}
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Term Code *</label>
+                <input value={onboardingForm.term_code} onChange={e => setOnboardingForm(p => ({ ...p, term_code: e.target.value }))}
                   placeholder="e.g. Fall 2025" style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
               </div>
               <div>
-                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Semester Start Date</label>
-                <input type="date" value={onboardingForm.semester_start} onChange={e => setOnboardingForm(p => ({ ...p, semester_start: e.target.value }))}
+                <label style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 4 }}>Term Start Date</label>
+                <input type="date" value={onboardingForm.term_start} onChange={e => setOnboardingForm(p => ({ ...p, term_start: e.target.value }))}
                   style={{ width: "100%", padding: "8px 10px", border: `0.5px solid ${C.border}`, borderRadius: 8, fontFamily: F.body, fontSize: 13, boxSizing: "border-box" }} />
               </div>
               <div>
@@ -2060,15 +2060,15 @@ export default function KlasUp() {
               </div>
             </div>
             <button
-              disabled={!onboardingForm.course_code.trim() || !onboardingForm.course_name.trim() || !onboardingForm.semester_code.trim()}
+              disabled={!onboardingForm.course_code.trim() || !onboardingForm.course_name.trim() || !onboardingForm.term_code.trim()}
               onClick={async () => {
                 try {
                   const row = await addCourseFromForm(onboardingForm);
                   setOnboardingCourses(prev => [...prev, row]);
-                  setOnboardingForm({ course_code: "", course_name: "", section: "", semester_code: onboardingForm.semester_code, semester_start: onboardingForm.semester_start, num_weeks: onboardingForm.num_weeks });
+                  setOnboardingForm({ course_code: "", course_name: "", section: "", term_code: onboardingForm.term_code, term_start: onboardingForm.term_start, num_weeks: onboardingForm.num_weeks });
                 } catch (err) { alert("Error adding course: " + err.message); }
               }}
-              style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", opacity: (!onboardingForm.course_code.trim() || !onboardingForm.course_name.trim() || !onboardingForm.semester_code.trim()) ? 0.4 : 1 }}>
+              style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", opacity: (!onboardingForm.course_code.trim() || !onboardingForm.course_name.trim() || !onboardingForm.term_code.trim()) ? 0.4 : 1 }}>
               + Add Course
             </button>
           </Card>
@@ -2201,8 +2201,8 @@ export default function KlasUp() {
                   { icon: "💬", text: "Faculty · New England replied in Think Tank: Socratic Seminar", time: "4h ago", unread: true, color: C.tealLight },
                   { icon: "⚑", text: "UDL gap detected in Slide 4 of your MKT 301 deck", time: "5h ago", unread: true, color: C.roseLight },
                   { icon: "✓", text: "Post-class notes for Week 8 uploaded successfully", time: "Yesterday", unread: false, color: C.sageLight },
-                  { icon: "📝", text: "New micro-learning: Mid-semester check-ins reverse disengagement", time: "Yesterday", unread: true, color: C.sageLight },
-                  { icon: "📈", text: "Semester-over-semester trend: you're up 9 points from Fall '24", time: "2d ago", unread: true, color: C.purpleLight },
+                  { icon: "📝", text: "New micro-learning: Mid-term check-ins reverse disengagement", time: "Yesterday", unread: true, color: C.sageLight },
+                  { icon: "📈", text: "Term-over-term trend: you're up 9 points from Fall '24", time: "2d ago", unread: true, color: C.purpleLight },
                 ].map((n, i) => (
                   <div key={i} style={{ display: "flex", gap: 10, padding: "0.65rem 1rem", borderBottom: `0.5px solid ${C.border}`, background: n.unread ? `${n.color}44` : "none", cursor: "pointer" }}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: n.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{n.icon}</div>
@@ -2385,7 +2385,7 @@ export default function KlasUp() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
                     <div style={{ fontFamily: F.display, fontSize: 20, color: C.white }}>Your Up Score</div>
-                    <Tag label="+31 pts this semester" color={C.tealBright} bg={`${C.tealBright}22`} />
+                    <Tag label="+31 pts this term" color={C.tealBright} bg={`${C.tealBright}22`} />
                   </div>
                   <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 10 }}>Composite score across all courses, uploads, engagement, and pedagogical growth.</div>
                   <div style={{ display: "flex", gap: mob ? 8 : 12, flexWrap: "wrap" }}>
@@ -2414,7 +2414,7 @@ export default function KlasUp() {
                     <div>
                       <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{cObj ? formatCourseLabel(cObj) : "—"}</div>
                       <div style={{ fontFamily: F.display, fontSize: 28, color: C.teal }}>{sc}</div>
-                      <div style={{ fontSize: 12, color: C.sage, fontWeight: 600 }}>{tr} this semester</div>
+                      <div style={{ fontSize: 12, color: C.sage, fontWeight: 600 }}>{tr} this term</div>
                     </div>
                     <ScoreRing score={sc} />
                   </div>
@@ -2442,7 +2442,7 @@ export default function KlasUp() {
               </Card>
               <Card style={{ position: "relative", overflow: "hidden" }}>
                 {!can("pro") && <LockOverlay onUpgrade={upgrade} />}
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>SEMESTER OVER SEMESTER</div>
+                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>TERM OVER TERM</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
                   {semData.map((d, i) => {
                     const h = ((d.s - 40) / 60) * 65, isL = i === semData.length - 1;
@@ -2560,11 +2560,11 @@ export default function KlasUp() {
                 </div>
               </Card>
             )}
-            {/* Semester Overview */}
+            {/* Term Overview */}
             {dbCourses.length > 0 && (
               <Card style={{ marginTop: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontFamily: F.display, fontSize: 18 }}>Semester Overview</div>
+                  <div style={{ fontFamily: F.display, fontSize: 18 }}>Term Overview</div>
                   <button onClick={() => setPage("Settings")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: "none", cursor: "pointer" }}>Manage Courses</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
@@ -2572,8 +2572,8 @@ export default function KlasUp() {
                     <div key={c.id} style={{ background: C.ivory, borderRadius: 10, padding: "12px 14px" }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: C.navy, marginBottom: 4 }}>{formatCourseLabel(c)}</div>
                       <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-                        {c.semester_start ? `Starts ${new Date(c.semester_start + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "No start date set"}<br />
-                        {c.num_weeks || 16} week semester
+                        {c.term_start ? `Starts ${new Date(c.term_start + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "No start date set"}<br />
+                        {c.num_weeks || 16} week term
                       </div>
                     </div>
                   ))}
@@ -3367,7 +3367,7 @@ export default function KlasUp() {
               const posts = [
                 { id: 0, author: "Faculty · New England", time: "2h ago", tag: "Socratic Seminar", text: "Tried seeding my forum with an unresolved question on Monday — response quality was noticeably richer. Anyone doing this consistently?", replies: 4, posts: 6, totalReplies: 8, tier: "free", baseUpvotes: 5 },
                 { id: 1, author: "Faculty · Mid-Atlantic", time: "Yesterday", tag: "UDL", text: "Added a 4-minute audio summary alongside my reading. Students with long commutes said it was a game changer. Small lift, big impact.", replies: 7, posts: 2, totalReplies: 3, tier: "pro", baseUpvotes: 12 },
-                { id: 2, author: "Faculty · Southeast", time: "2d ago", tag: "Flipped Classroom", text: "First full flip this semester. Pre-class video took 45 min to make but class time was the best session I've had in years.", replies: 11, posts: 4, totalReplies: 6, tier: "pro", baseUpvotes: 18 },
+                { id: 2, author: "Faculty · Southeast", time: "2d ago", tag: "Flipped Classroom", text: "First full flip this term. Pre-class video took 45 min to make but class time was the best session I've had in years.", replies: 11, posts: 4, totalReplies: 6, tier: "pro", baseUpvotes: 18 },
                 { id: 3, author: "Faculty · Midwest", time: "3d ago", tag: "Reflection", text: "Exit tickets felt awkward at first but by week 4 students were writing genuinely reflective responses. Worth the investment.", replies: 6, posts: 1, totalReplies: 2, tier: "pro", baseUpvotes: 8 },
               ];
               const isExpert = (p) => p.totalReplies > 5 && p.posts > 3;
@@ -3430,7 +3430,7 @@ export default function KlasUp() {
           <div>
             <PageHeader breadcrumb="🏠 Dashboard › 📊 Reports" title="Reports" subtitle="Accreditation-ready documentation of faculty growth and engagement." />
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
-              {[{ label: "Avg Health Score", val: "74", sub: "+13 from last semester" }, { label: "Dimensions Tracked", val: can("pro") ? "10" : "3", sub: can("pro") ? "Full suite active" : "Upgrade for full suite" }, { label: "Standards Mapped", val: can("institutional") ? "5" : can("pro") ? "3" : "1", sub: "Documented" }].map((s, i) => (
+              {[{ label: "Avg Health Score", val: "74", sub: "+13 from last term" }, { label: "Dimensions Tracked", val: can("pro") ? "10" : "3", sub: can("pro") ? "Full suite active" : "Upgrade for full suite" }, { label: "Standards Mapped", val: can("institutional") ? "5" : can("pro") ? "3" : "1", sub: "Documented" }].map((s, i) => (
                 <div key={i} style={{ background: C.ivoryDark, borderRadius: 12, padding: "1rem" }}>
                   <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{s.label}</div>
                   <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>{s.val}</div>
@@ -3440,7 +3440,7 @@ export default function KlasUp() {
             </div>
             {[
               { standard: "NECHE 4.19 — Faculty Development", status: "Documented", detail: "Ongoing micro-learning, peer forum contributions, and course improvement cycles across 3 courses.", tier: "pro" },
-              { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Week-over-week health score trending available. Semester comparison complete.", tier: "pro" },
+              { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Week-over-week health score trending available. Term comparison complete.", tier: "pro" },
               { standard: "HLC Criterion 3C — Teaching Quality", status: "Documented", detail: "Research-backed micro-learning completion with article citations on record.", tier: "pro" },
               { standard: "HLC Criterion 4A — UDL & Accessibility", status: "In Progress", detail: "UDL dimension tracking initiated. Multimodal gaps flagged in MKT 410.", tier: "institutional" },
               { standard: "SACSCOC 6.3 — Faculty Competence", status: "Documented", detail: "Active Learning, Flipped Classroom, and Case Study practices documented with research basis.", tier: "institutional" },
@@ -3460,7 +3460,7 @@ export default function KlasUp() {
             {can("pro") && (() => {
               const standards = [
                 { standard: "NECHE 4.19 — Faculty Development", status: "Documented", detail: "Ongoing micro-learning, peer forum contributions, and course improvement cycles across 3 courses." },
-                { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Week-over-week health score trending available. Semester comparison complete." },
+                { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Week-over-week health score trending available. Term comparison complete." },
                 { standard: "HLC Criterion 3C — Teaching Quality", status: "Documented", detail: "Research-backed micro-learning completion with article citations on record." },
                 { standard: "HLC Criterion 4A — UDL & Accessibility", status: "In Progress", detail: "UDL dimension tracking initiated. Multimodal gaps flagged in MKT 410." },
                 { standard: "SACSCOC 6.3 — Faculty Competence", status: "Documented", detail: "Active Learning, Flipped Classroom, and Case Study practices documented with research basis." },
@@ -3473,7 +3473,7 @@ export default function KlasUp() {
                     html += `<table><tr><th>Standard</th><th>Status</th><th>Evidence</th></tr>`;
                     standards.forEach(r => { html += `<tr><td><strong>${r.standard}</strong></td><td>${r.status}</td><td>${r.detail}</td></tr>`; });
                     html += `</table>`;
-                    html += `<h2>Summary Metrics</h2><ul><li>Avg Health Score: 74 (+13 from last semester)</li><li>Dimensions Tracked: ${can("pro") ? 10 : 3}</li><li>Standards Mapped: ${can("institutional") ? 5 : 3}</li></ul>`;
+                    html += `<h2>Summary Metrics</h2><ul><li>Avg Health Score: 74 (+13 from last term)</li><li>Dimensions Tracked: ${can("pro") ? 10 : 3}</li><li>Standards Mapped: ${can("institutional") ? 5 : 3}</li></ul>`;
                     printPdf(html, "Accreditation Report — KlasUp");
                   }}
                     style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Export as PDF</button>
@@ -3485,7 +3485,7 @@ export default function KlasUp() {
                       paras.push(new Paragraph({ children: [new TextRun({ text: r.detail, size: 22, font: "Calibri" })], spacing: { after: 120 } }));
                     });
                     paras.push(new Paragraph({ text: "Summary Metrics", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } }));
-                    paras.push(new Paragraph({ children: [new TextRun({ text: `Avg Health Score: 74 (+13 from last semester)`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
+                    paras.push(new Paragraph({ children: [new TextRun({ text: `Avg Health Score: 74 (+13 from last term)`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
                     paras.push(new Paragraph({ children: [new TextRun({ text: `Dimensions Tracked: ${can("pro") ? 10 : 3}`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
                     paras.push(new Paragraph({ children: [new TextRun({ text: `Standards Mapped: ${can("institutional") ? 5 : 3}`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
                     await exportGenericDocx(paras, "Accreditation Report", `${profile?.name || "Faculty"} · Generated by KlasUp`, "accreditation-report.docx");
@@ -3533,7 +3533,7 @@ export default function KlasUp() {
           return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <PageHeader breadcrumb="🏠 Dashboard › 📁 Course Portfolio" title="Course Portfolio" subtitle="Your complete semester record — uploads, AI insights, and reflective narrative." />
+              <PageHeader breadcrumb="🏠 Dashboard › 📁 Course Portfolio" title="Course Portfolio" subtitle="Your complete term record — uploads, AI insights, and reflective narrative." />
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={() => {
                   let html = makePdfHeader(profile?.name, `${portfolioCourse} · ${portfolioWeek === "All" ? "All Weeks" : portfolioWeek}`);
@@ -3546,7 +3546,7 @@ export default function KlasUp() {
                       if (match) match.recs.forEach(r => { html += `<p style="margin-left:16px;border-left:3px solid #0FB5B5;padding-left:10px"><strong>${r.tag}:</strong> ${r.title}<br><em>${r.summary}</em><br>→ ${r.action}</p>`; });
                     });
                   });
-                  if (reflectionText) html += `<h2>Semester Reflection</h2><pre>${reflectionText}</pre>`;
+                  if (reflectionText) html += `<h2>Term Reflection</h2><pre>${reflectionText}</pre>`;
                   printPdf(html, `Course Portfolio — ${portfolioCourse}`);
                 }}
                   style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.navy, border: "none", borderRadius: 8, padding: "7px 14px", cursor: "pointer" }}>Export as PDF</button>
@@ -3565,7 +3565,7 @@ export default function KlasUp() {
                     });
                   });
                   if (reflectionText) {
-                    paras.push(new Paragraph({ text: "Semester Reflection", heading: HeadingLevel.HEADING_2, spacing: { before: 400, after: 120 } }));
+                    paras.push(new Paragraph({ text: "Term Reflection", heading: HeadingLevel.HEADING_2, spacing: { before: 400, after: 120 } }));
                     reflectionText.split("\n").forEach(line => paras.push(new Paragraph({ children: [new TextRun({ text: line, size: 22, font: "Calibri" })], spacing: { after: 60 } })));
                   }
                   await exportGenericDocx(paras, `Course Portfolio — ${portfolioCourse}`, `${profile?.name || "Faculty"} · Generated by KlasUp`, `${portfolioCourse}-portfolio.docx`);
@@ -3669,12 +3669,12 @@ export default function KlasUp() {
               </div>
             ))}
 
-            {/* ── End of Semester Reflection ── */}
+            {/* ── End of Term Reflection ── */}
             <div style={{ marginTop: 30, background: C.navy, borderRadius: 16, overflow: "hidden" }}>
               <div style={{ padding: "1.5rem 1.5rem 1rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontFamily: F.display, fontSize: 20, color: C.white, marginBottom: 4 }}>End of Semester Reflection</div>
+                    <div style={{ fontFamily: F.display, fontSize: 20, color: C.white, marginBottom: 4 }}>End of Term Reflection</div>
                     <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 12 }}>
                       AI-drafted narrative based on {courseUploads.length} upload{courseUploads.length !== 1 ? "s" : ""} for {portfolioCourse} — edit freely, then export.
                     </div>
@@ -3687,12 +3687,12 @@ export default function KlasUp() {
                       </button>
                       <button onClick={async () => {
                         const paras = reflectionText.split("\n").map(line => new Paragraph({ children: [new TextRun({ text: line, size: 22, font: "Calibri" })], spacing: { after: 80 } }));
-                        await exportGenericDocx(paras, `Semester Reflection — ${portfolioCourse}`, `${profile?.name || "Faculty"} · Generated by KlasUp`, `${portfolioCourse.replace(/ /g, "_")}_Reflection.docx`);
+                        await exportGenericDocx(paras, `Term Reflection — ${portfolioCourse}`, `${profile?.name || "Faculty"} · Generated by KlasUp`, `${portfolioCourse.replace(/ /g, "_")}_Reflection.docx`);
                       }}
                         style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
                         Export as Word
                       </button>
-                      <button onClick={() => printPdf(makePdfHeader(profile?.name, portfolioCourse) + `<h1>Semester Reflection</h1><pre>${reflectionText}</pre>`, `Semester Reflection — ${portfolioCourse}`)}
+                      <button onClick={() => printPdf(makePdfHeader(profile?.name, portfolioCourse) + `<h1>Term Reflection</h1><pre>${reflectionText}</pre>`, `Term Reflection — ${portfolioCourse}`)}
                         style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
                         Export as PDF
                       </button>
@@ -3700,7 +3700,7 @@ export default function KlasUp() {
                         if (typeof gtag === "function") gtag("event", "export_clicked", { export_type: "text" });
                         const blob = new Blob([reflectionText], { type: "text/plain" });
                         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-                        a.download = `${portfolioCourse.replace(/ /g, "_")}_Semester_Reflection.txt`; a.click();
+                        a.download = `${portfolioCourse.replace(/ /g, "_")}_Term_Reflection.txt`; a.click();
                       }}
                         style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
                         Export as Text
@@ -3726,7 +3726,7 @@ export default function KlasUp() {
                 {reflectionLoading && (
                   <div style={{ textAlign: "center", padding: "2rem 0" }}>
                     <div style={{ fontSize: 22, marginBottom: 8, animation: "spin 1.5s linear infinite", color: C.tealBright }}>◉</div>
-                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.tealBright, fontSize: 12, marginBottom: 4 }}>Drafting your semester reflection...</div>
+                    <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.tealBright, fontSize: 12, marginBottom: 4 }}>Drafting your term reflection...</div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Analyzing {courseUploads.length} uploads and their micro-learnings</div>
                     <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                   </div>
@@ -3796,7 +3796,7 @@ export default function KlasUp() {
             { emoji: "🎨", title: "Before a Creative Assignment", duration: "2 min", desc: "Open up to new ideas and let go of perfectionism.", inhale: 4, hold: 3, exhale: 5, rounds: 4, state: "Creativity", audioUrl: MEDITATION_AUDIO_BASE + "creativity.mp3" },
             { emoji: "💬", title: "Before Presentations or Discussions", duration: "2 min", desc: "Calm nerves and find your voice before speaking up.", inhale: 4, hold: 4, exhale: 6, rounds: 4, state: "Communication", audioUrl: MEDITATION_AUDIO_BASE + "communication.mp3" },
             { emoji: "📝", title: "Before an Exam", duration: "3 min", desc: "Settle anxiety and access what you already know.", inhale: 4, hold: 7, exhale: 8, rounds: 5, state: "Test Anxiety", audioUrl: null },
-            { emoji: "🔥", title: "Mid-Semester Reset", duration: "4 min", desc: "When everything feels like too much — pause and recharge.", inhale: 5, hold: 5, exhale: 7, rounds: 6, state: "Burnout", audioUrl: MEDITATION_AUDIO_BASE + "burnout.mp3" },
+            { emoji: "🔥", title: "Mid-Term Reset", duration: "4 min", desc: "When everything feels like too much — pause and recharge.", inhale: 5, hold: 5, exhale: 7, rounds: 6, state: "Burnout", audioUrl: MEDITATION_AUDIO_BASE + "burnout.mp3" },
             { emoji: "💭", title: "Processing Difficult Topics", duration: "3 min", desc: "Create space after emotionally heavy content or discussions.", inhale: 4, hold: 5, exhale: 6, rounds: 5, state: "Understanding Emotions", audioUrl: null },
             { emoji: "🌱", title: "General Centering", duration: "2 min", desc: "A simple grounding exercise for any moment you need stillness.", inhale: 4, hold: 4, exhale: 4, rounds: 5, state: "Grounding", audioUrl: null },
           ];
@@ -3988,7 +3988,7 @@ export default function KlasUp() {
 
         {/* ── SETTINGS ── */}
         {page === "Settings" && (() => {
-          const emptyForm = { course_code: "", course_name: "", section: "", semester_code: "", semester_start: "", num_weeks: 16 };
+          const emptyForm = { course_code: "", course_name: "", section: "", term_code: "", term_start: "", num_weeks: 16 };
           const isAdding = settingsEditing === "new";
           // Initialize profile form if needed
           if (!settingsProfileForm && profile) {
@@ -4168,10 +4168,10 @@ export default function KlasUp() {
               )}
             </Card>
 
-            {/* ── SEMESTER SETTINGS (Courses) ── */}
+            {/* ── TERM SETTINGS (Courses) ── */}
             <Card style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy }}>Semester Settings</div>
+                <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy }}>Term Settings</div>
                 {!isAdding && (
                   <button onClick={() => { setSettingsEditing("new"); setSettingsForm(emptyForm); }}
                     style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
@@ -4206,12 +4206,12 @@ export default function KlasUp() {
                             <input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={labelStyle}>Semester Code</label>
-                            <input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))} style={inputStyle} />
+                            <label style={labelStyle}>Term Code</label>
+                            <input value={settingsForm.term_code || ""} onChange={e => setSettingsForm(p => ({ ...p, term_code: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
-                            <label style={labelStyle}>Semester Start</label>
-                            <input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))} style={inputStyle} />
+                            <label style={labelStyle}>Term Start</label>
+                            <input type="date" value={settingsForm.term_start || ""} onChange={e => setSettingsForm(p => ({ ...p, term_start: e.target.value }))} style={inputStyle} />
                           </div>
                           <div>
                             <label style={labelStyle}>Weeks</label>
@@ -4221,7 +4221,7 @@ export default function KlasUp() {
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={async () => {
                             try {
-                              await editCourse(c.id, { course_code: settingsForm.course_code.trim(), course_name: settingsForm.course_name.trim(), section: settingsForm.section.trim() || null, semester_code: settingsForm.semester_code.trim(), semester_start: settingsForm.semester_start || null, num_weeks: parseInt(settingsForm.num_weeks) || 16 });
+                              await editCourse(c.id, { course_code: settingsForm.course_code.trim(), course_name: settingsForm.course_name.trim(), section: settingsForm.section.trim() || null, term_code: settingsForm.term_code.trim(), term_start: settingsForm.term_start || null, num_weeks: parseInt(settingsForm.num_weeks) || 16 });
                               setSettingsEditing(null);
                             } catch (err) { alert("Error: " + err.message); }
                           }}
@@ -4239,13 +4239,13 @@ export default function KlasUp() {
                             {c.section && <Tag label={`Sec ${c.section}`} color={C.teal} bg={C.tealLight} />}
                           </div>
                           <div style={{ display: "flex", gap: 12, fontSize: 12, color: C.muted }}>
-                            <span>{c.semester_code}</span>
-                            {c.semester_start && <span>Starts {new Date(c.semester_start + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                            <span>{c.term_code}</span>
+                            {c.term_start && <span>Starts {new Date(c.term_start + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
                             <span>{c.num_weeks || 16} weeks</span>
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => { setSettingsEditing(c.id); setSettingsForm({ course_code: c.course_code, course_name: c.course_name, section: c.section || "", semester_code: c.semester_code, semester_start: c.semester_start || "", num_weeks: c.num_weeks || 16 }); }}
+                          <button onClick={() => { setSettingsEditing(c.id); setSettingsForm({ course_code: c.course_code, course_name: c.course_name, section: c.section || "", term_code: c.term_code, term_start: c.term_start || "", num_weeks: c.num_weeks || 16 }); }}
                             style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Edit</button>
                           <button onClick={async () => { if (confirm(`Remove ${c.course_code}?`)) { try { await removeCourse(c.id); } catch (err) { alert("Error: " + err.message); } } }}
                             style={{ background: C.roseLight, color: C.rose, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Remove</button>
@@ -4263,14 +4263,14 @@ export default function KlasUp() {
                     <div><label style={labelStyle}>Course Code *</label><input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))} placeholder="e.g. MKT 301" style={inputStyle} /></div>
                     <div><label style={labelStyle}>Course Name *</label><input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))} placeholder="e.g. Consumer Behavior" style={inputStyle} /></div>
                     <div><label style={labelStyle}>Section</label><input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))} placeholder="e.g. 001" style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Semester Code *</label><input value={settingsForm.semester_code || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_code: e.target.value }))} placeholder="e.g. Fall 2025" style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Semester Start</label><input type="date" value={settingsForm.semester_start || ""} onChange={e => setSettingsForm(p => ({ ...p, semester_start: e.target.value }))} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Term Code *</label><input value={settingsForm.term_code || ""} onChange={e => setSettingsForm(p => ({ ...p, term_code: e.target.value }))} placeholder="e.g. Fall 2025" style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Term Start</label><input type="date" value={settingsForm.term_start || ""} onChange={e => setSettingsForm(p => ({ ...p, term_start: e.target.value }))} style={inputStyle} /></div>
                     <div><label style={labelStyle}>Weeks</label><input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))} style={inputStyle} /></div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button disabled={!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()}
+                    <button disabled={!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.term_code?.trim()}
                       onClick={async () => { try { await addCourseFromForm(settingsForm); setSettingsEditing(null); setSettingsForm({}); } catch (err) { alert("Error: " + err.message); } }}
-                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.semester_code?.trim()) ? 0.4 : 1 }}>Save Course</button>
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.term_code?.trim()) ? 0.4 : 1 }}>Save Course</button>
                     <button onClick={() => { setSettingsEditing(null); setSettingsForm({}); }}
                       style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Cancel</button>
                   </div>
@@ -4835,7 +4835,7 @@ export default function KlasUp() {
                 },
                 {
                   key: "pro", name: "Pro", sub: "The Practice", price: "$15", period: "/month per faculty", color: C.tealBright, featured: true,
-                  features: ["All courses", "Full trending — week, class & semester", "All 10 health dimensions", "Assignment Builder with AI feedback", "Slide Studio with UDL analysis", "Full Career Connections + student share cards", "Full upload suite (9 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Metacognitive & UDL tracking", "Wellbeing & Student Voice signals", "Think Tank — full participation", "Self-generated reports"],
+                  features: ["All courses", "Full trending — week, class & term", "All 10 health dimensions", "Assignment Builder with AI feedback", "Slide Studio with UDL analysis", "Full Career Connections + student share cards", "Full upload suite (9 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Metacognitive & UDL tracking", "Wellbeing & Student Voice signals", "Think Tank — full participation", "Self-generated reports"],
                   locked: ["Institutional dashboard", "Aggregated analytics", "NECHE/HLC/SACSCOC export templates"],
                   cta: "Start Free Trial",
                 },
@@ -5912,7 +5912,7 @@ export default function KlasUp() {
                       generateAssignmentDoc({
                         description: assignDocDesc + (assignType ? `\nAssignment type: ${assignType}` : "") + (selectedOutcomes.length ? `\nLearning outcomes to address: ${selectedOutcomes.join("; ")}` : "") + (milestones.filter(Boolean).length ? `\nMilestones/checkpoints: ${milestones.filter(Boolean).join(", ")}` : ""),
                         course,
-                        semesterStart: courseObj?.semester_start || null,
+                        termStart: courseObj?.term_start || null,
                         numWeeks: courseObj?.num_weeks || 16,
                         outcomes: OUTCOMES,
                       }).then(doc => {
@@ -5938,7 +5938,7 @@ export default function KlasUp() {
                         <div style={{ width: 10, height: 10, background: C.sage, borderRadius: "50%", animation: "pulse 1.2s ease-in-out infinite" }} />
                         <div>
                           <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 2 }}>Generating your assignment document...</div>
-                          <div style={{ fontSize: 12, color: C.muted }}>Reading your semester calendar and building a complete document with real dates</div>
+                          <div style={{ fontSize: 12, color: C.muted }}>Reading your term calendar and building a complete document with real dates</div>
                         </div>
                       </div>
                     </Card>

@@ -37,8 +37,8 @@ export async function generateSemesterReflection({ course, uploadLog, microHisto
   return data.reflection
 }
 
-export async function generateAssignmentDoc({ description, course, semesterStart, numWeeks, outcomes }) {
-  const data = await callEdgeFunction({ type: 'assignment-doc', description, course, semesterStart, numWeeks, outcomes })
+export async function generateAssignmentDoc({ description, course, termStart, numWeeks, outcomes }) {
+  const data = await callEdgeFunction({ type: 'assignment-doc', description, course, termStart, numWeeks, outcomes })
   return data.document
 }
 

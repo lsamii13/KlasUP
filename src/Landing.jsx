@@ -346,7 +346,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
         {[
           { step: "01", icon: "📤", title: "Upload your content", desc: "Drop in your announcements, lecture slides, or assignment prompts. KlasUp reads what you're already teaching." },
           { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized AI coaching, micro-learning, course health analysis, and career connection data — tailored to your exact content." },
-          { step: "03", icon: "📈", title: "Watch your teaching grow", desc: "Track improvement over time with semester reflections, accreditation-ready reports, and a living course portfolio." },
+          { step: "03", icon: "📈", title: "Watch your teaching grow", desc: "Track improvement over time with term reflections, accreditation-ready reports, and a living course portfolio." },
         ].map((item, i) => (
           <RevealSection key={i} delay={i * 0.15}>
             <div style={{ textAlign: "center", padding: "0 12px" }}>
@@ -381,7 +381,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           { icon: "🔗", title: "Career Connections", desc: "Show students how this week's lesson connects to real, growing careers — with labor market data and shareable cards.", color: C.sage, bg: C.sageLight },
           { icon: "◈", title: "Think Tank", desc: "Ask any teaching question and get research-backed, practical answers. Like office hours with a pedagogical expert.", color: "#6B4E9B", bg: "#F0EBF8" },
           { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for your accreditation body, whatever it may be.", color: "#B8860B", bg: "#FFF8E7" },
-          { icon: "✦", title: "Semester Reflection", desc: "End each term with an AI-powered narrative that captures what changed, what improved, and what to try next.", color: C.navy, bg: C.ivoryDark },
+          { icon: "✦", title: "Term Reflection", desc: "End each term with an AI-powered narrative that captures what changed, what improved, and what to try next.", color: C.navy, bg: C.ivoryDark },
         ].map((f, i) => (
           <RevealSection key={i} delay={(i % 3) * 0.1}>
             <div style={{
@@ -431,7 +431,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           }}>
             KlasUp gives your faculty a tool they'll actually use —
             and gives you the continuous improvement documentation accreditors demand.
-            Every micro-learning completed, every course portfolio updated, every semester
+            Every micro-learning completed, every course portfolio updated, every term
             reflection written becomes evidence of institutional commitment to teaching excellence.
             No more scrambling before site visits.
           </p>
@@ -490,7 +490,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           },
           {
             name: "Pro", price: "$15", period: "/month", desc: "For faculty ready to level up.",
-            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports", "Semester Reflection", "Course Portfolio"],
+            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports", "Term Reflection", "Course Portfolio"],
             cta: "Start Free Trial", featured: true,
           },
           {
@@ -555,7 +555,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
             fontFamily: F.display, fontSize: "clamp(30px, 4.5vw, 48px)",
             color: C.white, margin: "0 0 16px", lineHeight: 1.15,
           }}>
-            Your best semester starts now.
+            Your best term starts now.
           </h2>
           <p style={{
             fontFamily: F.body, fontSize: 17, color: "rgba(255,255,255,0.6)",

@@ -116,7 +116,7 @@ const ASSIGNMENTS_DATA = [
     { week: "Week 13", title: "Marketing Ethics Position Paper", meta: "7 pages · evaluate ethical dilemma · cite 5 sources", los: ["LO5"] },
   ]},
   { type: "📊 Projects", items: [
-    { week: "Wks 5–15", title: "Semester Marketing Plan (Team)", meta: "Multi-stage · 4 milestones · final presentation Wk 15", los: ["LO2", "LO3", "LO4"] },
+    { week: "Wks 5–15", title: "Term Marketing Plan (Team)", meta: "Multi-stage · 4 milestones · final presentation Wk 15", los: ["LO2", "LO3", "LO4"] },
   ]},
   { type: "✅ Quizzes", items: [
     { week: "Week 4", title: "Quiz 1: Marketing Foundations", meta: "15 questions · 30 min · open notes", los: ["LO1"] },
@@ -138,7 +138,7 @@ const DETAILS_DATA = [
   ]},
   { week: "Week 5 · Sep 29 – Oct 3", topic: "Midterm Project Kickoff ★", los: ["LO2", "LO3", "LO4"], milestone: true, sections: [
     { label: "🎯 Weekly outcomes", items: ["Form effective project teams using strengths-based pairing", "Draft a 1-page project brief with team-defined roles"] },
-    { label: "📝 Assignment", text: "Semester Marketing Plan — Step 1: Brief & Team Formation · Due Sunday" },
+    { label: "📝 Assignment", text: "Term Marketing Plan — Step 1: Brief & Team Formation · Due Sunday" },
   ]},
 ];
 
@@ -424,7 +424,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
 
       {/* ── Header ── */}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1.5rem" }}>
-        <PageHeader breadcrumb="🏠 Dashboard › 🏛️ Course Architect" title="Course Architect" subtitle="Your semester at a glance — build, view, and align everything in one place" />
+        <PageHeader breadcrumb="🏠 Dashboard › 🏛️ Course Architect" title="Course Architect" subtitle="Your term at a glance — build, view, and align everything in one place" />
 
         {/* Course picker */}
         <div ref={pickerRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -437,7 +437,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
                 padding: "0.45rem 1.1rem", fontSize: 13, fontWeight: 600, color: CA_COLORS.navy,
                 whiteSpace: "nowrap", cursor: "pointer", fontFamily: CA_FONTS.body, transition: "border-color 0.2s",
               }}>
-              📚 {activeCourse.course_name} · {activeCourse.semester_code}{activeCourse.num_weeks ? ` · ${activeCourse.num_weeks} weeks` : ""} ▾
+              📚 {activeCourse.course_name} · {activeCourse.term_code}{activeCourse.num_weeks ? ` · ${activeCourse.num_weeks} weeks` : ""} ▾
             </button>
           ) : (
             <div onClick={() => alert("Course setup coming soon — for now, courses can be created in the Pedagogy Studio page.")}
@@ -459,7 +459,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
                     display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px",
                     cursor: "pointer", fontSize: 13, fontFamily: CA_FONTS.heading, color: CA_COLORS.navy, transition: "background 0.15s",
                   }}>
-                  <span>{c.course_name} · {c.semester_code}</span>
+                  <span>{c.course_name} · {c.term_code}</span>
                   {c.id === (activeCourse?.id) && <span style={{ color: CA_COLORS.teal, fontWeight: 700, marginLeft: 8 }}>✓</span>}
                 </div>
               ))}
@@ -587,10 +587,10 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         </div>
       </div>
 
-      {/* ── Your semester so far ── */}
+      {/* ── Your term so far ── */}
       <div>
         <h2 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 22, color: CA_COLORS.navy, margin: "0 0 1rem 0" }}>
-          📖 Your semester so far
+          📖 Your term so far
         </h2>
 
         {/* View toggle bar */}

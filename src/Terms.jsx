@@ -157,7 +157,7 @@ function TermsContent() {
       <P>
         KlasUp is an AI-powered pedagogical intelligence platform that helps faculty improve their teaching
         through micro-learning, course health analysis, career connection insights, accreditation reporting,
-        and semester reflection tools. The Service uses artificial intelligence to analyze course content you
+        and term reflection tools. The Service uses artificial intelligence to analyze course content you
         upload and generate personalized recommendations.
       </P>
       <P>
@@ -359,7 +359,7 @@ function PrivacyContent() {
       <ul style={{ paddingLeft: 24, margin: "0 0 16px" }}>
         <Li>Provide, maintain, and improve the Service</Li>
         <Li>Generate personalized AI-powered teaching insights from your uploaded content</Li>
-        <Li>Create course health analyses, micro-learning tips, and semester reflections</Li>
+        <Li>Create course health analyses, micro-learning tips, and term reflections</Li>
         <Li>Process payments and manage subscriptions</Li>
         <Li>Send service-related communications (account verification, subscription updates, security alerts)</Li>
         <Li>Monitor for fraud, abuse, and security threats</Li>
