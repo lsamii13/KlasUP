@@ -38,7 +38,7 @@ import {
   adminFetchUsageStats, adminFetchFunnel,
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension,
-  insertUpload, fetchUploads, uploadDocument, extractTextFromFile,
+  insertUpload, fetchUploads, uploadDocument,
   insertMicroLearning, fetchMicroLearnings,
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
@@ -298,13 +298,12 @@ const WCS = ({ course, setCourse, week, setWeek, courses }) => (
 );
 
 // Reusable "or upload a file" link that reads .docx/.pdf/.txt/.pptx and calls onText
-// When userId + onFileMeta are provided, uploads to Storage and extracts server-side.
-// Otherwise falls back to client-side extractFileText().
+// When userId + onFileMeta are provided, also uploads raw file to Storage for archival.
+// Text extraction always happens client-side (reliable across all formats).
 const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,.pptx", label }) => {
   const [status, setStatus] = useState(null); // null | "uploading" | "extracting" | "error"
   const [errorMsg, setErrorMsg] = useState(null);
   const inputRef = { current: null };
-  const useServerExtraction = !!(userId && onFileMeta);
   return (
     <span>
       <input type="file" accept={accept} ref={el => inputRef.current = el}
@@ -313,37 +312,27 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,
           const file = e.target.files?.[0];
           if (!file) return;
           setErrorMsg(null);
-          if (useServerExtraction) {
-            // Server-side: upload to Storage → extract via Edge Function
-            try {
+          try {
+            // Step 1: Upload raw file to Storage (if userId + onFileMeta provided)
+            let meta = null;
+            if (userId && onFileMeta) {
               setStatus("uploading");
-              const meta = await uploadDocument(userId, file);
-              setStatus("extracting");
-              const text = await extractTextFromFile(meta.storagePath, meta.fileType);
-              onText(text);
-              onFileMeta(meta);
-              setStatus(null);
-            } catch (err) {
-              console.warn("Server extraction failed:", err);
-              setStatus("error");
-              setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
-              onFileMeta(null);
-              setTimeout(() => { setStatus(null); setErrorMsg(null); }, 8000);
-            } finally {
-              e.target.value = "";
+              meta = await uploadDocument(userId, file);
             }
-          } else {
-            // Client-side fallback for non-storage contexts (Sage Chat, PPT builder, etc.)
+            // Step 2: Extract text client-side (works reliably for all formats)
             setStatus("extracting");
-            try {
-              const text = await extractFileText(file);
-              onText(text);
-            } catch (err) {
-              onText(`[Error reading ${file.name}: ${err.message}]`);
-            } finally {
-              setStatus(null);
-              e.target.value = "";
-            }
+            const text = await extractFileText(file);
+            onText(text);
+            if (onFileMeta) onFileMeta(meta);
+            setStatus(null);
+          } catch (err) {
+            console.warn("File processing failed:", err);
+            setStatus("error");
+            setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
+            if (onFileMeta) onFileMeta(null);
+            setTimeout(() => { setStatus(null); setErrorMsg(null); }, 8000);
+          } finally {
+            e.target.value = "";
           }
         }} />
       {errorMsg && (
