@@ -43,6 +43,40 @@ async function fetchRagContext(content: string, category: string): Promise<strin
   }
 }
 
+// Safely extract and parse JSON from Claude's response text.
+// Handles: (1) clean JSON, (2) markdown-fenced JSON (```json ... ```),
+// (3) stray text before/after the JSON array or object.
+// Throws a descriptive error if no valid JSON can be extracted.
+function parseClaudeJSON(text: string): unknown {
+  const trimmed = text.trim()
+
+  // 1. Try direct parse (clean JSON)
+  try { return JSON.parse(trimmed) } catch (_) { /* fall through */ }
+
+  // 2. Strip markdown code fences and retry
+  const fenceStripped = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+  if (fenceStripped !== trimmed) {
+    try { return JSON.parse(fenceStripped) } catch (_) { /* fall through */ }
+  }
+
+  // 3. Extract first JSON array or object by bracket matching
+  const startIdx = trimmed.search(/[\[{]/)
+  if (startIdx !== -1) {
+    const open = trimmed[startIdx]
+    const close = open === '[' ? ']' : '}'
+    let depth = 0
+    for (let i = startIdx; i < trimmed.length; i++) {
+      if (trimmed[i] === open) depth++
+      else if (trimmed[i] === close) depth--
+      if (depth === 0) {
+        try { return JSON.parse(trimmed.slice(startIdx, i + 1)) } catch (_) { break }
+      }
+    }
+  }
+
+  throw new Error(`Could not extract valid JSON from AI response (first 200 chars): ${trimmed.slice(0, 200)}`)
+}
+
 const MICRO_LEARNING_PROMPT = `You are KlasUp's Micro-Learning Engine — an AI pedagogical advisor for higher-education faculty.
 
 When a faculty member submits course content (announcements, assignments, discussion prompts, learning outcomes, post-class notes, or student voice data), analyze it and generate exactly 4 personalized micro-learning recommendations.
@@ -575,13 +609,13 @@ Based on this content, identify pedagogical gaps and opportunities, then generat
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } else if (type === 'ppt-plan' || type === 'ppt-plan-update') {
-      const slides = JSON.parse(text)
+      const slides = parseClaudeJSON(text)
       return new Response(JSON.stringify({ slides }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } else {
       // Micro-learning
-      const recommendations = JSON.parse(text)
+      const recommendations = parseClaudeJSON(text)
       return new Response(JSON.stringify({ recommendations }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

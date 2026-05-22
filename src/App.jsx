@@ -1120,23 +1120,36 @@ export default function KlasUp() {
         }
 
         // Fetch uploads + micro-learnings (non-critical)
-        fetchUploads(userId).then(uploadRows => {
+        // Fetched together so micro-learnings can be matched to uploads via upload_id FK
+        Promise.all([fetchUploads(userId), fetchMicroLearnings(userId)]).then(([uploadRows, microRows]) => {
           const log = uploadRows.map(r => {
             const c = rows.find(x => x.id === r.course_id);
             return { content: r.content, category: r.category, course: c?.course_code || "", week: `Week ${r.week}`, timestamp: new Date(r.created_at).getTime(), _dbId: r.id };
           });
           setUploadLog(log);
-        }).catch(e => console.warn("Upload load:", e));
 
-        fetchMicroLearnings(userId).then(rows => {
+          // Build lookup: upload_id → { category, course, week, timestamp }
+          const uploadById = {};
+          uploadRows.forEach(r => {
+            const c = rows.find(x => x.id === r.course_id);
+            uploadById[r.id] = { category: r.category, course: c?.course_code || "", week: `Week ${r.week}`, timestamp: new Date(r.created_at).getTime() };
+          });
+
+          // Group micro-learnings by upload_id, then key by upload's category
+          const byUpload = {};
+          microRows.forEach(r => {
+            if (!byUpload[r.upload_id]) byUpload[r.upload_id] = [];
+            byUpload[r.upload_id].push(r);
+          });
           const hist = {};
-          rows.forEach(r => {
-            const cat = r.tag || "General";
-            if (!hist[cat]) hist[cat] = [];
-            hist[cat].push({ recs: [r], week: "", course: "", timestamp: new Date(r.created_at).getTime() });
+          Object.entries(byUpload).forEach(([uid, recs]) => {
+            const parent = uploadById[uid];
+            if (!parent) return;
+            if (!hist[parent.category]) hist[parent.category] = [];
+            hist[parent.category].push({ recs, week: parent.week, course: parent.course, timestamp: parent.timestamp });
           });
           setMicroHistory(hist);
-        }).catch(e => console.warn("Micro-learning load:", e));
+        }).catch(e => console.warn("Upload/micro-learning load:", e));
 
         // Fetch announcements (non-critical)
         fetchActiveAnnouncements(userId)
