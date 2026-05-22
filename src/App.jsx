@@ -314,25 +314,17 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,
           if (!file) return;
           setErrorMsg(null);
           if (useServerExtraction) {
-            // Upload to Storage first, then extract text
-            // PDF: extract client-side (pdfjs-dist works in browser, not in Deno edge runtime)
-            // All others: extract server-side via Edge Function
-            const isPdf = file.name.toLowerCase().endsWith(".pdf");
+            // Server-side: upload to Storage → extract via Edge Function
             try {
               setStatus("uploading");
               const meta = await uploadDocument(userId, file);
               setStatus("extracting");
-              const text = isPdf
-                ? await extractPdfText(file)
-                : await extractTextFromFile(meta.storagePath, meta.fileType);
-              if (!text || text.trim().length === 0) {
-                throw new Error("No readable text found");
-              }
+              const text = await extractTextFromFile(meta.storagePath, meta.fileType);
               onText(text);
               onFileMeta(meta);
               setStatus(null);
             } catch (err) {
-              console.warn("Extraction failed:", err);
+              console.warn("Server extraction failed:", err);
               setStatus("error");
               setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
               onFileMeta(null);
@@ -367,25 +359,6 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,
 };
 
 // --- File Import Helper ---
-
-// Browser-side PDF extraction using pdfjs-dist (loaded dynamically to avoid
-// crashing the module if pdfjs-dist has import-time side effects)
-let _pdfjsLib = null;
-async function extractPdfText(file) {
-  if (!_pdfjsLib) {
-    _pdfjsLib = await import("pdfjs-dist");
-    _pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${_pdfjsLib.version}/pdf.worker.min.mjs`;
-  }
-  const buffer = await file.arrayBuffer();
-  const pdf = await _pdfjsLib.getDocument(buffer).promise;
-  const pages = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    pages.push(content.items.map(item => item.str).join(" "));
-  }
-  return pages.join("\n\n");
-}
 
 async function extractFileText(file) {
   const ext = file.name.split(".").pop().toLowerCase();
