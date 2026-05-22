@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Raw audio source files (meditation recordings + project files)
+klasup/Meditations/
+Meditations/
+*.wav
+*.aup3
+*.aup
