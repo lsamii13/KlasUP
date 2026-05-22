@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import PageHeader from "../components/PageHeader";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -423,20 +424,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
 
       {/* ── Header ── */}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1.5rem" }}>
-        <div>
-          {/* Breadcrumb */}
-          <div style={{ fontSize: 13, color: CA_COLORS.textSoft, marginBottom: 6 }}>
-            🏠 Dashboard › <span style={{ color: CA_COLORS.teal, fontWeight: 600 }}>🏛️ Course Architect</span>
-          </div>
-          {/* Title */}
-          <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 26 : 34, margin: "0 0 4px 0", color: CA_COLORS.navy }}>
-            🏛️ Course Architect
-          </h1>
-          {/* Subtitle */}
-          <p style={{ margin: 0, fontSize: 15, color: CA_COLORS.textSoft, lineHeight: 1.5 }}>
-            Your semester at a glance — build, view, and align everything in one place
-          </p>
-        </div>
+        <PageHeader breadcrumb="🏠 Dashboard › 🏛️ Course Architect" title="Course Architect" subtitle="Your semester at a glance — build, view, and align everything in one place" />
 
         {/* Course picker */}
         <div ref={pickerRef} style={{ position: "relative", flexShrink: 0 }}>

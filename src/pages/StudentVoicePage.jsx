@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PageHeader from "../components/PageHeader";
 
 const C = {
   navy: "#1B2B4B", teal: "#2A9D8F", tealBright: "#0FB5B5", tealLight: "#D6F5F5",
@@ -7,9 +8,9 @@ const C = {
 };
 
 const F = {
-  display: "'Fredoka One', cursive",
-  body: "'Nunito', sans-serif",
-  accent: "'Nunito', sans-serif",
+  display: "'Bricolage Grotesque', sans-serif",
+  body: "'Manrope', sans-serif",
+  accent: "'Manrope', sans-serif",
 };
 
 const STRATEGIES = [
@@ -102,14 +103,7 @@ export default function StudentVoicePage({ canPro = false, onUpgrade }) {
     <div>
 
       {/* Header */}
-      <div style={{ marginBottom: "1.25rem" }}>
-        <div style={{ fontFamily: F.display, fontSize: mob ? 22 : 28, marginBottom: 2 }}>
-          Student Voice
-        </div>
-        <div style={{ fontFamily: F.body, fontSize: 14, color: C.muted }}>
-          Give your students a seat at the table. Here's how.
-        </div>
-      </div>
+      <PageHeader breadcrumb="🏠 Dashboard › 🎤 Student Voice" title="Student Voice" subtitle="Give your students a seat at the table. Here's how." />
       <div style={{ marginBottom: 20 }}>
         <div style={{
           background: `${C.teal}12`, border: `1px solid ${C.teal}33`,

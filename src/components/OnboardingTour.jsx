@@ -8,9 +8,9 @@ const C = {
 };
 
 const F = {
-  display: "'Fredoka One', cursive",
-  body: "'Nunito', sans-serif",
-  accent: "'Nunito', sans-serif",
+  display: "'Bricolage Grotesque', sans-serif",
+  body: "'Manrope', sans-serif",
+  accent: "'Manrope', sans-serif",
 };
 
 const STEPS = [

@@ -13,9 +13,9 @@ const C = {
 };
 
 const F = {
-  display: "'Fredoka One', cursive",
-  body: "'Nunito', sans-serif",
-  accent: "'Nunito', sans-serif",
+  display: "'Bricolage Grotesque', sans-serif",
+  body: "'Manrope', sans-serif",
+  accent: "'Manrope', sans-serif",
 };
 
 const AGREEMENT_TEXT = `This Beta Tester Agreement is between KlasUP, LLC and the individual signing below. By signing, you agree to: (1) keep all non-public Platform features confidential and not share publicly; (2) provide honest feedback to help improve the Platform; (3) grant KlasUP a perpetual license to use your feedback — you retain no IP claims on feedback provided; (4) confirm you are signing as an individual, not on behalf of any institution or employer. KlasUP provides the Platform as-is during the beta period. This Agreement is governed by the laws of New Hampshire. Effective Date: April 1, 2026. Questions? Email leilavsamii@gmail.com`;
