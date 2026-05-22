@@ -420,7 +420,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
   const activeCourse = courses.find(c => c.id === activeCourseId) || courses[0] || null;
 
   return (
-    <div style={{ fontFamily: CA_FONTS.body, color: CA_COLORS.navy, background: CA_COLORS.ivory, minHeight: "100vh", padding: mob ? "1rem" : "2rem 2.5rem" }}>
+    <div style={{ fontFamily: CA_FONTS.body, color: CA_COLORS.navy, background: CA_COLORS.ivory, minHeight: "100vh", padding: mob ? "0" : "0 0.5rem" }}>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1.5rem" }}>
