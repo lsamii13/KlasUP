@@ -297,11 +297,51 @@ const WCS = ({ course, setCourse, week, setWeek, courses }) => (
   </div>
 );
 
-// Reusable "or upload a file" link that reads .docx/.pdf/.txt/.pptx and calls onText
-// When userId + onFileMeta are provided, also uploads raw file to Storage for archival.
-// Text extraction always happens client-side (reliable across all formats).
-const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.txt,.pptx", label }) => {
-  const [status, setStatus] = useState(null); // null | "uploading" | "extracting" | "error"
+// Shared file processing: upload to Storage (if userId provided), extract text client-side.
+// PDF: uploads raw file but skips extraction (shows friendly message via error path).
+const ACCEPTED_EXTENSIONS = ["docx", "pptx", "txt", "pdf"];
+
+async function processUploadedFile(file, { userId, onText, onFileMeta, setStatus, setErrorMsg }) {
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (!ACCEPTED_EXTENSIONS.includes(ext)) {
+    setErrorMsg("Unsupported format — please use .docx, .pptx, or .txt.");
+    setTimeout(() => setErrorMsg(null), 8000);
+    return;
+  }
+  setErrorMsg(null);
+  try {
+    // Step 1: Upload raw file to Storage (if userId + onFileMeta provided)
+    let meta = null;
+    if (userId && onFileMeta) {
+      setStatus("uploading");
+      meta = await uploadDocument(userId, file);
+    }
+    // Step 2: PDF → store raw file but can't extract text
+    if (ext === "pdf") {
+      if (onFileMeta) onFileMeta(meta);
+      setStatus("error");
+      setErrorMsg("PDF uploaded — we can't extract text from PDFs yet. Paste the content manually, or re-upload as .docx or .txt.");
+      setTimeout(() => { setStatus(null); setErrorMsg(null); }, 8000);
+      return;
+    }
+    // Step 3: Extract text client-side (docx/pptx/txt)
+    setStatus("extracting");
+    const text = await extractFileText(file);
+    onText(text);
+    if (onFileMeta) onFileMeta(meta);
+    setStatus(null);
+  } catch (err) {
+    console.warn("File processing failed:", err);
+    setStatus("error");
+    setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
+    if (onFileMeta) onFileMeta(null);
+    setTimeout(() => { setStatus(null); setErrorMsg(null); }, 8000);
+  }
+}
+
+// Reusable "or upload a file" button. Uses processUploadedFile for the actual work.
+const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.txt,.pptx,.pdf", label }) => {
+  const [status, setStatus] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const inputRef = { current: null };
   return (
@@ -311,29 +351,8 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.txt,.pptx
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          setErrorMsg(null);
-          try {
-            // Step 1: Upload raw file to Storage (if userId + onFileMeta provided)
-            let meta = null;
-            if (userId && onFileMeta) {
-              setStatus("uploading");
-              meta = await uploadDocument(userId, file);
-            }
-            // Step 2: Extract text client-side (works reliably for all formats)
-            setStatus("extracting");
-            const text = await extractFileText(file);
-            onText(text);
-            if (onFileMeta) onFileMeta(meta);
-            setStatus(null);
-          } catch (err) {
-            console.warn("File processing failed:", err);
-            setStatus("error");
-            setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
-            if (onFileMeta) onFileMeta(null);
-            setTimeout(() => { setStatus(null); setErrorMsg(null); }, 8000);
-          } finally {
-            e.target.value = "";
-          }
+          await processUploadedFile(file, { userId, onText, onFileMeta, setStatus, setErrorMsg });
+          e.target.value = "";
         }} />
       {errorMsg && (
         <div style={{ fontSize: 12, color: C.rose, fontFamily: F.body, marginBottom: 4 }}>{errorMsg}</div>
@@ -882,6 +901,9 @@ export default function KlasUp() {
   const [aiFeedback, setAiFeedback] = useState(null);
   const [uploadText, setUploadText] = useState("");
   const [uploadFileMeta, setUploadFileMeta] = useState(null);
+  const [dropDragOver, setDropDragOver] = useState(false);
+  const [dropStatus, setDropStatus] = useState(null);
+  const [dropErrorMsg, setDropErrorMsg] = useState(null);
   const [aiMicro, setAiMicro] = useState([]);
   const [aiMicroLoading, setAiMicroLoading] = useState(false);
   const [aiMicroError, setAiMicroError] = useState(null);
@@ -2737,24 +2759,54 @@ export default function KlasUp() {
                 </div>
               </div>
 
-              {/* Textarea */}
-              <div style={{ position: "relative" }}>
+              {/* Textarea + drop zone */}
+              <div
+                style={{
+                  position: "relative", borderRadius: 12,
+                  border: dropDragOver ? `2px dashed ${C.tealBright}` : "2px dashed transparent",
+                  background: dropDragOver ? C.tealLight : "transparent",
+                  transition: "border-color 0.2s, background 0.2s",
+                  padding: dropDragOver ? 0 : 0,
+                }}
+                onDragOver={e => { e.preventDefault(); setDropDragOver(true); }}
+                onDragEnter={e => { e.preventDefault(); setDropDragOver(true); }}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropDragOver(false); }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setDropDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (!file) return;
+                  await processUploadedFile(file, {
+                    userId: session?.user?.id,
+                    onText: t => setUploadText(p => p ? p + "\n\n" + t : t),
+                    onFileMeta: setUploadFileMeta,
+                    setStatus: setDropStatus,
+                    setErrorMsg: setDropErrorMsg,
+                  });
+                }}
+              >
                 <textarea
                   value={uploadText}
                   onChange={e => setUploadText(e.target.value)}
-                  placeholder={UPLOAD_PLACEHOLDERS[myCourseCategory] || "Share what happened in class..."}
+                  placeholder={dropDragOver ? "Drop your file here..." : (UPLOAD_PLACEHOLDERS[myCourseCategory] || "Share what happened in class...")}
                   rows={6}
                   style={{
-                    width: "100%", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14,
+                    width: "100%", border: `1px solid ${dropDragOver ? C.tealBright : C.border}`, borderRadius: 12, padding: 14,
                     fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box",
-                    background: C.ivory, lineHeight: 1.65,
-                    transition: "border-color 0.2s",
+                    background: dropDragOver ? "transparent" : C.ivory, lineHeight: 1.65,
+                    transition: "border-color 0.2s, background 0.2s",
+                    pointerEvents: dropDragOver ? "none" : "auto",
                   }}
-                  onFocus={e => e.target.style.borderColor = C.tealBright}
-                  onBlur={e => e.target.style.borderColor = C.border}
+                  onFocus={e => { if (!dropDragOver) e.target.style.borderColor = C.tealBright; }}
+                  onBlur={e => { if (!dropDragOver) e.target.style.borderColor = C.border; }}
                 />
                 <VoiceMic onTranscript={t => setUploadText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
               </div>
+              {dropErrorMsg && (
+                <div style={{ fontSize: 12, color: C.rose, fontFamily: F.body, marginTop: 4 }}>{dropErrorMsg}</div>
+              )}
+              {dropStatus === "uploading" && <div style={{ fontSize: 12, color: C.teal, fontFamily: F.body, marginTop: 4 }}>Uploading your document...</div>}
+              {dropStatus === "extracting" && <div style={{ fontSize: 12, color: C.teal, fontFamily: F.body, marginTop: 4 }}>Extracting text...</div>}
               <div style={{ marginTop: 6 }}>
                 <FileUploadLink onText={t => setUploadText(p => p ? p + "\n\n" + t : t)} userId={session?.user?.id} onFileMeta={setUploadFileMeta} />
               </div>
