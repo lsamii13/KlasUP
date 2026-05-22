@@ -1,7 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 import mammoth from "npm:mammoth@1.8.0"
-import { extractText, getDocumentProxy } from "npm:unpdf"
 import JSZip from "npm:jszip@3.10.1"
 
 const corsHeaders = {
@@ -34,11 +33,8 @@ async function extractDocx(buffer: ArrayBuffer): Promise<string> {
   return result.value
 }
 
-async function extractPdf(buffer: ArrayBuffer): Promise<string> {
-  const pdf = await getDocumentProxy(new Uint8Array(buffer))
-  const { text } = await extractText(pdf, { mergePages: true })
-  return text
-}
+// PDF extraction happens client-side (pdfjs-dist works in browser, not in Deno edge runtime).
+// If a PDF request reaches this function, return a helpful message.
 
 async function extractPptx(buffer: ArrayBuffer): Promise<string> {
   const zip = await JSZip.loadAsync(buffer)
@@ -69,8 +65,8 @@ async function extractPptx(buffer: ArrayBuffer): Promise<string> {
 const EXTRACTORS: Record<string, (buf: ArrayBuffer) => Promise<string>> = {
   txt: extractTxt,
   docx: extractDocx,
-  pdf: extractPdf,
   pptx: extractPptx,
+  // pdf is handled client-side via pdfjs-dist — not in this function
 }
 
 /* ------------------------------------------------------------------ */
@@ -126,12 +122,27 @@ Deno.serve(async (req: Request) => {
     }
 
     const buffer = await fileData.arrayBuffer()
-    const text = await extractor(buffer)
 
-    if (!text || text.trim().length === 0) {
+    let text: string
+    try {
+      text = await extractor(buffer)
+    } catch (extractionErr) {
+      const detail = extractionErr.message || String(extractionErr)
+      console.error(`[extract-text] ${file_type} extraction failed for ${storage_path}:`, detail)
       return new Response(JSON.stringify({
         success: false,
-        error: 'No readable text found in this file. It may be image-only or corrupted.',
+        error: `Could not extract text from this ${file_type.toUpperCase()} file. ${detail}`,
+      }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!text || text.trim().length === 0) {
+      console.warn(`[extract-text] Empty result for ${storage_path} (${file_type})`)
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No readable text found in this file. It may be image-only or scanned without OCR.',
       }), {
         status: 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -143,6 +154,7 @@ Deno.serve(async (req: Request) => {
     })
 
   } catch (err) {
+    console.error('[extract-text] Unexpected error:', err.message || err)
     return new Response(JSON.stringify({ success: false, error: err.message || 'Extraction failed' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -25,6 +25,8 @@ import { generateMicroLearning, generateSemesterReflection, generateAssignmentDo
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } from "docx";
 import PptxGenJS from "pptxgenjs";
 import mammoth from "mammoth";
+import * as pdfjsLib from "pdfjs-dist";
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
@@ -314,17 +316,25 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,
           if (!file) return;
           setErrorMsg(null);
           if (useServerExtraction) {
-            // Server-side: upload to Storage → extract via Edge Function
+            // Upload to Storage first, then extract text
+            // PDF: extract client-side (pdfjs-dist works in browser, not in Deno edge runtime)
+            // All others: extract server-side via Edge Function
+            const isPdf = file.name.toLowerCase().endsWith(".pdf");
             try {
               setStatus("uploading");
               const meta = await uploadDocument(userId, file);
               setStatus("extracting");
-              const text = await extractTextFromFile(meta.storagePath, meta.fileType);
+              const text = isPdf
+                ? await extractPdfText(file)
+                : await extractTextFromFile(meta.storagePath, meta.fileType);
+              if (!text || text.trim().length === 0) {
+                throw new Error("No readable text found");
+              }
               onText(text);
               onFileMeta(meta);
               setStatus(null);
             } catch (err) {
-              console.warn("Server extraction failed:", err);
+              console.warn("Extraction failed:", err);
               setStatus("error");
               setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
               onFileMeta(null);
@@ -359,6 +369,19 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,
 };
 
 // --- File Import Helper ---
+
+// Browser-side PDF extraction using pdfjs-dist (proper parser, not regex)
+async function extractPdfText(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument(buffer).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    pages.push(content.items.map(item => item.str).join(" "));
+  }
+  return pages.join("\n\n");
+}
 
 async function extractFileText(file) {
   const ext = file.name.split(".").pop().toLowerCase();
