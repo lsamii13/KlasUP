@@ -300,7 +300,7 @@ const WCS = ({ course, setCourse, week, setWeek, courses }) => (
 // Reusable "or upload a file" link that reads .docx/.pdf/.txt/.pptx and calls onText
 // When userId + onFileMeta are provided, also uploads raw file to Storage for archival.
 // Text extraction always happens client-side (reliable across all formats).
-const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,.pptx", label }) => {
+const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.txt,.pptx", label }) => {
   const [status, setStatus] = useState(null); // null | "uploading" | "extracting" | "error"
   const [errorMsg, setErrorMsg] = useState(null);
   const inputRef = { current: null };
@@ -362,31 +362,6 @@ async function extractFileText(file) {
     return result.value;
   }
 
-  if (ext === "pdf") {
-    // Use browser PDF.js (available in modern browsers via pdf.js CDN fallback)
-    // For simplicity, read as text — many PDFs contain extractable text
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    // Try to extract readable text from PDF binary
-    let text = "";
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    const raw = decoder.decode(bytes);
-    // Extract text between BT/ET markers (PDF text objects)
-    const matches = raw.match(/\(([^)]+)\)/g);
-    if (matches && matches.length > 5) {
-      text = matches
-        .map(m => m.slice(1, -1))
-        .filter(s => s.length > 1 && /[a-zA-Z]/.test(s))
-        .join(" ")
-        .replace(/\\n/g, "\n")
-        .replace(/\s{3,}/g, "\n");
-    }
-    if (text.trim().length < 20) {
-      return `[PDF uploaded: ${file.name}]\n\nNote: This PDF's text could not be fully extracted. You can copy and paste the content manually, or try exporting from the original source as .docx or .txt for best results.`;
-    }
-    return text;
-  }
-
   if (ext === "pptx") {
     // PPTX is a ZIP containing XML slides — extract <a:t> text tags from the raw bytes
     const arrayBuffer = await file.arrayBuffer();
@@ -411,7 +386,7 @@ async function extractFileText(file) {
     return `[PowerPoint uploaded: ${file.name}]\n\nSlide content was extracted — review above and add any missing details.`;
   }
 
-  return `[File uploaded: ${file.name}] — Unsupported format. Please use .docx, .pdf, .txt, or .pptx.`;
+  return `[File uploaded: ${file.name}] — Unsupported format. Please use .docx, .txt, or .pptx.`;
 }
 
 // --- Document Export Helpers ---
@@ -3034,7 +3009,7 @@ export default function KlasUp() {
                     <VoiceMic onTranscript={t => setPptDesc(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
                   </div>
                   <div style={{ marginTop: 6 }}>
-                    <FileUploadLink onText={t => setPptDesc(p => p ? p + "\n\n" + t : t)} accept=".docx,.pdf,.txt,.pptx" label="or upload a file (.pptx, .docx, .txt) ↑" />
+                    <FileUploadLink onText={t => setPptDesc(p => p ? p + "\n\n" + t : t)} accept=".docx,.txt,.pptx" label="or upload a file (.pptx, .docx, .txt) ↑" />
                   </div>
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => {
