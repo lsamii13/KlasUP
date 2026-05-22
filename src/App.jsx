@@ -25,8 +25,6 @@ import { generateMicroLearning, generateSemesterReflection, generateAssignmentDo
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } from "docx";
 import PptxGenJS from "pptxgenjs";
 import mammoth from "mammoth";
-import * as pdfjsLib from "pdfjs-dist";
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
@@ -370,10 +368,16 @@ const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,
 
 // --- File Import Helper ---
 
-// Browser-side PDF extraction using pdfjs-dist (proper parser, not regex)
+// Browser-side PDF extraction using pdfjs-dist (loaded dynamically to avoid
+// crashing the module if pdfjs-dist has import-time side effects)
+let _pdfjsLib = null;
 async function extractPdfText(file) {
+  if (!_pdfjsLib) {
+    _pdfjsLib = await import("pdfjs-dist");
+    _pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${_pdfjsLib.version}/pdf.worker.min.mjs`;
+  }
   const buffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument(buffer).promise;
+  const pdf = await _pdfjsLib.getDocument(buffer).promise;
   const pages = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
