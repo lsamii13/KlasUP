@@ -391,16 +391,45 @@ function parseWeek(w) {
   return n
 }
 
-export async function insertUpload(userId, courseId, week, category, content) {
+export async function insertUpload(userId, courseId, week, category, content, metadata = {}) {
   const weekInt = parseWeek(week)
   if (weekInt == null) { console.warn('insertUpload: skipping DB insert — invalid week'); return null }
+  const row = { user_id: userId, course_id: courseId, week: weekInt, category: sanitize(category), content: sanitize(content) }
+  if (metadata.filename)    row.filename     = metadata.filename
+  if (metadata.fileType)    row.file_type    = metadata.fileType
+  if (metadata.fileSize)    row.file_size    = metadata.fileSize
+  if (metadata.storagePath) row.storage_path = metadata.storagePath
   const { data, error } = await supabase
     .from('uploads')
-    .insert({ user_id: userId, course_id: courseId, week: weekInt, category: sanitize(category), content: sanitize(content) })
+    .insert(row)
     .select()
     .single()
   if (error) throw error
   return data
+}
+
+export async function uploadDocument(userId, file) {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `${userId}/${Date.now()}_${safeName}`
+  const { error } = await supabase.storage.from('documents').upload(path, file)
+  if (error) throw error
+  const ext = file.name.split('.').pop().toLowerCase()
+  return { storagePath: path, fileName: file.name, fileType: ext, fileSize: file.size }
+}
+
+export async function extractTextFromFile(storagePath, fileType) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`${supabaseUrl}/functions/v1/extract-text`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token || supabaseAnonKey}`,
+    },
+    body: JSON.stringify({ storage_path: storagePath, file_type: fileType }),
+  })
+  const json = await res.json()
+  if (!json.success) throw new Error(json.error || 'Text extraction failed')
+  return json.text
 }
 
 export async function fetchUploads(userId) {

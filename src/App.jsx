@@ -38,7 +38,7 @@ import {
   adminFetchUsageStats, adminFetchFunnel,
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension,
-  insertUpload, fetchUploads,
+  insertUpload, fetchUploads, uploadDocument, extractTextFromFile,
   insertMicroLearning, fetchMicroLearnings,
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
@@ -298,9 +298,13 @@ const WCS = ({ course, setCourse, week, setWeek, courses }) => (
 );
 
 // Reusable "or upload a file" link that reads .docx/.pdf/.txt/.pptx and calls onText
-const FileUploadLink = ({ onText, accept = ".docx,.pdf,.txt,.pptx", label }) => {
-  const [reading, setReading] = useState(false);
+// When userId + onFileMeta are provided, uploads to Storage and extracts server-side.
+// Otherwise falls back to client-side extractFileText().
+const FileUploadLink = ({ onText, onFileMeta, userId, accept = ".docx,.pdf,.txt,.pptx", label }) => {
+  const [status, setStatus] = useState(null); // null | "uploading" | "extracting" | "error"
+  const [errorMsg, setErrorMsg] = useState(null);
   const inputRef = { current: null };
+  const useServerExtraction = !!(userId && onFileMeta);
   return (
     <span>
       <input type="file" accept={accept} ref={el => inputRef.current = el}
@@ -308,20 +312,47 @@ const FileUploadLink = ({ onText, accept = ".docx,.pdf,.txt,.pptx", label }) => 
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          setReading(true);
-          try {
-            const text = await extractFileText(file);
-            onText(text);
-          } catch (err) {
-            onText(`[Error reading ${file.name}: ${err.message}]`);
-          } finally {
-            setReading(false);
-            e.target.value = "";
+          setErrorMsg(null);
+          if (useServerExtraction) {
+            // Server-side: upload to Storage → extract via Edge Function
+            try {
+              setStatus("uploading");
+              const meta = await uploadDocument(userId, file);
+              setStatus("extracting");
+              const text = await extractTextFromFile(meta.storagePath, meta.fileType);
+              onText(text);
+              onFileMeta(meta);
+              setStatus(null);
+            } catch (err) {
+              console.warn("Server extraction failed:", err);
+              setStatus("error");
+              setErrorMsg("We couldn't read text from this file — you can paste the content manually instead.");
+              onFileMeta(null);
+              setTimeout(() => { setStatus(null); setErrorMsg(null); }, 8000);
+            } finally {
+              e.target.value = "";
+            }
+          } else {
+            // Client-side fallback for non-storage contexts (Sage Chat, PPT builder, etc.)
+            setStatus("extracting");
+            try {
+              const text = await extractFileText(file);
+              onText(text);
+            } catch (err) {
+              onText(`[Error reading ${file.name}: ${err.message}]`);
+            } finally {
+              setStatus(null);
+              e.target.value = "";
+            }
           }
         }} />
+      {errorMsg && (
+        <div style={{ fontSize: 12, color: C.rose, fontFamily: F.body, marginBottom: 4 }}>{errorMsg}</div>
+      )}
       <button type="button" onClick={() => inputRef.current?.click()}
-        style={{ background: "none", border: "none", fontSize: 12, color: C.teal, cursor: "pointer", fontFamily: F.body, padding: 0, textDecoration: "underline", textUnderlineOffset: 2 }}>
-        {reading ? "Reading your document..." : (label || "or upload a file ↑")}
+        disabled={status === "uploading" || status === "extracting"}
+        style={{ background: "none", border: "none", fontSize: 12, color: status === "error" ? C.rose : C.teal, cursor: status ? "default" : "pointer", fontFamily: F.body, padding: 0, textDecoration: "underline", textUnderlineOffset: 2, opacity: status === "uploading" || status === "extracting" ? 0.7 : 1 }}>
+        {status === "uploading" ? "Uploading your document..." : status === "extracting" ? "Extracting text..." : (label || "or upload a file ↑")}
       </button>
     </span>
   );
@@ -886,6 +917,7 @@ export default function KlasUp() {
   const [milestones, setMilestones] = useState(["Draft submission", "Peer review"]);
   const [aiFeedback, setAiFeedback] = useState(null);
   const [uploadText, setUploadText] = useState("");
+  const [uploadFileMeta, setUploadFileMeta] = useState(null);
   const [aiMicro, setAiMicro] = useState([]);
   const [aiMicroLoading, setAiMicroLoading] = useState(false);
   const [aiMicroError, setAiMicroError] = useState(null);
@@ -2664,13 +2696,15 @@ export default function KlasUp() {
             if (prevTotal === 0 && typeof gtag === "function") gtag("event", "first_upload_submitted", { category: myCourseCategory });
             setUploaded(p => ({ ...p, [myCourseCategory]: (p[myCourseCategory] || 0) + 1 }));
             setUploadLog(prev => [{ content: text, category: myCourseCategory, course, week, timestamp: Date.now() }, ...prev]);
+            const fileMeta = uploadFileMeta;
             setUploadText("");
+            setUploadFileMeta(null);
 
-            // Persist upload to DB
+            // Persist upload to DB (with file metadata when a file was uploaded)
             const courseObj = dbCourses.find(c => c.course_code === course);
             let uploadRow = null;
             if (session?.user && courseObj) {
-              try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text); }
+              try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}); }
               catch (e) { console.warn("Upload DB insert failed:", e); }
             }
 
@@ -2758,7 +2792,7 @@ export default function KlasUp() {
                 <VoiceMic onTranscript={t => setUploadText(p => p ? p + " " + t : t)} style={{ position: "absolute", right: 10, bottom: 10 }} />
               </div>
               <div style={{ marginTop: 6 }}>
-                <FileUploadLink onText={t => setUploadText(p => p ? p + "\n\n" + t : t)} />
+                <FileUploadLink onText={t => setUploadText(p => p ? p + "\n\n" + t : t)} userId={session?.user?.id} onFileMeta={setUploadFileMeta} />
               </div>
 
               {/* Submit + helper */}
