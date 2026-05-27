@@ -7,6 +7,7 @@ import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import StudentVoicePage from "./pages/StudentVoicePage";
 import CourseArchitect from "./pages/CourseArchitect";
 import PageHeader from "./components/PageHeader";
+import NotifyMeForm from "./components/NotifyMeForm";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -4958,7 +4959,7 @@ export default function KlasUp() {
                 {
                   key: "free", name: "Free", sub: "The Signal", price: "$0", period: "forever", color: C.muted,
                   features: ["1 course", "Basic health score (current week)", "2 micro-learnings/month", "Post-class notes & announcements", "Think Tank (read only)", "Career Connections (1 role preview)"],
-                  locked: ["Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite", "Accreditation reports"],
+                  locked: ["Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite", "Accreditation reports ⸱ Coming Soon"],
                   cta: "Get Started Free",
                 },
                 {
@@ -4969,7 +4970,7 @@ export default function KlasUp() {
                 },
                 {
                   key: "institutional", name: "Institutional", sub: "The Standard", price: "Custom", period: "per-seat licensing", color: C.navy,
-                  features: ["Everything in Pro for all faculty", "Aggregated institutional dashboard", "Anonymized cross-faculty analytics", "Full accreditation report export (NECHE, HLC, SACSCOC)", "Career Connections workforce alignment doc", "New faculty onboarding track", "Peer institution benchmarking", "LMS integration support", "Custom branding", "Dedicated success manager"],
+                  features: ["Everything in Pro for all faculty", "Aggregated institutional dashboard", "Anonymized cross-faculty analytics", "Full accreditation report export (NECHE, HLC, SACSCOC) ⸱ Coming Soon", "Career Connections workforce alignment doc", "New faculty onboarding track", "Peer institution benchmarking", "LMS integration support", "Custom branding", "Dedicated success manager"],
                   locked: [],
                   cta: "Contact Us",
                 },
@@ -4993,9 +4994,14 @@ export default function KlasUp() {
                 </div>
               ))}
             </div>
-            <div style={{ background: C.goldLight, border: `0.5px solid ${C.gold}44`, borderRadius: 14, padding: "1.25rem" }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.gold, marginBottom: 6 }}>The Provost Pitch</div>
-              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.7 }}>KlasUp Institutional costs less than a single faculty development workshop — and produces a continuous, documented record of pedagogical growth tied directly to NECHE, HLC, and SACSCOC standards, with workforce alignment evidence built in. No other tool does this.</div>
+            <div style={{ background: C.ivoryDark, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "1.5rem" }}>
+              <div style={{ fontFamily: F.display, fontSize: 16, fontWeight: 700, color: C.navy, marginBottom: 4 }}>Institutional accreditation reporting — coming Winter 2026–2027</div>
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>Built for provosts, deans, and academic affairs leadership. Be first to know when it launches.</div>
+              <NotifyMeForm
+                headline="Join the institutional waitlist."
+                subhead="We'll email you the moment accreditation reports launch."
+                source="accreditation_waitlist"
+              />
             </div>
           </div>
         )}
