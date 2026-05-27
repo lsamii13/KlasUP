@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Logo, { LogoMark } from "./Logo";
+import LeadCaptureForm from "./components/LeadCaptureForm";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -649,6 +650,9 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
     <div style={{ fontFamily: F.body, color: C.text, overflowX: "hidden" }}>
       {Navbar}
       {Hero}
+      <Section bg="#0F1F3D" style={{ paddingTop: 48, paddingBottom: 48 }}>
+        <LeadCaptureForm />
+      </Section>
       {Problem}
       {HowItWorks}
       {Features}
@@ -656,6 +660,11 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       {Institutions}
       {Pricing}
       {FinalCTA}
+      <Section bg={C.ivory}>
+        <RevealSection>
+          <LeadCaptureForm />
+        </RevealSection>
+      </Section>
       {Footer}
       <style>{`
         @media (max-width: 767px) {
