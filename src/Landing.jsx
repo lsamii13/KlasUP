@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Logo, { LogoMark } from "./Logo";
 import LeadCaptureForm from "./components/LeadCaptureForm";
+import NotifyMeForm from "./components/NotifyMeForm";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -347,7 +348,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
         {[
           { step: "01", icon: "📤", title: "Upload your content", desc: "Drop in your announcements, lecture slides, or assignment prompts. KlasUp reads what you're already teaching." },
           { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized AI coaching, micro-learning, course health analysis, and career connection data — tailored to your exact content." },
-          { step: "03", icon: "📈", title: "Watch your teaching grow", desc: "Track improvement over time with term reflections, accreditation-ready reports, and a living course portfolio." },
+          { step: "03", icon: "📈", title: "Watch your teaching grow", desc: "Track improvement over time with term reflections, a living course portfolio, and accreditation-ready reports (coming Winter 2026–2027)." },
         ].map((item, i) => (
           <RevealSection key={i} delay={i * 0.15}>
             <div style={{ textAlign: "center", padding: "0 12px" }}>
@@ -381,7 +382,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           { icon: "❤", title: "Course Health Score", desc: "A living diagnostic that evaluates alignment, engagement strategies, assessment design, and inclusivity across your syllabus.", color: C.rose, bg: C.roseLight },
           { icon: "🔗", title: "Career Connections", desc: "Show students how this week's lesson connects to real, growing careers — with labor market data and shareable cards.", color: C.sage, bg: C.sageLight },
           { icon: "◈", title: "Think Tank", desc: "Ask any teaching question and get research-backed, practical answers. Like office hours with a pedagogical expert.", color: "#6B4E9B", bg: "#F0EBF8" },
-          { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for your accreditation body, whatever it may be.", color: "#B8860B", bg: "#FFF8E7" },
+          { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for your accreditation body, whatever it may be.", color: "#B8860B", bg: "#FFF8E7", badge: "Coming Winter 2026–2027" },
           { icon: "✦", title: "Term Reflection", desc: "End each term with an AI-powered narrative that captures what changed, what improved, and what to try next.", color: C.navy, bg: C.ivoryDark },
         ].map((f, i) => (
           <RevealSection key={i} delay={(i % 3) * 0.1}>
@@ -400,7 +401,10 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
                 fontSize: 22, color: f.color, flexShrink: 0,
               }}>{f.icon}</div>
               <div>
-                <h3 style={{ fontFamily: F.display, fontSize: 18, color: C.navy, margin: "0 0 6px" }}>{f.title}</h3>
+                <h3 style={{ fontFamily: F.display, fontSize: 18, color: C.navy, margin: "0 0 6px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {f.title}
+                  {f.badge && <span style={{ fontFamily: F.body, fontSize: 10, fontWeight: 700, color: "#2A9D8F", background: "rgba(42,157,143,0.1)", padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{f.badge}</span>}
+                </h3>
                 <p style={{ fontFamily: F.body, fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
               </div>
             </div>
@@ -424,21 +428,24 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
             fontFamily: F.display, fontSize: "clamp(28px, 4vw, 40px)",
             color: C.white, margin: "0 0 24px", lineHeight: 1.2,
           }}>
-            Accreditation documentation,<br />solved.
+            Accreditation documentation —<br />coming Winter 2026–2027.
           </h2>
           <p style={{
             fontFamily: F.body, fontSize: 17, color: "rgba(255,255,255,0.7)",
             lineHeight: 1.7, margin: "0 0 36px",
           }}>
-            KlasUp gives your faculty a tool they'll actually use —
-            and gives you the continuous improvement documentation accreditors demand.
-            Every micro-learning completed, every course portfolio updated, every term
-            reflection written becomes evidence of institutional commitment to teaching excellence.
-            No more scrambling before site visits.
+            KlasUp already gives your faculty micro-learning, course portfolios, and term reflections
+            that document real pedagogical growth. We're building accreditation report exports
+            mapped to NECHE, HLC, and SACSCOC standards — so every improvement your faculty makes
+            becomes evidence you can hand to accreditors. No more scrambling before site visits.
           </p>
-          <BtnSolid onClick={onGetStarted} style={{ background: C.white, color: C.navy }}>
-            Request Institutional Demo
-          </BtnSolid>
+          <div style={{ marginTop: 8 }}>
+            <NotifyMeForm
+              headline="Be first when accreditation reports launch."
+              subhead="Join the waitlist — we'll email you the moment they're ready."
+              source="accreditation_waitlist"
+            />
+          </div>
         </div>
       </RevealSection>
     </Section>
@@ -491,12 +498,12 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           },
           {
             name: "Pro", price: "$15", period: "/month", desc: "For faculty ready to level up.",
-            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports", "Term Reflection", "Course Portfolio"],
+            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports ⸱ Coming Soon", "Term Reflection", "Course Portfolio"],
             cta: "Start Free Trial", featured: true,
           },
           {
             name: "Institutional", price: "Custom", period: "", desc: "For departments & universities.",
-            features: ["Everything in Pro", "Admin dashboard & analytics", "Faculty usage reports", "Accreditation export suite", "SSO & LMS integration", "Dedicated onboarding", "Priority support"],
+            features: ["Everything in Pro", "Admin dashboard & analytics", "Faculty usage reports", "Accreditation export suite ⸱ Coming Soon", "SSO & LMS integration", "Dedicated onboarding", "Priority support"],
             cta: "Contact Us", featured: false,
           },
         ].map((tier, i) => (

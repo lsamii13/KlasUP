@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import PricingPage from './pages/PricingPage.jsx'
 import LeadFormTest from './pages/LeadFormTest.jsx'
+import NotifyMeTest from './pages/NotifyMeTest.jsx'
 import { useFeatureFlags } from './hooks/useFeatureFlags'
 
 function ComingSoon() {
@@ -28,9 +29,10 @@ function PricingRoute() {
 const path = window.location.pathname
 const isPricing = path === '/pricing'
 const isLeadFormTest = path === '/lead-form-test'
+const isNotifyMeTest = path === '/notify-me-test'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {isLeadFormTest ? <LeadFormTest /> : isPricing ? <PricingRoute /> : <App />}
+    {isNotifyMeTest ? <NotifyMeTest /> : isLeadFormTest ? <LeadFormTest /> : isPricing ? <PricingRoute /> : <App />}
   </StrictMode>,
 )
