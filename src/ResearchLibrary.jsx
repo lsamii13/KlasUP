@@ -27,6 +27,8 @@ const DIMENSIONS = [
   "Socratic Seminar", "Flipped Classroom", "Metacognition", "Feedback Quality",
   "Student Wellbeing", "Faculty Development", "Bloom's Taxonomy", "Case Studies",
   "Reflective Practice", "Community of Inquiry", "Trauma-Informed Teaching",
+  "High Impact Practices", "Inclusive Teaching", "Contemplative Pedagogy",
+  "Simulation-Based Learning",
 ];
 
 const DIM_COLORS = {
@@ -51,6 +53,10 @@ const DIM_COLORS = {
   "Reflective Practice": C.purple,
   "Community of Inquiry": C.tealBright,
   "Trauma-Informed Teaching": C.sage,
+  "High Impact Practices": C.gold,
+  "Inclusive Teaching": C.teal,
+  "Contemplative Pedagogy": C.purple,
+  "Simulation-Based Learning": C.rose,
 };
 
 function useWindowWidth() {
