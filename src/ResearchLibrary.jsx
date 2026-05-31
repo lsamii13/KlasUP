@@ -80,6 +80,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState(null);
   const [activeTab, setActiveTab] = useState("research");
+  const [ctlFilter, setCtlFilter] = useState(null);
   const ww = useWindowWidth();
   const mob = ww < 768;
 
@@ -368,13 +369,45 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
           <div style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
             Centers for Teaching and Learning at leading universities — curated resources to support your growth as an educator.
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {[
+
+          {/* ── TOPIC FILTERS ── */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            <button
+              onClick={() => setCtlFilter(null)}
+              style={{
+                fontSize: 12, fontFamily: F.accent, fontWeight: ctlFilter === null ? 700 : 500,
+                padding: "6px 14px", borderRadius: 20,
+                border: ctlFilter === null ? `2px solid ${C.tealBright}` : `1px solid ${C.border}`,
+                background: ctlFilter === null ? C.tealLight : C.white,
+                color: ctlFilter === null ? C.teal : C.muted,
+                cursor: "pointer", minHeight: 36,
+              }}>
+              All
+            </button>
+            {DIMENSIONS.map(d => (
+              <button key={d}
+                onClick={() => setCtlFilter(ctlFilter === d ? null : d)}
+                style={{
+                  fontSize: 12, fontFamily: F.accent, fontWeight: ctlFilter === d ? 700 : 500,
+                  padding: "6px 14px", borderRadius: 20,
+                  border: ctlFilter === d ? `2px solid ${DIM_COLORS[d] || C.teal}` : `1px solid ${C.border}`,
+                  background: ctlFilter === d ? `${DIM_COLORS[d] || C.teal}18` : C.white,
+                  color: ctlFilter === d ? (DIM_COLORS[d] || C.teal) : C.muted,
+                  cursor: "pointer", minHeight: 36,
+                }}>
+                {d}
+              </button>
+            ))}
+          </div>
+
+          {(() => {
+            const centers = [
               {
                 name: "Vanderbilt University",
                 center: "Center for Teaching",
                 url: "https://cft.vanderbilt.edu",
                 desc: "One of the most comprehensive teaching centers in the country, offering research-backed guides on active learning, course design, and inclusive teaching.",
+                topics: ["Active Learning", "Pedagogy", "Inclusive Teaching", "Bloom's Taxonomy"],
                 resources: [
                   { label: "Teaching Guides A-Z", url: "https://cft.vanderbilt.edu/guides-sub-pages/teaching-guides/" },
                   { label: "Active Learning", url: "https://cft.vanderbilt.edu/guides-sub-pages/active-learning/" },
@@ -386,6 +419,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Bok Center for Teaching and Learning",
                 url: "https://bokcenter.harvard.edu",
                 desc: "Harvard's teaching center focused on evidence-based pedagogy, offering resources for new and experienced faculty across disciplines.",
+                topics: ["Pedagogy", "Faculty Development", "Active Learning"],
                 resources: [
                   { label: "Teaching Resources", url: "https://bokcenter.harvard.edu/resources" },
                   { label: "Discussions", url: "https://bokcenter.harvard.edu/discussions" },
@@ -397,6 +431,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching and Learning",
                 url: "https://ctl.stanford.edu",
                 desc: "Stanford's CTL supports faculty with resources on course design, inclusive teaching, and educational technology integration.",
+                topics: ["Pedagogy", "Inclusive Teaching", "Active Learning"],
                 resources: [
                   { label: "Teaching Commons", url: "https://teachingcommons.stanford.edu" },
                   { label: "Course Design", url: "https://ctl.stanford.edu/course-design" },
@@ -408,6 +443,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for the Advancement of Teaching & Learning (CATL)",
                 url: "https://www.elon.edu/u/academics/catl/",
                 desc: "A nationally recognized teaching center focused on evidence-based, inclusive, and equitable teaching practices, SoTL, and faculty learning communities.",
+                topics: ["Inclusive Teaching", "Faculty Development", "Reflective Practice"],
                 resources: [
                   { label: "Teaching & Learning Resources", url: "https://www.elon.edu/u/academics/catl/tlresources/" },
                   { label: "Programs & Fellowships", url: "https://www.elon.edu/u/academics/catl/programsservices/programs/" },
@@ -419,6 +455,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching & Learning",
                 url: "https://www.endicott.edu/academics/endicott-center-for-teaching-and-learning",
                 desc: "Supports teaching excellence and student access, persistence, and success at Endicott College.",
+                topics: ["Faculty Development", "Pedagogy"],
                 resources: [
                   { label: "Academic Resources", url: "https://www.endicott.edu/academics/academic-resources-support" },
                   { label: "Faculty Directory", url: "https://www.endicott.edu/about/faculty-staff-directory" },
@@ -430,6 +467,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Research on Learning and Teaching (CRLT)",
                 url: "https://crlt.umich.edu/",
                 desc: "Founded in 1962, CRLT was the first teaching center in the country, offering evidence-based programs and services to promote excellence, equity, and innovation in teaching.",
+                topics: ["Faculty Development", "Inclusive Teaching", "Pedagogy"],
                 resources: [
                   { label: "Teaching Resources", url: "https://crlt.umich.edu/resources" },
                   { label: "Programs & Services", url: "https://crlt.umich.edu/programs" },
@@ -441,6 +479,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Endeavor Foundation Center for Faculty Development",
                 url: "https://www.rollins.edu/endeavor/",
                 desc: "Ranked 5th in the South for best undergraduate teaching, Rollins' Endeavor Center supports faculty across the professional lifecycle with evidence-based teaching resources rooted in the liberal arts tradition.",
+                topics: ["Faculty Development", "Pedagogy"],
                 resources: [
                   { label: "Faculty Development", url: "https://www.rollins.edu/endeavor/" },
                   { label: "Teaching Resources", url: "https://www.rollins.edu/endeavor/" },
@@ -452,6 +491,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Baldwin Center for Learning and Teaching",
                 url: "https://www.bowdoin.edu/baldwin-center/index.html",
                 desc: "Promotes intentional, inclusive, equitable, and effective learning and teaching environments, offering academic coaching, quantitative reasoning, and faculty development support.",
+                topics: ["Inclusive Teaching", "Metacognition", "Pedagogy"],
                 resources: [
                   { label: "Baldwin Center", url: "https://www.bowdoin.edu/baldwin-center/index.html" },
                   { label: "Academic Support", url: "https://www.bowdoin.edu/baldwin-center/index.html" },
@@ -463,6 +503,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching and Learning",
                 url: "https://ctl.columbia.edu/",
                 desc: "Columbia's CTL supports faculty with innovative teaching strategies, educational technology integration, and research-backed pedagogical development.",
+                topics: ["Pedagogy", "Active Learning", "Faculty Development"],
                 resources: [
                   { label: "Teaching Resources", url: "https://ctl.columbia.edu/resources/" },
                   { label: "Faculty Programs", url: "https://ctl.columbia.edu/programs/" },
@@ -474,6 +515,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Innovative Teaching and Learning (CITL)",
                 url: "https://citl.indiana.edu/",
                 desc: "CITL supports IU Bloomington faculty with instructional consulting, classroom observations, workshops, and resources for innovative and effective teaching.",
+                topics: ["Pedagogy", "Active Learning", "Faculty Development"],
                 resources: [
                   { label: "Teaching Resources", url: "https://citl.indiana.edu/teaching-resources/" },
                   { label: "Programs & Services", url: "https://citl.indiana.edu/programs-services/" },
@@ -485,6 +527,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Eberly Center for Teaching Excellence",
                 url: "https://www.cmu.edu/teaching/",
                 desc: "Evidence-based teaching tools; famous 'Solve a Teaching Problem' interactive resource.",
+                topics: ["Feedback Quality", "Active Learning", "Bloom's Taxonomy", "Pedagogy"],
                 resources: [
                   { label: "Solve a Teaching Problem", url: "https://www.cmu.edu/teaching/solveproblem/" },
                   { label: "Teaching & Learning Resources", url: "https://www.cmu.edu/teaching/resources/" },
@@ -496,6 +539,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Professional & Organizational Development Network",
                 url: "https://podnetwork.org",
                 desc: "The professional community for faculty developers; free, public teaching resources.",
+                topics: ["Faculty Development", "Pedagogy", "Reflective Practice"],
                 resources: [
                   { label: "Essays on Teaching Excellence", url: "https://podnetwork.org/publications-backup/essays/" },
                   { label: "A Guide to Faculty Development", url: "https://podnetwork.org/publications/guide-to-faculty-development/" },
@@ -507,6 +551,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Universal Design for Learning Guidelines",
                 url: "https://www.cast.org",
                 desc: "Creators of Universal Design for Learning; the source for the UDL framework.",
+                topics: ["Universal Design for Learning", "Inclusive Teaching", "Student Wellbeing"],
                 resources: [
                   { label: "The UDL Guidelines (3.0)", url: "https://udlguidelines.cast.org" },
                   { label: "About UDL", url: "https://www.cast.org/what-we-do/universal-design-for-learning/" },
@@ -518,6 +563,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Poorvu Center for Teaching and Learning",
                 url: "https://poorvucenter.yale.edu",
                 desc: "Equitable, engaged teaching; strong inclusive teaching and course design resources.",
+                topics: ["Inclusive Teaching", "Pedagogy", "Feedback Quality"],
                 resources: [
                   { label: "Inclusive Teaching Strategies", url: "https://poorvucenter.yale.edu/InclusiveTeachingStrategies" },
                   { label: "Accessible Teaching", url: "https://poorvucenter.yale.edu/teaching/teaching-resource-library/accessible-teaching" },
@@ -529,6 +575,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching Innovation",
                 url: "https://teaching.cornell.edu",
                 desc: "Inclusive, evidence-based, active learning; home of the Active Learning Initiative.",
+                topics: ["Active Learning", "Inclusive Teaching", "Pedagogy"],
                 resources: [
                   { label: "Teaching Resources", url: "https://teaching.cornell.edu/teaching-resources" },
                   { label: "Active Learning", url: "https://teaching.cornell.edu/teaching-resources/active-collaborative-learning/active-learning" },
@@ -540,50 +587,62 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Dartmouth Center for the Advancement of Learning (DCAL)",
                 url: "https://dcal.dartmouth.edu",
                 desc: "Evidence-based, learner-centered course design; strong inclusive teaching focus.",
+                topics: ["Inclusive Teaching", "Universal Design for Learning", "Pedagogy"],
                 resources: [
                   { label: "Teaching Resources", url: "https://dcal.dartmouth.edu/resources/teaching-resources" },
                   { label: "Teaching Methods", url: "https://dcal.dartmouth.edu/resources/teaching-methods" },
                   { label: "Inclusive Teaching", url: "https://dcal.dartmouth.edu/resources/teaching-methods/inclusive-teaching" },
                 ],
               },
-            ].map((ctl, i) => (
-              <div key={i} style={{
-                background: C.ivory, border: `1px solid ${C.navy}18`, borderRadius: 16,
-                padding: mob ? "20px 18px" : "28px 28px", boxShadow: "0 2px 12px rgba(15,31,61,0.04)",
-              }}>
-                <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 24, color: C.navy, marginBottom: 4 }}>
-                  {ctl.name}
-                </div>
-                <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: C.teal, marginBottom: 10 }}>
-                  {ctl.center}
-                </div>
-                <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.7, marginBottom: 16 }}>
-                  {ctl.desc}
-                </div>
-                <a href={ctl.url} target="_blank" rel="noopener noreferrer"
-                  style={{
-                    display: "inline-block", background: C.tealBright, color: C.white, border: "none",
-                    padding: "10px 22px", borderRadius: 10, fontFamily: F.accent, fontWeight: 700,
-                    fontSize: 13, textDecoration: "none", marginBottom: 16,
-                  }}>
-                  Visit CTL
-                </a>
-                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-                  <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, marginBottom: 8 }}>FEATURED RESOURCES</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {ctl.resources.map((r, j) => (
-                      <a key={j} href={r.url} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: 13, color: C.teal, fontFamily: F.body, fontWeight: 600, textDecoration: "none", transition: "color 0.2s" }}
-                        onMouseEnter={e => e.currentTarget.style.color = C.navy}
-                        onMouseLeave={e => e.currentTarget.style.color = C.teal}>
-                        → {r.label}
-                      </a>
-                    ))}
-                  </div>
-                </div>
+            ];
+            const filtered = centers.filter(ctl => !ctlFilter || ctl.topics.includes(ctlFilter));
+            return filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "3rem", color: C.muted }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>No centers tagged here yet</div>
+                <div style={{ fontSize: 14 }}>More coming soon.</div>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {filtered.map((ctl, i) => (
+                  <div key={i} style={{
+                    background: C.ivory, border: `1px solid ${C.navy}18`, borderRadius: 16,
+                    padding: mob ? "20px 18px" : "28px 28px", boxShadow: "0 2px 12px rgba(15,31,61,0.04)",
+                  }}>
+                    <div style={{ fontFamily: F.display, fontSize: mob ? 20 : 24, color: C.navy, marginBottom: 4 }}>
+                      {ctl.name}
+                    </div>
+                    <div style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: C.teal, marginBottom: 10 }}>
+                      {ctl.center}
+                    </div>
+                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.7, marginBottom: 16 }}>
+                      {ctl.desc}
+                    </div>
+                    <a href={ctl.url} target="_blank" rel="noopener noreferrer"
+                      style={{
+                        display: "inline-block", background: C.tealBright, color: C.white, border: "none",
+                        padding: "10px 22px", borderRadius: 10, fontFamily: F.accent, fontWeight: 700,
+                        fontSize: 13, textDecoration: "none", marginBottom: 16,
+                      }}>
+                      Visit CTL
+                    </a>
+                    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.muted, marginBottom: 8 }}>FEATURED RESOURCES</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {ctl.resources.map((r, j) => (
+                          <a key={j} href={r.url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 13, color: C.teal, fontFamily: F.body, fontWeight: 600, textDecoration: "none", transition: "color 0.2s" }}
+                            onMouseEnter={e => e.currentTarget.style.color = C.navy}
+                            onMouseLeave={e => e.currentTarget.style.color = C.teal}>
+                            → {r.label}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
