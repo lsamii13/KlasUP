@@ -480,6 +480,72 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                   { label: "Instructional Consulting", url: "https://citl.indiana.edu/programs-services/" },
                 ],
               },
+              {
+                name: "Carnegie Mellon",
+                center: "Eberly Center for Teaching Excellence",
+                url: "https://www.cmu.edu/teaching/",
+                desc: "Evidence-based teaching tools; famous 'Solve a Teaching Problem' interactive resource.",
+                resources: [
+                  { label: "Solve a Teaching Problem", url: "https://www.cmu.edu/teaching/solveproblem/" },
+                  { label: "Teaching & Learning Resources", url: "https://www.cmu.edu/teaching/resources/" },
+                  { label: "Assess Teaching & Learning", url: "https://www.cmu.edu/teaching/assessment/" },
+                ],
+              },
+              {
+                name: "POD Network",
+                center: "Professional & Organizational Development Network",
+                url: "https://podnetwork.org",
+                desc: "The professional community for faculty developers; free, public teaching resources.",
+                resources: [
+                  { label: "Essays on Teaching Excellence", url: "https://podnetwork.org/publications-backup/essays/" },
+                  { label: "A Guide to Faculty Development", url: "https://podnetwork.org/publications/guide-to-faculty-development/" },
+                  { label: "Resources Library", url: "https://podnetwork.org/resources/" },
+                ],
+              },
+              {
+                name: "CAST",
+                center: "Universal Design for Learning Guidelines",
+                url: "https://www.cast.org",
+                desc: "Creators of Universal Design for Learning; the source for the UDL framework.",
+                resources: [
+                  { label: "The UDL Guidelines (3.0)", url: "https://udlguidelines.cast.org" },
+                  { label: "About UDL", url: "https://www.cast.org/what-we-do/universal-design-for-learning/" },
+                  { label: "UDL Downloads & Translations", url: "https://udlguidelines.cast.org/more/downloads/" },
+                ],
+              },
+              {
+                name: "Yale",
+                center: "Poorvu Center for Teaching and Learning",
+                url: "https://poorvucenter.yale.edu",
+                desc: "Equitable, engaged teaching; strong inclusive teaching and course design resources.",
+                resources: [
+                  { label: "Inclusive Teaching Strategies", url: "https://poorvucenter.yale.edu/InclusiveTeachingStrategies" },
+                  { label: "Accessible Teaching", url: "https://poorvucenter.yale.edu/teaching/teaching-resource-library/accessible-teaching" },
+                  { label: "New to Teaching at Yale", url: "https://poorvucenter.yale.edu/new-to-teaching-at-yale" },
+                ],
+              },
+              {
+                name: "Cornell",
+                center: "Center for Teaching Innovation",
+                url: "https://teaching.cornell.edu",
+                desc: "Inclusive, evidence-based, active learning; home of the Active Learning Initiative.",
+                resources: [
+                  { label: "Teaching Resources", url: "https://teaching.cornell.edu/teaching-resources" },
+                  { label: "Active Learning", url: "https://teaching.cornell.edu/teaching-resources/active-collaborative-learning/active-learning" },
+                  { label: "Inclusion & Accessibility", url: "https://teaching.cornell.edu/teaching-resources/inclusion-accessibility" },
+                ],
+              },
+              {
+                name: "Dartmouth",
+                center: "Dartmouth Center for the Advancement of Learning (DCAL)",
+                url: "https://dcal.dartmouth.edu",
+                desc: "Evidence-based, learner-centered course design; strong inclusive teaching focus.",
+                resources: [
+                  { label: "Teaching Resources", url: "https://dcal.dartmouth.edu/resources/teaching-resources" },
+                  { label: "Teaching Methods", url: "https://dcal.dartmouth.edu/resources/teaching-methods" },
+                  { label: "Inclusive Teaching", url: "https://dcal.dartmouth.edu/resources/teaching-methods/inclusive-teaching" },
+                ],
+              },
             ].map((ctl, i) => (
               <div key={i} style={{
                 background: C.ivory, border: `1px solid ${C.navy}18`, borderRadius: 16,
