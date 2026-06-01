@@ -1721,13 +1721,6 @@ export default function KlasUp() {
     }
   };
 
-  const snap = [
-    { label: "Discussion prompt uploaded", ok: true },
-    { label: "Post-class notes added", ok: true },
-    { label: "UDL gap detected in Slide 4", ok: false },
-    { label: "No metacognitive prompt this week", ok: false },
-    { label: "Assignment milestone set", ok: true },
-  ];
 
   // --- Beta Agreement (public, no login required) ---
   if (showBeta) {
@@ -2332,84 +2325,216 @@ export default function KlasUp() {
         {page === "Dashboard" && (
           <div style={{ display: "flex", gap: mob ? 0 : 20, flexDirection: mob ? "column" : "row" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <PageHeader breadcrumb="🏠 Dashboard" title={`Good morning${profile?.name ? `, ${profile.name}` : ""}`} subtitle={`Week 8 of Fall 2025 · ${can("pro") ? "8 insights" : "2 insights"} ready for you`} />
+            {/* ── SECTION 1: GREETING ── */}
+            {(() => {
+              const hour = new Date().getHours();
+              const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+              const displayName = profile?.name
+                ? (DR_ELIGIBLE.includes(profile.education_level) ? addDrPrefix(profile.name) : profile.name).split(" ").slice(-1)[0]
+                : null;
+              const activeCourse = dbCourses.find(c => c.id === activeCourseId) || dbCourses[0];
+              const termLabel = activeCourse?.term_code || "";
+              const weekNum = parseInt((week || "").replace(/\D/g, ""), 10) || null;
+              const totalWeeks = activeCourse?.num_weeks || null;
+              const subtitleParts = [
+                activeCourse ? (activeCourse.course_code + (activeCourse.section ? ` - ${activeCourse.section}` : "")) : null,
+                termLabel || null,
+                weekNum ? `Week ${weekNum}${totalWeeks ? ` of ${totalWeeks}` : ""}` : null,
+              ].filter(Boolean);
+              return (
+                <PageHeader
+                  breadcrumb="🏠 Dashboard"
+                  title={`${greeting}${displayName ? `, ${displayName}` : ""}`}
+                  subtitle={subtitleParts.length > 0 ? subtitleParts.join(" · ") : "Welcome to KlasUp"}
+                />
+              );
+            })()}
 
-            {/* Snapshot */}
-            <Card style={{ marginBottom: 14, borderLeft: `4px solid ${C.tealBright}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div>
-                  <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 1 }}>{week} Snapshot — {courseLabel(course || courseNames[0])}</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>Auto-generated · Updated Sunday night</div>
-                </div>
-                <Tag label="This Week" color={C.teal} bg={C.tealLight} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 6, marginBottom: 10 }}>
-                {snap.map((s, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                    <span style={{ color: s.ok ? C.sage : C.rose, fontWeight: 700 }}>{s.ok ? "✓" : "⚑"}</span>
-                    <span style={{ color: s.ok ? C.text : C.rose }}>{s.label}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: C.ivory, borderRadius: 8, padding: "0.65rem", fontSize: 13, marginBottom: 10 }}>
-                <span style={{ fontWeight: 700, color: C.navy }}>Priority this week: </span>
-                <span style={{ color: C.muted }}>Add a metacognitive exit ticket to Week 9 — highest-impact move based on your current pattern.</span>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => {
-                  const snapText = snap.map(s => `${s.ok ? "✓" : "⚑"} ${s.label}`).join("\n");
-                  const body = `${week} Snapshot — ${courseLabel(course || courseNames[0])}\n\n${snapText}\n\nPriority this week: Add a metacognitive exit ticket to Week 9.`;
-                  printPdf(makePdfHeader(profile?.name, `${week} · ${courseLabel(course || courseNames[0])}`) + `<h2>${week} Snapshot</h2><ul>${snap.map(s => `<li>${s.ok ? "✓" : "⚑"} ${s.label}</li>`).join("")}</ul><p><strong>Priority this week:</strong> Add a metacognitive exit ticket to Week 9 — highest-impact move based on your current pattern.</p>`, `${week} Snapshot`);
-                }}
-                  style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>Export as PDF</button>
-                <EmailBtn subject={`My Teaching Snapshot — ${week}`} body={snap.map(s => `${s.ok ? "✓" : "⚑"} ${s.label}`).join("\n") + "\n\nPriority this week: Add a metacognitive exit ticket to Week 9."} />
-              </div>
-            </Card>
+            {/* ── SECTION 2: STAT CARDS ── */}
+            {(() => {
+              const now = Date.now();
+              const weekMs = 7 * 24 * 60 * 60 * 1000;
+              const thisWeekLog = uploadLog.filter(e => now - e.timestamp < weekMs);
+              const lastWeekLog = uploadLog.filter(e => now - e.timestamp >= weekMs && now - e.timestamp < weekMs * 2);
+              const activeCourse = dbCourses.find(c => c.id === activeCourseId) || dbCourses[0];
+              const termStart = activeCourse?.term_start ? new Date(activeCourse.term_start + "T00:00:00").getTime() : null;
+              const termLog = termStart ? uploadLog.filter(e => e.timestamp >= termStart) : uploadLog;
+              const prevCourse = dbCourses.length > 1 ? dbCourses.find(c => c.id !== (activeCourse?.id)) : null;
+              const prevTermStart = prevCourse?.term_start ? new Date(prevCourse.term_start + "T00:00:00").getTime() : null;
+              const weekNum = parseInt((week || "").replace(/\D/g, ""), 10) || null;
+              const prevTermAtSameWeek = prevTermStart && weekNum
+                ? uploadLog.filter(e => {
+                    const eTime = e.timestamp;
+                    const cutoff = prevTermStart + weekNum * weekMs;
+                    return eTime >= prevTermStart && eTime < cutoff;
+                  }).length
+                : null;
 
-            {/* Wellness Check-in */}
-            <div style={{ background: "#EAF3DE", borderRadius: 14, padding: "1.25rem", marginBottom: 14, border: `1px solid ${C.sage}22` }}>
-              <div style={{ fontFamily: F.display, fontSize: 17, color: C.sage, marginBottom: 10 }}>How are you showing up today?</div>
-              {wellnessBurnoutFlag && (
-                <div style={{ background: C.roseLight, borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: 13, color: C.rose, lineHeight: 1.5 }}>
-                  You've had a tough few days. Be gentle with yourself. 🌿
+              const thisWeekBuilt = thisWeekLog.filter(e => ["Assignments", "Discussions", "PowerPoints"].includes(e.category)).length;
+              const lastWeekBuilt = lastWeekLog.filter(e => ["Assignments", "Discussions", "PowerPoints"].includes(e.category)).length;
+              const thisWeekUploaded = thisWeekLog.filter(e => !["Assignments", "Discussions", "PowerPoints"].includes(e.category)).length;
+              const lastWeekUploaded = lastWeekLog.filter(e => !["Assignments", "Discussions", "PowerPoints"].includes(e.category)).length;
+              const termTotal = termLog.length;
+
+              const wowLine = (current, prev, hasPrev) => {
+                if (!hasPrev) return null;
+                if (current > prev) return { text: `up from ${prev} last week`, icon: "↑" };
+                if (current < prev) return { text: `down from ${prev} last week`, icon: "↓" };
+                return { text: "same as last week", icon: "—" };
+              };
+              const builtWow = wowLine(thisWeekBuilt, lastWeekBuilt, lastWeekLog.length > 0);
+              const uploadedWow = wowLine(thisWeekUploaded, lastWeekUploaded, lastWeekLog.length > 0);
+              const paceText = prevTermAtSameWeek !== null && termTotal > 0
+                ? termTotal > prevTermAtSameWeek ? "ahead of last term's pace"
+                  : termTotal < prevTermAtSameWeek ? "behind last term's pace"
+                  : "on pace with last term"
+                : null;
+
+              const statCards = [
+                { label: "This week", val: thisWeekBuilt, sub: builtWow },
+                { label: "Uploaded", val: thisWeekUploaded, sub: uploadedWow },
+                { label: "This term", val: termTotal, sub: paceText ? { text: paceText, icon: termTotal > (prevTermAtSameWeek || 0) ? "↑" : termTotal < (prevTermAtSameWeek || 0) ? "↓" : "—" } : null },
+              ];
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 14 }}>
+                  {statCards.map((s, i) => (
+                    <Card key={i}>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{s.label.toUpperCase()}</div>
+                      <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>{s.val}</div>
+                      {s.sub && (
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+                          <span style={{ marginRight: 4 }}>{s.sub.icon}</span>{s.sub.text}
+                        </div>
+                      )}
+                    </Card>
+                  ))}
                 </div>
-              )}
-              {wellnessTodayCheckin && !wellnessMsg ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 28 }}>{WELLNESS_EMOJIS[wellnessTodayCheckin.check_in_score - 1]}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: C.sage, fontWeight: 600 }}>Checked in today</div>
-                    <div style={{ fontSize: 12, color: C.muted }}>{WELLNESS_MESSAGES[wellnessTodayCheckin.check_in_score - 1]}</div>
-                  </div>
-                  <button onClick={() => { setWellnessMsg(null); setWellnessScore(null); }}
-                    style={{ background: "none", border: "none", fontSize: 12, color: C.sage, fontFamily: F.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
-                    Update
-                  </button>
-                </div>
-              ) : (
+              );
+            })()}
+
+            {/* ── SECTION 3: SUGGESTED NEXT STEP ── */}
+            {(() => {
+              const weekNum = parseInt((week || "").replace(/\D/g, ""), 10) || 1;
+              const nextWeekNum = Math.min(weekNum + 1, 16);
+              const currentWeekUploads = uploadLog.filter(e => e.week === week && e.course === course);
+              const hasSlides = currentWeekUploads.some(e => e.category === "PowerPoints") || deckUploaded;
+              const nextWeekHasSlides = uploadLog.some(e => e.week === `Week ${nextWeekNum}` && e.course === course && e.category === "PowerPoints");
+              const untaggedAssignments = uploadLog.filter(e => e.category === "Assignments" && e.course === course).length - (selectedOutcomes.length > 0 ? 1 : 0);
+              const hasDiscussion = currentWeekUploads.some(e => e.category === "Discussions");
+
+              const rules = [
+                { match: !nextWeekHasSlides && !hasSlides, label: `Week ${nextWeekNum} has no slide deck yet`, btn: "Open Slide Studio", action: () => setPage("Slide Studio"), icon: "📊" },
+                { match: untaggedAssignments > 0, label: `You have ${untaggedAssignments} assignment${untaggedAssignments > 1 ? "s" : ""} not yet tagged to outcomes`, btn: "Review tagging", action: () => { setPage("My Course"); setMyCourseCategory("Assignments"); }, icon: "🎯" },
+                { match: !hasDiscussion, label: `Add a discussion prompt for ${week}`, btn: "Open Pedagogy Studio", action: () => { setPage("My Course"); setMyCourseCategory("Discussions"); }, icon: "💬" },
+                { match: true, label: "You're all caught up — explore the Research Library", btn: "Browse research", action: () => setPage("Research Library"), icon: "📚" },
+              ];
+
+              const hero = rules.find(r => r.match);
+              const secondary = rules.filter(r => r.match && r !== hero).slice(0, 3);
+              const recentItems = uploadLog.slice(0, 3);
+
+              const relativeTime = (ts) => {
+                const diff = Date.now() - ts;
+                const mins = Math.floor(diff / 60000);
+                if (mins < 1) return "just now";
+                if (mins < 60) return `${mins}m ago`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return `${hrs}h ago`;
+                const days = Math.floor(hrs / 24);
+                return `${days}d ago`;
+              };
+
+              const UPLOAD_ICONS = { "Post-class notes": "✏", "Announcements": "📢", "Assignments": "📝", "Discussions": "💬", "Learning Outcomes": "🎯", "Student Voice": "🗣", "PowerPoints": "📊" };
+
+              return (
                 <>
-                  <div style={{ display: "flex", gap: mob ? 12 : 16, marginBottom: wellnessMsg ? 12 : 0 }}>
-                    {WELLNESS_EMOJIS.map((e, i) => (
-                      <button key={i} onClick={() => handleWellnessCheckin(i + 1)}
-                        style={{
-                          fontSize: mob ? 26 : 30, background: wellnessScore === i + 1 ? `${C.sage}22` : "transparent",
-                          border: wellnessScore === i + 1 ? `2px solid ${C.sage}` : "2px solid transparent",
-                          borderRadius: "50%", width: mob ? 44 : 48, height: mob ? 44 : 48,
-                          cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                  {wellnessMsg && (
-                    <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 10, padding: "10px 14px" }}>
-                      <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, lineHeight: 1.5, marginBottom: 4 }}>{wellnessMsg.message}</div>
-                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>💡 {wellnessMsg.tip}</div>
+                  {/* Hero suggestion */}
+                  <Card style={{ marginBottom: 14, borderLeft: `4px solid ${C.tealBright}` }}>
+                    <div style={{ display: "flex", alignItems: mob ? "flex-start" : "center", gap: 14, flexDirection: mob ? "column" : "row" }}>
+                      <span style={{ fontSize: 28, flexShrink: 0 }}>{hero.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 4 }}>{hero.label}</div>
+                        <button onClick={hero.action}
+                          style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 18px", cursor: "pointer" }}>
+                          {hero.btn} →
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* ── SECTION 4: TWO COLUMNS ── */}
+                  {(secondary.length > 0 || recentItems.length > 0) && (
+                    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                      {secondary.length > 0 && (
+                        <Card>
+                          <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>OTHER THINGS YOU COULD DO</div>
+                          {secondary.map((s, i) => (
+                            <div key={i} onClick={s.action}
+                              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
+                              <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
+                              <div style={{ fontSize: 13, color: C.navy, fontWeight: 500 }}>{s.label}</div>
+                            </div>
+                          ))}
+                        </Card>
+                      )}
+                      {recentItems.length > 0 && (
+                        <Card>
+                          <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>RECENT ACTIVITY</div>
+                          {recentItems.map((item, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
+                              <span style={{ fontSize: 18, flexShrink: 0 }}>{UPLOAD_ICONS[item.category] || "📄"}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
+                                <div style={{ fontSize: 11, color: C.muted }}>{item.course} · {item.week}</div>
+                              </div>
+                              <div style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
+                            </div>
+                          ))}
+                        </Card>
+                      )}
                     </div>
                   )}
+
+                  {/* ── SECTION 5: MICRO-LEARNINGS ROW ── */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>MICRO-LEARNINGS FOR YOU</div>
+                      <button onClick={() => setPage("Micro-Learning")}
+                        style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: "none", cursor: "pointer" }}>See all →</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
+                      {(aiMicro.length > 0 ? aiMicro.slice(0, 3) : MICRO.filter(m => can(m.tier)).slice(0, 3)).map((m, i) => {
+                        const TAG_COLORS = {
+                          "Active Learning": { color: C.sage, bg: C.sageLight },
+                          "Socratic Seminar": { color: C.teal, bg: C.tealLight },
+                          "UDL": { color: C.rose, bg: C.roseLight },
+                          "Reflection": { color: C.rose, bg: C.roseLight },
+                          "Flipped Classroom": { color: C.sage, bg: C.sageLight },
+                          "Student Voice": { color: C.gold, bg: C.goldLight },
+                          "Assessment Design": { color: C.purple, bg: C.purpleLight },
+                          "Scaffolding": { color: C.teal, bg: C.tealLight },
+                          "Metacognition": { color: C.purple, bg: C.purpleLight },
+                          "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
+                        };
+                        const tc = TAG_COLORS[m.tag] || m.color ? { color: m.color, bg: m.bg } : { color: C.teal, bg: C.tealLight };
+                        return (
+                          <Card key={i}>
+                            <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                            <div style={{ fontFamily: F.display, fontSize: 15, color: C.navy, margin: "8px 0 6px", lineHeight: 1.3 }}>{m.title}</div>
+                            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 8 }}>{m.summary.length > 120 ? m.summary.slice(0, 120) + "…" : m.summary}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <div style={{ width: 3, height: 20, background: tc.color, borderRadius: 2 }} />
+                              <div style={{ fontSize: 11, color: C.navy, fontWeight: 600 }}>→ {m.action.length > 60 ? m.action.slice(0, 60) + "…" : m.action}</div>
+                            </div>
+                            <StarRating ratingKey={`dash-${i}`} />
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Career Connections */}
             <div style={{ background: C.navy, borderRadius: 16, padding: "1.5rem", marginBottom: 14, position: "relative", overflow: "hidden" }}>
