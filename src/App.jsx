@@ -144,19 +144,6 @@ const SIG_COLORS = {
   Established: { color: C.sage, bg: C.sageLight },
 };
 
-const DIMENSIONS = [
-  { label: "Active Learning", score: 76, note: "Good variety; case studies underused", tier: "pro", color: C.sage },
-  { label: "Announcements & Presence", score: 79, note: "Good frequency, tone could be warmer", tier: "free", color: C.tealBright },
-  { label: "Assignments & Feedback Quality", score: 72, note: "Missing milestone checkpoints", tier: "free", color: C.tealBright },
-  { label: "Discussions & Socratic Seminar", score: 88, note: "Strong prompt quality, high reply depth", tier: "free", color: C.tealBright },
-  { label: "Flipped Classroom & Pacing", score: 84, note: "Module sequencing is clear", tier: "pro", color: C.tealBright },
-  { label: "Learning Outcome Alignment", score: 69, note: "3 assignments lack outcome mapping", tier: "pro", color: C.sage },
-  { label: "Reflection & Feedback", score: 58, note: "Few reflection or exit ticket prompts", tier: "pro", color: C.rose },
-  { label: "Student Voice Integration", score: 66, note: "No mid-term feedback uploaded", tier: "pro", color: C.gold },
-  { label: "Universal Design for Learning", score: 61, note: "Limited multimodal content detected", tier: "pro", color: C.sage },
-  { label: "Wellbeing & Sustainability", score: 74, note: "Moderate workload signals detected", tier: "pro", color: C.rose },
-];
-
 const MICRO = [
   { tag: "Active Learning", title: "Low-stakes retrieval boosts long-term retention", summary: "Brief retrieval practice at class start improves long-term retention by up to 50% vs re-reading.", article: "Roediger & Karpicke (2006). Psychological Science.", action: "Open next class with a 3-question retrieval quiz.", tier: "pro", color: C.sage, bg: C.sageLight },
   { tag: "Socratic Seminar", title: "Inquiry-based prompts deepen discussion quality", summary: "Open-ended challenge prompts posted before the week see 34% higher substantive reply rates.", article: "Garrison et al. (2010). Internet & Higher Education.", action: "Reframe your next prompt as an unresolved question.", tier: "free", color: C.teal, bg: C.tealLight },
@@ -243,9 +230,6 @@ const OUTCOMES = [
   "Demonstrate written communication at a professional standard",
 ];
 
-const healthData = [52, 58, 55, 63, 70, 74, 79, 83];
-const semData = [{ l: "F'23", s: 61 }, { l: "Sp'24", s: 68 }, { l: "F'24", s: 74 }, { l: "Sp'25", s: 83 }];
-
 const Tag = ({ label, color, bg }) => (
   <span style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: bg, color, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{label}</span>
 );
@@ -261,19 +245,6 @@ const LockOverlay = ({ onUpgrade }) => (
     <button onClick={onUpgrade} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer" }}>Upgrade to Pro</button>
   </div>
 );
-
-const ScoreRing = ({ score, size = 70, color = C.tealBright }) => {
-  const r = (size - 10) / 2, circ = 2 * Math.PI * r, dash = (score / 100) * circ;
-  return (
-    <svg width={size} height={size}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.ivoryDark} strokeWidth={7} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={7}
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="middle"
-        style={{ fontSize: 15, fontWeight: 600, fontFamily: F.accent, fill: color }}>{score}</text>
-    </svg>
-  );
-};
 
 function formatCourseLabel(c) {
   if (!c) return "—";
@@ -927,7 +898,6 @@ export default function KlasUp() {
   const [myCourseFeedbackLoading, setMyCourseFeedbackLoading] = useState(false);
   const [promptHelperOpen, setPromptHelperOpen] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState({});
-  const [upScoreOpen, setUpScoreOpen] = useState(false);
 
   // --- Assignment Document Generator state ---
   const [assignDocDesc, setAssignDocDesc] = useState("");
@@ -2441,87 +2411,6 @@ export default function KlasUp() {
               )}
             </div>
 
-            {/* Up Score */}
-            <Card style={{ marginBottom: 14, background: C.navy, border: "none", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, background: `${C.tealBright}12`, borderRadius: "50%", pointerEvents: "none" }} />
-              <div style={{ display: "flex", alignItems: mob ? "flex-start" : "center", gap: mob ? 14 : 20, flexDirection: mob ? "column" : "row" }}>
-                <ScoreRing score={83} size={mob ? 70 : 90} color={C.tealBright} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <div style={{ fontFamily: F.display, fontSize: 20, color: C.white }}>Your Up Score</div>
-                    <Tag label="+31 pts this term" color={C.tealBright} bg={`${C.tealBright}22`} />
-                  </div>
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 10 }}>Composite score across all courses, uploads, engagement, and pedagogical growth.</div>
-                  <div style={{ display: "flex", gap: mob ? 8 : 12, flexWrap: "wrap" }}>
-                    {[{ label: "Uploads", val: "23" }, { label: "Weeks Active", val: "8" }, { label: "Dimensions Tracked", val: can("pro") ? "10" : "3" }, { label: "Courses", val: String(can("pro") ? courseNames.length || 1 : 1) }].map((s, i) => (
-                      <div key={i} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "6px 12px" }}>
-                        <div style={{ fontSize: 9, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>{s.label}</div>
-                        <div style={{ fontSize: 16, fontFamily: F.accent, fontWeight: 700, color: C.tealMid }}>{s.val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Course scores */}
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : `repeat(${Math.min(dbCourses.length, 3) || 1},minmax(0,1fr))`, gap: 12, marginBottom: 14 }}>
-              {(dbCourses.length > 0 ? dbCourses : [null]).map((cObj, i) => {
-                const demoScores = [83, 71, 67, 75, 60];
-                const demoTrends = ["+11", "+6", "+3", "+8", "+2"];
-                const sc = demoScores[i % demoScores.length];
-                const tr = demoTrends[i % demoTrends.length];
-                return (
-                <Card key={i} style={{ position: "relative", overflow: "hidden" }}>
-                  {i > 0 && !can("pro") && <LockOverlay onUpgrade={upgrade} />}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{cObj ? formatCourseLabel(cObj) : "—"}</div>
-                      <div style={{ fontFamily: F.display, fontSize: 28, color: C.teal }}>{sc}</div>
-                      <div style={{ fontSize: 12, color: C.sage, fontWeight: 600 }}>{tr} this term</div>
-                    </div>
-                    <ScoreRing score={sc} />
-                  </div>
-                </Card>
-                );
-              })}
-            </div>
-
-            {/* Charts */}
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
-              <Card>
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>WEEK OVER WEEK — {courseLabel(course || courseNames[0])}</div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 80 }}>
-                  {healthData.map((s, i) => {
-                    const h = ((s - 40) / 60) * 65, isL = i === healthData.length - 1;
-                    return (
-                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                        {isL && <span style={{ fontSize: 10, fontFamily: F.accent, color: C.tealBright, fontWeight: 700 }}>{s}</span>}
-                        <div style={{ width: "100%", height: `${h}px`, background: isL ? C.tealBright : `${C.tealBright}44`, borderRadius: "3px 3px 0 0" }} />
-                        <span style={{ fontSize: 9, color: C.muted, fontFamily: F.accent }}>W{i + 1}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-              <Card style={{ position: "relative", overflow: "hidden" }}>
-                {!can("pro") && <LockOverlay onUpgrade={upgrade} />}
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>TERM OVER TERM</div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
-                  {semData.map((d, i) => {
-                    const h = ((d.s - 40) / 60) * 65, isL = i === semData.length - 1;
-                    return (
-                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                        <span style={{ fontSize: 10, fontFamily: F.accent, color: isL ? C.rose : C.muted, fontWeight: isL ? 700 : 400 }}>{d.s}</span>
-                        <div style={{ width: "100%", height: `${h}px`, background: isL ? C.rose : `${C.rose}44`, borderRadius: "3px 3px 0 0" }} />
-                        <span style={{ fontSize: 9, color: C.muted, fontFamily: F.accent }}>{d.l}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            </div>
-
             {/* Career Connections */}
             <div style={{ background: C.navy, borderRadius: 16, padding: "1.5rem", marginBottom: 14, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, background: `${C.tealBright}12`, borderRadius: "50%", pointerEvents: "none" }} />
@@ -2961,39 +2850,6 @@ export default function KlasUp() {
               )}
             </Card>
 
-            {/* ── 4. UP SCORE BREAKDOWN (collapsible) ── */}
-            <Card>
-              <button onClick={() => setUpScoreOpen(!upScoreOpen)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-                <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>UP SCORE BREAKDOWN — {course} · {week}</div>
-                <span style={{ fontSize: 12, color: C.muted }}>{upScoreOpen ? "▲" : "▼"}</span>
-              </button>
-              {upScoreOpen && (
-                <div style={{ marginTop: 14 }}>
-                  {DIMENSIONS.map((d, i) => {
-                    const locked = !can(d.tier);
-                    return (
-                      <div key={i} style={{ marginBottom: 12, position: "relative" }}>
-                        {locked && (
-                          <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,244,0.9)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", zIndex: 1 }}>
-                            <span style={{ fontSize: 12, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>🔒 {d.label}</span>
-                            <button onClick={upgrade} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 20, padding: "3px 12px", cursor: "pointer" }}>Pro ↗</button>
-                          </div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
-                          <span style={{ fontSize: 13, fontFamily: F.accent, color: d.color, fontWeight: 700 }}>{d.score}</span>
-                        </div>
-                        <div style={{ height: 6, background: C.ivoryDark, borderRadius: 4, overflow: "hidden", marginBottom: 3 }}>
-                          <div style={{ width: `${d.score}%`, height: "100%", background: d.score > 80 ? C.tealBright : d.score > 70 ? C.sage : C.rose, borderRadius: 4 }} />
-                        </div>
-                        <div style={{ fontSize: 11, color: C.muted }}>{d.note}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
           </div>
           );
         })()}
@@ -3259,15 +3115,6 @@ export default function KlasUp() {
                         </div>
                         <button onClick={() => setDeckUploaded(false)} style={{ fontSize: 12, color: C.rose, background: "none", border: `0.5px solid ${C.rose}44`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>Replace deck</button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: mob ? "repeat(2,1fr)" : "repeat(4,minmax(0,1fr))", gap: 10, marginBottom: 14 }}>
-                        {[{ label: "UDL Score", val: "71", color: C.sage }, { label: "Text Density", val: "High", color: C.rose }, { label: "Active Moments", val: "3/7", color: C.tealBright }, { label: "Outcome Alignment", val: "80%", color: C.sage }].map((s, i) => (
-                          <div key={i} style={{ background: C.ivoryDark, borderRadius: 10, padding: "0.75rem" }}>
-                            <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
-                            <div style={{ fontSize: 18, fontFamily: F.display, color: s.color }}>{s.val}</div>
-                          </div>
-                        ))}
-                      </div>
-
                       {/* Slide-by-slide breakdown */}
                       <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>SLIDE-BY-SLIDE BREAKDOWN</div>
                       {SLIDES.map((s, i) => (
@@ -3446,29 +3293,6 @@ export default function KlasUp() {
         {page === "Think Tank" && !gatedPageIds.has("Think Tank") && (
           <div>
             <PageHeader breadcrumb="🏠 Dashboard › 💡 Think Tank" title="Think Tank" subtitle="Faculty at similar institutions · working on similar challenges." />
-            {/* Collaboration Score */}
-            <Card style={{ marginBottom: 18, background: C.navy, border: "none", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -25, right: -25, width: 120, height: 120, background: `${C.tealBright}10`, borderRadius: "50%", pointerEvents: "none" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                <ScoreRing score={64} size={80} color={C.tealBright} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <div style={{ fontFamily: F.display, fontSize: 18, color: C.white }}>Collaboration Score</div>
-                    <Tag label="Building" color={C.gold} bg={`${C.gold}33`} />
-                  </div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 10 }}>Tracks your forum engagement — posts, replies, and peer interactions over time.</div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    {[{ label: "Posts", val: "6" }, { label: "Replies", val: "14" }, { label: "Threads Joined", val: "9" }, { label: "Weeks Active", val: "6/8" }].map((s, i) => (
-                      <div key={i} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "5px 10px" }}>
-                        <div style={{ fontSize: 9, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>{s.label}</div>
-                        <div style={{ fontSize: 15, fontFamily: F.accent, fontWeight: 700, color: C.tealMid }}>{s.val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
             <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
               {["All", "Socratic Seminar", "UDL", "Flipped Classroom", "Reflection", "Active Learning"].map(t => (
                 <span key={t} style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, padding: "5px 14px", borderRadius: 20, background: t === "All" ? C.navy : C.ivoryDark, color: t === "All" ? C.white : C.muted, cursor: "pointer" }}>{t}</span>
@@ -3540,8 +3364,8 @@ export default function KlasUp() {
         {page === "Reports" && !gatedPageIds.has("Reports") && (
           <div>
             <PageHeader breadcrumb="🏠 Dashboard › 📊 Reports" title="Reports" subtitle="Accreditation-ready documentation of faculty growth and engagement." />
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
-              {[{ label: "Avg Health Score", val: "74", sub: "+13 from last term" }, { label: "Dimensions Tracked", val: can("pro") ? "10" : "3", sub: can("pro") ? "Full suite active" : "Upgrade for full suite" }, { label: "Standards Mapped", val: can("institutional") ? "5" : can("pro") ? "3" : "1", sub: "Documented" }].map((s, i) => (
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
+              {[{ label: "Dimensions Tracked", val: can("pro") ? "10" : "3", sub: can("pro") ? "Full suite active" : "Upgrade for full suite" }, { label: "Standards Mapped", val: can("institutional") ? "5" : can("pro") ? "3" : "1", sub: "Documented" }].map((s, i) => (
                 <div key={i} style={{ background: C.ivoryDark, borderRadius: 12, padding: "1rem" }}>
                   <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 4 }}>{s.label}</div>
                   <div style={{ fontFamily: F.display, fontSize: 28, color: C.navy }}>{s.val}</div>
