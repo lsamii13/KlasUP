@@ -88,61 +88,6 @@ const NAV = [
   { id: "Slide Studio", icon: "◫", hiddenViaCourseArchitect: true },
 ];
 
-const CAREER_DATA = {
-  "MKT 301": {
-    topic: "Consumer Behavior & AI-Driven Personalization",
-    intelligence: "Demand for AI-fluent marketing roles has grown 38% year-over-year. Consumer behavior expertise combined with AI tooling is the fastest-emerging hybrid skill set in the marketing labor market.",
-    source: "LinkedIn Talent Insights · Indeed Hiring Lab · BLS 2025",
-    jobs: [
-      { title: "AI Marketing Analyst", signal: "Emerging", growth: "+41%", why: "Your consumer behavior frameworks and data interpretation content maps directly to this role.", skills: ["Behavioral data analysis", "LLM prompt design", "Segmentation modeling"], tier: "free" },
-      { title: "Personalization Strategist", signal: "Growing", growth: "+29%", why: "Your pricing and positioning content aligns with how personalization strategy is applied in practice.", skills: ["Customer journey mapping", "A/B testing", "AI content tools"], tier: "pro" },
-      { title: "Consumer Insights Lead", signal: "Established", growth: "+18%", why: "The qualitative frameworks from your case study are core competencies for this role.", skills: ["Ethnographic research", "Insight synthesis", "Stakeholder storytelling"], tier: "pro" },
-      { title: "Marketing Automation Specialist", signal: "Growing", growth: "+33%", why: "Your discussion on digital touchpoints maps directly to what this role manages day-to-day.", skills: ["HubSpot / Salesforce", "Workflow logic", "Campaign analytics"], tier: "pro" },
-      { title: "Brand Intelligence Analyst", signal: "Emerging", growth: "+52%", why: "Your Nike repositioning case connects precisely to how brand intelligence is tracked and acted on.", skills: ["Social listening tools", "Competitive analysis", "AI trend detection"], tier: "pro" },
-    ],
-    shareCard: {
-      headline: "This week in MKT 301 connects to some of the fastest-growing careers in marketing.",
-      roles: ["AI Marketing Analyst (+41%)", "Brand Intelligence Analyst (+52%)", "Marketing Automation Specialist (+33%)"],
-      message: "The skills you're building — consumer behavior analysis, strategic positioning, and data interpretation — are exactly what employers are hiring for right now.",
-    },
-  },
-  "MKT 410": {
-    topic: "Digital Strategy & Content Marketing",
-    intelligence: "Content strategy roles are evolving rapidly as generative AI reshapes production workflows. Employers now prioritize strategic oversight of AI-generated content over pure writing ability.",
-    source: "LinkedIn Talent Insights · Indeed Hiring Lab · BLS 2025",
-    jobs: [
-      { title: "Content Strategy Manager", signal: "Growing", growth: "+27%", why: "Your content audit framework is the core methodology this role uses daily.", skills: ["Editorial planning", "SEO strategy", "AI content oversight"], tier: "free" },
-      { title: "AI Content Director", signal: "Emerging", growth: "+61%", why: "New role category emerging directly from your week's theme on AI-assisted content production.", skills: ["Prompt engineering", "Brand voice governance", "Content ops"], tier: "pro" },
-      { title: "Digital Experience Designer", signal: "Established", growth: "+22%", why: "Your UX-content intersection content maps to this role's core deliverables.", skills: ["Journey mapping", "Figma", "Content design systems"], tier: "pro" },
-    ],
-    shareCard: {
-      headline: "MKT 410 this week connects directly to one of the hottest job categories in digital marketing.",
-      roles: ["AI Content Director (+61%)", "Content Strategy Manager (+27%)", "Digital Experience Designer (+22%)"],
-      message: "Content strategy is being completely reimagined by AI. The frameworks you're learning now position you ahead of most applicants in this space.",
-    },
-  },
-  "BUS 201": {
-    topic: "Organizational Behavior & Decision-Making",
-    intelligence: "Demand for business analysts with behavioral science and AI decision-support skills is accelerating as organizations integrate AI into strategic planning processes.",
-    source: "LinkedIn Talent Insights · Indeed Hiring Lab · BLS 2025",
-    jobs: [
-      { title: "Business Intelligence Analyst", signal: "Established", growth: "+24%", why: "Your decision-making frameworks are the analytical foundation of this role.", skills: ["Data visualization", "SQL", "Stakeholder communication"], tier: "free" },
-      { title: "Organizational Design Consultant", signal: "Growing", growth: "+31%", why: "Your org behavior content maps directly to how this role diagnoses and restructures teams.", skills: ["Change management", "Systems thinking", "Facilitation"], tier: "pro" },
-      { title: "AI Strategy Associate", signal: "Emerging", growth: "+48%", why: "Emerging role at the intersection of business strategy and AI — your case content this week is foundational.", skills: ["AI literacy", "Process mapping", "Executive communication"], tier: "pro" },
-    ],
-    shareCard: {
-      headline: "BUS 201 this week connects to some of the most in-demand roles in business and strategy.",
-      roles: ["AI Strategy Associate (+48%)", "Organizational Design Consultant (+31%)", "Business Intelligence Analyst (+24%)"],
-      message: "Understanding how organizations make decisions — and how AI is changing that — is one of the most valued skill sets in the current job market.",
-    },
-  },
-};
-
-const SIG_COLORS = {
-  Emerging: { color: C.purple, bg: C.purpleLight },
-  Growing: { color: C.teal, bg: C.tealLight },
-  Established: { color: C.sage, bg: C.sageLight },
-};
 
 const MICRO = [
   { tag: "Active Learning", title: "Low-stakes retrieval boosts long-term retention", summary: "Brief retrieval practice at class start improves long-term retention by up to 50% vs re-reading.", article: "Roediger & Karpicke (2006). Psychological Science.", action: "Open next class with a 3-question retrieval quiz.", tier: "pro", color: C.sage, bg: C.sageLight },
@@ -855,9 +800,6 @@ export default function KlasUp() {
   const tier = subStatus.tier;
   const [course, setCourse] = useState("");
   const [week, setWeek] = useState("Week 8");
-  const [careerExpanded, setCareerExpanded] = useState(false);
-  const [shareCardOpen, setShareCardOpen] = useState(false);
-  const [expandedJob, setExpandedJob] = useState(null);
   const [uploadOpen, setUploadOpen] = useState(null);
   const [uploaded, setUploaded] = useState({});
   const [slideOpen, setSlideOpen] = useState(null);
@@ -1002,7 +944,6 @@ export default function KlasUp() {
     });
   }, []);
 
-  const courseNames = dbCourses.map(c => c.course_code);
   const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
 
   const JOB_TITLES = ["Professor", "Associate Professor", "Assistant Professor", "Adjunct", "Instructor", "Lecturer", "Dean", "Department Chair", "AVPAA", "Other"];
@@ -1437,8 +1378,6 @@ export default function KlasUp() {
   const TIER_RANK = { free: 0, pro: 1, institutional: 2, admin: 3 };
   const can = t => (TIER_RANK[tier] || 0) >= (TIER_RANK[t] || 0);
   const upgrade = () => { setPage("Pricing"); if (typeof gtag === "function") gtag("event", "upgrade_button_clicked"); if (session?.user) trackEvent(session.user.id, "upgrade_prompt_shown"); };
-  const cd = CAREER_DATA[course] || CAREER_DATA[courseNames[0]] || CAREER_DATA["MKT 301"] || { topic: "", intelligence: "", source: "", jobs: [], shareCard: { headline: "", roles: [], message: "" } };
-
   const rateMicro = (key, stars) => setMicroRatings(p => ({ ...p, [key]: stars }));
   const allRatings = Object.values(microRatings).filter(v => v > 0);
   const avgRating = allRatings.length > 1 ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1) : null;
@@ -2534,108 +2473,6 @@ export default function KlasUp() {
               );
             })()}
 
-            {/* Career Connections */}
-            <div style={{ background: C.navy, borderRadius: 16, padding: "1.5rem", marginBottom: 14, position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, background: `${C.tealBright}12`, borderRadius: "50%", pointerEvents: "none" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3, flexWrap: "wrap" }}>
-                    <div style={{ fontFamily: F.display, fontSize: mob ? 18 : 20, color: C.white }}>Career Connections</div>
-                    <span style={{ fontSize: 10, fontFamily: F.accent, fontWeight: 700, background: `${C.purple}55`, color: "#D4B8F0", padding: "2px 10px", borderRadius: 20 }}>Intelligence</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{course} · {week} · {cd.topic}</div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {can("pro") && <button onClick={() => setShareCardOpen(!shareCardOpen)} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: `${C.tealBright}33`, color: C.tealMid, border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer" }}>Share ↗</button>}
-                  <button onClick={() => setCareerExpanded(!careerExpanded)} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)", border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer" }}>{careerExpanded ? "Collapse" : "Expand"}</button>
-                </div>
-              </div>
-
-              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "0.75rem", marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontFamily: F.accent, color: C.tealMid, fontWeight: 700, marginBottom: 4 }}>MARKET INTELLIGENCE</div>
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6 }}>{cd.intelligence}</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 5, fontStyle: "italic" }}>{cd.source}</div>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: careerExpanded ? 10 : 0 }}>
-                {cd.jobs.filter(j => can(j.tier)).slice(0, can("pro") ? 5 : 1).map((j, i) => {
-                  const sig = SIG_COLORS[j.signal];
-                  return (
-                    <div key={i} onClick={() => setExpandedJob(expandedJob === i ? null : i)}
-                      style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.07)", borderRadius: 10, padding: "6px 12px", cursor: "pointer", border: expandedJob === i ? `1px solid ${C.tealBright}` : "0.5px solid rgba(255,255,255,0.1)" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: sig.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, color: C.white, fontWeight: 600 }}>{j.title}</span>
-                      <span style={{ fontSize: 11, color: C.tealMid, fontWeight: 700 }}>{j.growth}</span>
-                    </div>
-                  );
-                })}
-                {!can("pro") && (
-                  <div onClick={upgrade} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "6px 12px", cursor: "pointer", border: "0.5px dashed rgba(255,255,255,0.12)" }}>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)" }}>🔒 +4 roles</span>
-                    <span style={{ fontSize: 11, color: C.tealMid, fontWeight: 700 }}>Pro ↗</span>
-                  </div>
-                )}
-              </div>
-
-              {careerExpanded && expandedJob !== null && (
-                <div style={{ background: "rgba(255,255,255,0.07)", borderRadius: 12, padding: "1rem", marginTop: 8 }}>
-                  {(() => {
-                    const j = cd.jobs[expandedJob];
-                    if (!j) return null;
-                    const sig = SIG_COLORS[j.signal];
-                    return (
-                      <div>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-                          <div style={{ fontFamily: F.display, fontSize: 17, color: C.white }}>{j.title}</div>
-                          <span style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: `${sig.color}33`, color: sig.color, padding: "2px 10px", borderRadius: 20 }}>{j.signal}</span>
-                          <span style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.tealMid }}>{j.growth} YoY</span>
-                        </div>
-                        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.68)", marginBottom: 10, lineHeight: 1.6 }}>
-                          <span style={{ color: C.tealMid, fontWeight: 700 }}>Why this week connects: </span>{j.why}
-                        </div>
-                        <div style={{ fontSize: 11, fontFamily: F.accent, color: "rgba(255,255,255,0.35)", fontWeight: 700, marginBottom: 6 }}>KEY SKILLS EMPLOYERS ARE HIRING FOR</div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {j.skills.map((s, k) => <span key={k} style={{ fontSize: 12, background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.72)", padding: "4px 10px", borderRadius: 20 }}>{s}</span>)}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-              {careerExpanded && expandedJob === null && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 8, fontStyle: "italic" }}>Click any role above to see how it connects to this week's content.</div>}
-            </div>
-
-            {/* Share card */}
-            {shareCardOpen && can("pro") && (
-              <Card style={{ marginBottom: 14, border: `1.5px solid ${C.purple}44` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontFamily: F.display, fontSize: 17 }}>Student Share Card</div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <Tag label="Ready to share" color={C.sage} bg={C.sageLight} />
-                    <button onClick={() => setShareCardOpen(false)} style={{ fontSize: 14, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>✕</button>
-                  </div>
-                </div>
-                <div style={{ background: C.navy, borderRadius: 12, padding: "1.25rem", marginBottom: 12 }}>
-                  <div style={{ fontFamily: F.display, fontSize: 16, color: C.white, marginBottom: 8 }}>{cd.shareCard.headline}</div>
-                  {cd.shareCard.roles.map((r, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.tealMid, flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, color: C.tealMid, fontWeight: 700 }}>{r}</span>
-                    </div>
-                  ))}
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.6, marginTop: 8 }}>{cd.shareCard.message}</div>
-                  <div style={{ marginTop: 10, fontSize: 10, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>KlasUp · Career Connections · {course} {week}</div>
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button style={{ flex: 1, background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "9px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Post as Announcement</button>
-                  <button style={{ flex: 1, background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "9px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Add to Discussion</button>
-                  <button onClick={() => copyToClipboard(`${cd.shareCard.headline}\n\n${cd.shareCard.roles.join("\n")}\n\n${cd.shareCard.message}\n\n— KlasUp · Career Connections · ${course} ${week}`)}
-                    style={{ flex: 1, background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "9px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Copy Text</button>
-                  <button onClick={() => openMailto(`This week in ${course} connects to these careers`, `${cd.shareCard.headline}\n\n${cd.shareCard.roles.join("\n")}\n\n${cd.shareCard.message}\n\n— KlasUp Career Connections`)}
-                    style={{ flex: 1, background: C.purpleLight, color: C.purple, border: "none", borderRadius: 10, padding: "9px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Email ↗</button>
-                </div>
-              </Card>
-            )}
             {/* Term Overview */}
             {dbCourses.length > 0 && (
               <Card style={{ marginTop: 14 }}>
