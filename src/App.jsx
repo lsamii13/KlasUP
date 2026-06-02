@@ -2414,17 +2414,12 @@ export default function KlasUp() {
 
             {/* ── SECTION 3: SUGGESTED NEXT STEP ── */}
             {(() => {
-              const weekNum = parseInt((week || "").replace(/\D/g, ""), 10) || 1;
-              const nextWeekNum = Math.min(weekNum + 1, 16);
               const currentWeekUploads = uploadLog.filter(e => e.week === week && e.course === course);
-              const hasSlides = currentWeekUploads.some(e => e.category === "PowerPoints") || deckUploaded;
-              const nextWeekHasSlides = uploadLog.some(e => e.week === `Week ${nextWeekNum}` && e.course === course && e.category === "PowerPoints");
-              const untaggedAssignments = uploadLog.filter(e => e.category === "Assignments" && e.course === course).length - (selectedOutcomes.length > 0 ? 1 : 0);
+              const hasSlides = currentWeekUploads.some(e => e.category === "PowerPoints");
               const hasDiscussion = currentWeekUploads.some(e => e.category === "Discussions");
 
               const rules = [
-                { match: !nextWeekHasSlides && !hasSlides, label: `Week ${nextWeekNum} has no slide deck yet`, btn: "Open Slide Studio", action: () => setPage("Slide Studio"), icon: "📊" },
-                { match: untaggedAssignments > 0, label: `You have ${untaggedAssignments} assignment${untaggedAssignments > 1 ? "s" : ""} not yet tagged to outcomes`, btn: "Review tagging", action: () => { setPage("My Course"); setMyCourseCategory("Assignments"); }, icon: "🎯" },
+                { match: !hasSlides, label: `${week} has no slide deck yet`, btn: "Open Slide Studio", action: () => setPage("Slide Studio"), icon: "📊" },
                 { match: !hasDiscussion, label: `Add a discussion prompt for ${week}`, btn: "Open Pedagogy Studio", action: () => { setPage("My Course"); setMyCourseCategory("Discussions"); }, icon: "💬" },
                 { match: true, label: "You're all caught up — explore the Research Library", btn: "Browse research", action: () => setPage("Research Library"), icon: "📚" },
               ];
@@ -2503,7 +2498,10 @@ export default function KlasUp() {
                         style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: "none", cursor: "pointer" }}>See all →</button>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
-                      {(aiMicro.length > 0 ? aiMicro.slice(0, 3) : MICRO.filter(m => can(m.tier)).slice(0, 3)).map((m, i) => {
+                      {(() => {
+                        const dbMicros = Object.values(microHistory).flat().sort((a, b) => b.timestamp - a.timestamp).flatMap(g => g.recs).slice(0, 3);
+                        return dbMicros.length > 0 ? dbMicros : aiMicro.length > 0 ? aiMicro.slice(0, 3) : MICRO.filter(m => can(m.tier)).slice(0, 3);
+                      })().map((m, i) => {
                         const TAG_COLORS = {
                           "Active Learning": { color: C.sage, bg: C.sageLight },
                           "Socratic Seminar": { color: C.teal, bg: C.tealLight },
