@@ -57,7 +57,7 @@ export default function FreePrompts() {
       </section>
 
       {/* ═══ BAND 2 — Hero + Form ═══ */}
-      <section style={{ background: C.ivory, padding: mob ? "40px 20px 48px" : "40px 32px 48px" }}>
+      <section style={{ background: C.ivory, padding: mob ? "40px 20px 28px" : "40px 32px 32px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
           {/* Pill badge */}
           <div style={{
@@ -84,14 +84,18 @@ export default function FreePrompts() {
             in learning science. Most work in any AI tool you already use.
           </p>
 
-          {/* Form card */}
+          {/* Form card — negative margins eat LeadCaptureForm's internal 48px 32px padding */}
           <div style={{
             maxWidth: 420, margin: "0 auto",
-            background: C.white, borderRadius: 14, padding: mob ? "24px 20px" : "28px 28px",
+            background: C.white, borderRadius: 14,
+            padding: mob ? "4px 4px" : "4px 4px",
             border: `1px solid ${C.border}`,
             boxShadow: "0 4px 24px rgba(27,43,75,0.06)",
+            overflow: "hidden",
           }}>
-            <LeadCaptureForm headline="" subhead="" />
+            <div style={{ margin: mob ? "-28px -16px -32px" : "-24px -8px -28px" }}>
+              <LeadCaptureForm headline="" subhead="" />
+            </div>
           </div>
         </div>
       </section>
