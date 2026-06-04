@@ -6,6 +6,7 @@ import OnboardingTour from "./components/OnboardingTour";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import StudentVoicePage from "./pages/StudentVoicePage";
 import CourseArchitect from "./pages/CourseArchitect";
+import CourseSetup from "./pages/CourseSetup";
 import PageHeader from "./components/PageHeader";
 import NotifyMeForm from "./components/NotifyMeForm";
 
@@ -835,6 +836,7 @@ export default function KlasUp() {
   const [postUpvotes, setPostUpvotes] = useState({});
 
   // --- My Course redesign state ---
+  const [pendingAssignmentId, setPendingAssignmentId] = useState(null);
   const [myCourseCategory, setMyCourseCategory] = useState("Post-class notes");
   const [myCourseFeedback, setMyCourseFeedback] = useState(null);
   const [myCourseFeedbackLoading, setMyCourseFeedbackLoading] = useState(false);
@@ -891,7 +893,6 @@ export default function KlasUp() {
   const [disciplineEdit, setDisciplineEdit] = useState({}); // { [course_id]: string | null } — non-null = input open
   const [topicInput, setTopicInput] = useState({});         // { [course_id]: string | null }
   const [copiedId, setCopiedId] = useState(null);           // course_id that just copied
-  const [learningOutcomes, setLearningOutcomes] = useState([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({ course_code: "", course_name: "", section: "", term_code: "", term_start: "", num_weeks: 16 });
   const [onboardingCourses, setOnboardingCourses] = useState([]);
@@ -1205,21 +1206,36 @@ export default function KlasUp() {
     }
   };
 
-  // Fetch learning outcomes when active course changes
+  // Sync `course` (code string) with the app-wide activeCourseId
   useEffect(() => {
-    if (!activeCourseId) { setLearningOutcomes([]); return; }
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("learning_outcomes")
-          .select("*")
-          .eq("course_id", activeCourseId)
-          .order("sort_order", { ascending: true });
-        if (error) { console.error("learning_outcomes fetch error:", error); }
-        setLearningOutcomes(data || []);
-      } catch (e) { console.error("learning_outcomes load error:", e); }
-    })();
-  }, [activeCourseId]);
+    if (!dbCourses.length) return;
+    const match = activeCourseId ? dbCourses.find(c => c.id === activeCourseId) : null;
+    if (match && match.course_code) {
+      setCourse(match.course_code);
+    }
+  }, [activeCourseId, dbCourses]);
+
+  // Wrapper: when WCS changes course, also update the app-wide activeCourseId
+  const setCourseAndSync = useCallback((code) => {
+    setCourse(code);
+    setPendingAssignmentId(null);
+    const match = dbCourses.find(c => c.course_code === code);
+    if (match) handleSetActiveCourse(match.id);
+  }, [dbCourses]);
+
+  // Bridge: send an assignment from Course Architect to Pedagogy Studio for AI feedback
+  const handleSendToPedagogy = useCallback((assignment, weekNumber) => {
+    const parts = [];
+    if (assignment.title) parts.push(`Assignment: ${assignment.title}`);
+    if (assignment.assignment_type && assignment.assignment_type !== "Other") parts.push(`Type: ${assignment.assignment_type}`);
+    if (weekNumber) parts.push(`Due: Week ${weekNumber}`);
+    if (assignment.description) parts.push(`\n${assignment.description}`);
+    setUploadText(parts.join("\n"));
+    setMyCourseCategory("Assignments");
+    if (weekNumber) setWeek(`Week ${weekNumber}`);
+    setPendingAssignmentId(assignment.id);
+    setPage("Pedagogy Studio");
+  }, []);
 
   const handleSignOut = async () => {
     if (session?.user) await logSecurityEvent(session.user.id, "logout");
@@ -2755,9 +2771,10 @@ export default function KlasUp() {
             const courseObj = dbCourses.find(c => c.course_code === course);
             let uploadRow = null;
             if (session?.user && courseObj) {
-              try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}); }
+              try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}, pendingAssignmentId); }
               catch (e) { console.warn("Upload DB insert failed:", e); }
             }
+            setPendingAssignmentId(null);
 
             setMyCourseFeedbackLoading(true);
             setMyCourseFeedback(null);
@@ -2794,7 +2811,7 @@ export default function KlasUp() {
                 style={{ fontFamily: F.body, fontSize: 13, color: C.muted, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "inline-block" }}>← Back to Course Architect</div>
             )}
             <PageHeader breadcrumb="🏠 Dashboard › 📝 Pedagogy Studio" title="Pedagogy Studio" subtitle="Share what's happening in your classroom. KlasUp turns it into growth." />
-            <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
+            <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
 
             {/* ── 1. FOCUSED INPUT AREA ── */}
             <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
@@ -2806,7 +2823,7 @@ export default function KlasUp() {
                     const locked = !can(u.tier);
                     const active = myCourseCategory === u.label;
                     return (
-                      <button key={u.label} onClick={() => !locked && setMyCourseCategory(u.label)}
+                      <button key={u.label} onClick={() => { if (!locked) { setMyCourseCategory(u.label); setPendingAssignmentId(null); } }}
                         style={{
                           display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: F.accent,
                           fontWeight: active ? 700 : 500, padding: "7px 14px", borderRadius: 20,
@@ -3067,7 +3084,7 @@ export default function KlasUp() {
               </Card>
             ) : (
               <div>
-                <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
+                <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
 
                 {/* ── POWERPOINT PLANNER ── */}
                 <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
@@ -3908,7 +3925,12 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} learningOutcomes={learningOutcomes} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} />
+        )}
+
+        {/* ── COURSE SETUP ── */}
+        {page === "Course Setup" && (
+          <CourseSetup setPage={setPage} course={dbCourses.find(c => c.id === activeCourseId) || dbCourses[0] || null} userId={session?.user?.id} />
         )}
 
         {/* ── WELLNESS ── */}
@@ -5963,7 +5985,7 @@ export default function KlasUp() {
                 </div>
               ) : (
                 <div>
-                  <WCS course={course} setCourse={setCourse} week={week} setWeek={setWeek} courses={dbCourses} />
+                  <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
 
                   {/* Description input */}
                   <Card style={{ marginBottom: 20, border: `1px solid ${C.sage}22` }}>
