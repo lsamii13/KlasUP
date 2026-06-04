@@ -233,6 +233,226 @@ export async function deleteCourse(id) {
   if (error) throw error
 }
 
+// ── Course Weeks ──────────────────────────────────────────
+
+export async function fetchCourseWeeks(courseId) {
+  const { data, error } = await supabase
+    .from('course_weeks')
+    .select('*')
+    .eq('course_id', courseId)
+    .order('week_number', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function generateWeekSkeleton(courseId, numWeeks) {
+  const rows = Array.from({ length: numWeeks }, (_, i) => ({
+    course_id: courseId,
+    week_number: i + 1,
+  }))
+  const { data, error } = await supabase
+    .from('course_weeks')
+    .insert(rows)
+    .select()
+  if (error) {
+    // If rows already exist (unique constraint), fetch them instead
+    if (error.code === '23505') return fetchCourseWeeks(courseId)
+    throw error
+  }
+  return (data || []).sort((a, b) => a.week_number - b.week_number)
+}
+
+export async function updateCourseWeek(weekId, fields) {
+  const cleaned = {}
+  if (fields.topic !== undefined) cleaned.topic = sanitize(fields.topic)
+  if (fields.detail !== undefined) cleaned.detail = sanitize(fields.detail)
+  if (fields.is_milestone !== undefined) cleaned.is_milestone = fields.is_milestone
+  cleaned.updated_at = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('course_weeks')
+    .update(cleaned)
+    .eq('id', weekId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function addCourseWeek(courseId, weekNumber) {
+  const { data, error } = await supabase
+    .from('course_weeks')
+    .insert({ course_id: courseId, week_number: weekNumber })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateCourseNumWeeks(courseId, numWeeks) {
+  const { data, error } = await supabase
+    .from('courses')
+    .update({ num_weeks: numWeeks })
+    .eq('id', courseId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// ── Learning Outcomes ─────────────────────────────────────
+
+export async function fetchLearningOutcomes(courseId) {
+  const { data, error } = await supabase
+    .from('learning_outcomes')
+    .select('*')
+    .eq('course_id', courseId)
+    .order('sort_order', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function insertLearningOutcome(courseId, { code, label, fullText, sortOrder }) {
+  const { data, error } = await supabase
+    .from('learning_outcomes')
+    .insert({
+      course_id: courseId,
+      code: sanitize(code),
+      label: sanitize(label),
+      full_text: fullText ? sanitize(fullText) : null,
+      sort_order: sortOrder,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateLearningOutcome(loId, fields) {
+  const cleaned = {}
+  if (fields.label !== undefined) cleaned.label = sanitize(fields.label)
+  if (fields.full_text !== undefined) cleaned.full_text = fields.full_text ? sanitize(fields.full_text) : null
+  if (fields.code !== undefined) cleaned.code = sanitize(fields.code)
+  if (fields.sort_order !== undefined) cleaned.sort_order = fields.sort_order
+  cleaned.updated_at = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('learning_outcomes')
+    .update(cleaned)
+    .eq('id', loId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteLearningOutcome(loId) {
+  const { error } = await supabase
+    .from('learning_outcomes')
+    .delete()
+    .eq('id', loId)
+  if (error) throw error
+}
+
+export async function reorderLearningOutcomes(updates) {
+  for (const u of updates) {
+    const { error } = await supabase
+      .from('learning_outcomes')
+      .update({ code: u.code, sort_order: u.sort_order, updated_at: new Date().toISOString() })
+      .eq('id', u.id)
+    if (error) throw error
+  }
+}
+
+// ── Assignments ──────────────────────────────────────────
+
+export async function fetchAssignments(courseId) {
+  const { data, error } = await supabase
+    .from('assignments')
+    .select('*')
+    .eq('course_id', courseId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function insertAssignment(courseId, { title, assignmentType, description, dueDate, weekId, parentAssignmentId }) {
+  const { data, error } = await supabase
+    .from('assignments')
+    .insert({
+      course_id: courseId,
+      title: sanitize(title),
+      assignment_type: sanitize(assignmentType),
+      description: description ? sanitize(description) : null,
+      due_date: dueDate ? sanitize(dueDate) : null,
+      week_id: weekId || null,
+      parent_assignment_id: parentAssignmentId || null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateAssignment(assignmentId, fields) {
+  const cleaned = {}
+  if (fields.title !== undefined) cleaned.title = sanitize(fields.title)
+  if (fields.assignment_type !== undefined) cleaned.assignment_type = sanitize(fields.assignment_type)
+  if (fields.description !== undefined) cleaned.description = fields.description ? sanitize(fields.description) : null
+  if (fields.due_date !== undefined) cleaned.due_date = fields.due_date ? sanitize(fields.due_date) : null
+  if (fields.week_id !== undefined) cleaned.week_id = fields.week_id || null
+  cleaned.updated_at = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('assignments')
+    .update(cleaned)
+    .eq('id', assignmentId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteAssignment(assignmentId) {
+  const { error } = await supabase
+    .from('assignments')
+    .delete()
+    .eq('id', assignmentId)
+  if (error) throw error
+}
+
+// ── LO Tags ─────────────────────────────────────────────
+
+export async function fetchLoTags(courseId) {
+  const { data: outcomes, error: loErr } = await supabase
+    .from('learning_outcomes')
+    .select('id')
+    .eq('course_id', courseId)
+  if (loErr) throw loErr
+  if (!outcomes || outcomes.length === 0) return []
+  const ids = outcomes.map(o => o.id)
+  const { data, error } = await supabase
+    .from('lo_tags')
+    .select('*')
+    .in('learning_outcome_id', ids)
+  if (error) throw error
+  return data || []
+}
+
+export async function addLoTag(learningOutcomeId, taggableType, taggableId) {
+  const { error } = await supabase
+    .from('lo_tags')
+    .insert({ learning_outcome_id: learningOutcomeId, taggable_type: taggableType, taggable_id: taggableId })
+  if (error && error.code !== '23505') throw error
+}
+
+export async function removeLoTag(learningOutcomeId, taggableType, taggableId) {
+  const { error } = await supabase
+    .from('lo_tags')
+    .delete()
+    .eq('learning_outcome_id', learningOutcomeId)
+    .eq('taggable_type', taggableType)
+    .eq('taggable_id', taggableId)
+  if (error) throw error
+}
+
 // ── Event tracking (founder analytics) ────────────────────
 
 export async function trackEvent(userId, eventName, metadata = {}) {
@@ -391,7 +611,7 @@ function parseWeek(w) {
   return n
 }
 
-export async function insertUpload(userId, courseId, week, category, content, metadata = {}) {
+export async function insertUpload(userId, courseId, week, category, content, metadata = {}, assignmentId = null) {
   const weekInt = parseWeek(week)
   if (weekInt == null) { console.warn('insertUpload: skipping DB insert — invalid week'); return null }
   const row = { user_id: userId, course_id: courseId, week: weekInt, category: sanitize(category), content: sanitize(content) }
@@ -399,6 +619,7 @@ export async function insertUpload(userId, courseId, week, category, content, me
   if (metadata.fileType)    row.file_type    = metadata.fileType
   if (metadata.fileSize)    row.file_size    = metadata.fileSize
   if (metadata.storagePath) row.storage_path = metadata.storagePath
+  if (assignmentId)         row.assignment_id = assignmentId
   const { data, error } = await supabase
     .from('uploads')
     .insert(row)
@@ -602,6 +823,28 @@ export async function getPromotedKlasOptions(questionType) {
     .order('count', { ascending: false })
   if (error) throw error
   return (data || []).map(r => r.response_text)
+}
+
+export async function fetchAssignmentFeedback(courseId) {
+  const { data: uploads, error: upErr } = await supabase
+    .from('uploads')
+    .select('id, assignment_id, created_at')
+    .eq('course_id', courseId)
+    .not('assignment_id', 'is', null)
+  if (upErr) throw upErr
+  if (!uploads || uploads.length === 0) return []
+
+  const uploadIds = uploads.map(u => u.id)
+  const { data: recs, error: recErr } = await supabase
+    .from('micro_learnings')
+    .select('id, upload_id, tag, title, summary, article, action, rating, created_at')
+    .in('upload_id', uploadIds)
+    .order('created_at', { ascending: false })
+  if (recErr) throw recErr
+
+  const uploadMap = {}
+  for (const u of uploads) uploadMap[u.id] = u.assignment_id
+  return (recs || []).map(r => ({ ...r, assignment_id: uploadMap[r.upload_id] }))
 }
 
 export async function fetchArticlesByDimension(dimension, limit = 20) {
