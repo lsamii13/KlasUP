@@ -8,7 +8,8 @@ import {
   fetchLoTags, addLoTag, removeLoTag,
 } from "../supabase";
 import SyllabusImportWizard from "../SyllabusImportWizard";
-import { mockProposals, mockCurrentCourse } from "../mockSyllabusProposals";
+import extractFileText from "../extractFileText";
+import { supabase } from "../supabase";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -390,6 +391,11 @@ export default function CourseSetup({ setPage, course, userId }) {
   const [loTags, setLoTags] = useState([]);
   const [syllabusOpen, setSyllabusOpen] = useState(false);
   const [syllabusToast, setSyllabusToast] = useState(false);
+  const [syllabusLoading, setSyllabusLoading] = useState(false);
+  const [syllabusError, setSyllabusError] = useState(null);
+  const [syllabusProposals, setSyllabusProposals] = useState(null);
+  const [syllabusFileMsg, setSyllabusFileMsg] = useState(null);
+  const syllabusFileRef = useRef(null);
 
   // ── Load all data on mount ────────────────────────────
   useEffect(() => {
@@ -559,16 +565,79 @@ export default function CourseSetup({ setPage, course, userId }) {
         <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 24 : 30, color: CA_COLORS.navy, margin: 0 }}>⚙ Course Setup</h1>
         {/* Enable in production in Stage 3 */}
         {import.meta.env.DEV && (
-          <button onClick={() => setSyllabusOpen(true)} style={{
-            background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
-            padding: "5px 12px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
-            color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap", transition: "border-color 0.15s",
-          }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = CA_COLORS.teal}
-            onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
-          >📄 Import from syllabus</button>
+          <>
+            <button onClick={() => syllabusFileRef.current?.click()} style={{
+              background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+              padding: "5px 12px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
+              color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap", transition: "border-color 0.15s",
+            }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = CA_COLORS.teal}
+              onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
+            >📄 Import from syllabus</button>
+            <input ref={syllabusFileRef} type="file" accept=".docx,.txt,.pptx" style={{ display: "none" }} onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              const ext = file.name.split(".").pop().toLowerCase();
+              if (ext === "pdf") {
+                setSyllabusFileMsg("PDF import is coming soon — for now, save your syllabus as .docx or .txt and import that.");
+                setTimeout(() => setSyllabusFileMsg(null), 8000);
+                return;
+              }
+              if (!["docx", "txt", "pptx"].includes(ext)) {
+                setSyllabusFileMsg("Unsupported format — please use .docx, .pptx, or .txt.");
+                setTimeout(() => setSyllabusFileMsg(null), 8000);
+                return;
+              }
+              setSyllabusFileMsg(null);
+              setSyllabusError(null);
+              setSyllabusLoading(true);
+              try {
+                const text = await extractFileText(file);
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-syllabus`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({
+                    text,
+                    course_context: { course_name: course.course_name, course_code: course.course_code, num_weeks: course.num_weeks },
+                  }),
+                });
+                if (!res.ok) {
+                  const errJson = await res.json().catch(() => ({}));
+                  if (res.status === 400 && errJson.error?.includes("too short")) {
+                    setSyllabusLoading(false);
+                    setSyllabusError("That document looks too short to be a syllabus. Check it's the right file?");
+                    return;
+                  }
+                  if (res.status === 422) {
+                    setSyllabusLoading(false);
+                    setSyllabusError("We had trouble structuring what we read. This sometimes happens — trying again usually works.");
+                    return;
+                  }
+                  if (res.status === 401) {
+                    setSyllabusLoading(false);
+                    setSyllabusError("Your session expired — please refresh and log back in.");
+                    return;
+                  }
+                  setSyllabusLoading(false);
+                  setSyllabusError("Something went wrong on our end. Try again in a moment.");
+                  return;
+                }
+                const json = await res.json();
+                setSyllabusProposals(json.proposals);
+                setSyllabusLoading(false);
+                setSyllabusOpen(true);
+              } catch (err) {
+                console.error("[CourseSetup] Syllabus import failed:", err);
+                setSyllabusLoading(false);
+                setSyllabusError(err.message || "We couldn't read that file.");
+              }
+            }} />
+          </>
         )}
         {syllabusToast && <span style={{ fontSize: 12, color: CA_COLORS.teal, fontWeight: 600 }}>Demo mode — nothing was written</span>}
+        {syllabusFileMsg && <span style={{ fontSize: 12, color: CA_COLORS.textSoft }}>{syllabusFileMsg}</span>}
       </div>
       <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, margin: "4px 0 28px" }}>{courseLabel}</p>
 
@@ -637,17 +706,61 @@ export default function CourseSetup({ setPage, course, userId }) {
 
       </div>
 
-      {syllabusOpen && (
+      {/* Syllabus import: loading overlay */}
+      {syllabusLoading && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2000, background: CA_COLORS.ivory,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}>
+          <style>{`@keyframes syllPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }`}</style>
+          <div style={{ width: 12, height: 12, borderRadius: "50%", background: CA_COLORS.teal, marginBottom: 24, animation: "syllPulse 1.4s ease-in-out infinite" }} />
+          <div style={{ fontFamily: CA_FONTS.heading, fontSize: 24, fontWeight: 700, color: CA_COLORS.navy, marginBottom: 8 }}>Reading your syllabus…</div>
+          <div style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, maxWidth: 400, textAlign: "center", lineHeight: 1.6 }}>
+            This takes about 30 seconds — we're extracting outcomes, weeks, and assignments.
+          </div>
+        </div>
+      )}
+
+      {/* Syllabus import: error overlay */}
+      {syllabusError && !syllabusLoading && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2000, background: CA_COLORS.ivory,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{ fontSize: 36, marginBottom: 16 }}>📄</div>
+          <div style={{ fontFamily: CA_FONTS.heading, fontSize: 22, fontWeight: 700, color: CA_COLORS.navy, marginBottom: 8, textAlign: "center", maxWidth: 440 }}>
+            {syllabusError}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+            <button onClick={() => { setSyllabusError(null); syllabusFileRef.current?.click(); }} style={{
+              background: CA_COLORS.navy, color: "#fff", border: "none", borderRadius: 10,
+              padding: "11px 24px", fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 14, cursor: "pointer",
+            }}>Try again</button>
+            <button onClick={() => setSyllabusError(null)} style={{
+              background: "transparent", color: CA_COLORS.textSoft, border: `1px solid ${CA_COLORS.border}`, borderRadius: 10,
+              padding: "11px 24px", fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 14, cursor: "pointer",
+            }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Syllabus import: wizard */}
+      {syllabusOpen && syllabusProposals && (
         <SyllabusImportWizard
-          proposals={mockProposals}
-          currentCourse={mockCurrentCourse}
+          proposals={syllabusProposals}
+          currentCourse={{
+            outcomes: los,
+            weeks: weeks.map(w => ({ week_number: w.week_number, topic: w.topic || null })),
+            assignments,
+          }}
           onConfirm={(payload) => {
             console.log("SYLLABUS IMPORT PAYLOAD", payload);
             setSyllabusOpen(false);
+            setSyllabusProposals(null);
             setSyllabusToast(true);
             setTimeout(() => setSyllabusToast(false), 4000);
           }}
-          onCancel={() => setSyllabusOpen(false)}
+          onCancel={() => { setSyllabusOpen(false); setSyllabusProposals(null); }}
         />
       )}
     </div>
