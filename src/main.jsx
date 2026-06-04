@@ -6,6 +6,7 @@ import PricingPage from './pages/PricingPage.jsx'
 import LeadFormTest from './pages/LeadFormTest.jsx'
 import NotifyMeTest from './pages/NotifyMeTest.jsx'
 import FreePrompts from './pages/FreePrompts.jsx'
+import GuidePage from './pages/GuidePage.jsx'
 import { useFeatureFlags } from './hooks/useFeatureFlags'
 
 function ComingSoon() {
@@ -32,9 +33,10 @@ const isPricing = path === '/pricing'
 const isLeadFormTest = path === '/lead-form-test'
 const isNotifyMeTest = path === '/notify-me-test'
 const isFreePrompts = path === '/free-prompts'
+const isGuide = path === '/guide'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {isFreePrompts ? <FreePrompts /> : isNotifyMeTest ? <NotifyMeTest /> : isLeadFormTest ? <LeadFormTest /> : isPricing ? <PricingRoute /> : <App />}
+    {isGuide ? <GuidePage /> : isFreePrompts ? <FreePrompts /> : isNotifyMeTest ? <NotifyMeTest /> : isLeadFormTest ? <LeadFormTest /> : isPricing ? <PricingRoute /> : <App />}
   </StrictMode>,
 )

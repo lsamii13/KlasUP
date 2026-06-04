@@ -9,6 +9,7 @@ import CourseArchitect from "./pages/CourseArchitect";
 import CourseSetup from "./pages/CourseSetup";
 import PageHeader from "./components/PageHeader";
 import NotifyMeForm from "./components/NotifyMeForm";
+import GuidePage from "./pages/GuidePage";
 
 /* ── Window width hook for responsive ── */
 function useWindowWidth() {
@@ -82,6 +83,7 @@ const NAV = [
   { id: "Reports", icon: "☑" },
   { id: "Settings", icon: "⚙" },
   // Outside clusters
+  { id: "Guide", icon: "📖" },
   { id: "Pricing", icon: "◇" },
   { id: "Admin", icon: "⛨", adminOnly: true },
   // Hidden from sidebar when Course Architect is accessible (still renderable as pages)
@@ -4969,6 +4971,8 @@ export default function KlasUp() {
         })()}
 
         {/* ── PRICING ── */}
+        {page === "Guide" && <GuidePage />}
+
         {page === "Pricing" && !gatedPageIds.has("Pricing") && (
           <div>
             <div style={{ textAlign: "center", marginBottom: "2rem" }}>
