@@ -507,7 +507,7 @@ function AddCourseModal({ onClose, userId, onCreated }) {
 }
 
 // ── Main component ──────────────────────────────────────
-export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, featureInfo }) {
   const [los, setLos] = useState([]);
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [semesterView, setSemesterView] = useState("list");
@@ -591,7 +591,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
 
       {/* ── Header ── */}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1.5rem" }}>
-        <PageHeader breadcrumb="🏠 Dashboard › 🏛️ Course Architect" title="Course Architect" subtitle="Your term at a glance — build, view, and align everything in one place" />
+        <PageHeader breadcrumb="🏠 Dashboard › 🏛️ Course Architect" title="Course Architect" subtitle="Your term at a glance — build, view, and align everything in one place" featureInfo={featureInfo} />
 
         {/* Course picker */}
         <div ref={pickerRef} style={{ position: "relative", flexShrink: 0 }}>

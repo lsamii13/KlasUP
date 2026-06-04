@@ -8,6 +8,7 @@ import StudentVoicePage from "./pages/StudentVoicePage";
 import CourseArchitect from "./pages/CourseArchitect";
 import CourseSetup from "./pages/CourseSetup";
 import PageHeader from "./components/PageHeader";
+import FeatureInfo from "./components/FeatureInfo";
 import NotifyMeForm from "./components/NotifyMeForm";
 import GuidePage from "./pages/GuidePage";
 
@@ -2314,6 +2315,7 @@ export default function KlasUp() {
                   breadcrumb="🏠 Dashboard"
                   title={`${greeting}${displayName ? `, ${displayName}` : ""}`}
                   subtitle={subtitleParts.length > 0 ? subtitleParts.join(" · ") : "Welcome to KlasUp"}
+                  featureInfo={<FeatureInfo sectionId="dashboard" />}
                 />
               );
             })()}
@@ -2812,7 +2814,7 @@ export default function KlasUp() {
               <div onClick={() => setPage("Course Architect")} onMouseEnter={e => e.currentTarget.style.color = C.teal} onMouseLeave={e => e.currentTarget.style.color = C.muted}
                 style={{ fontFamily: F.body, fontSize: 13, color: C.muted, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "inline-block" }}>← Back to Course Architect</div>
             )}
-            <PageHeader breadcrumb="🏠 Dashboard › 📝 Pedagogy Studio" title="Pedagogy Studio" subtitle="Share what's happening in your classroom. KlasUp turns it into growth." />
+            <PageHeader breadcrumb="🏠 Dashboard › 📝 Pedagogy Studio" title="Pedagogy Studio" subtitle="Share what's happening in your classroom. KlasUp turns it into growth." featureInfo={<FeatureInfo sectionId="pedagogy-studio" />} />
             <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
 
             {/* ── 1. FOCUSED INPUT AREA ── */}
@@ -3076,7 +3078,7 @@ export default function KlasUp() {
               <div onClick={() => setPage("Course Architect")} onMouseEnter={e => e.currentTarget.style.color = C.teal} onMouseLeave={e => e.currentTarget.style.color = C.muted}
                 style={{ fontFamily: F.body, fontSize: 13, color: C.muted, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "inline-block" }}>← Back to Course Architect</div>
             )}
-            <PageHeader breadcrumb="🏠 Dashboard › 🎯 Slide Studio" title="Slide Studio" subtitle="Plan your deck or upload an existing one for AI analysis." />
+            <PageHeader breadcrumb="🏠 Dashboard › 🎯 Slide Studio" title="Slide Studio" subtitle="Plan your deck or upload an existing one for AI analysis." featureInfo={<FeatureInfo sectionId="slide-studio" />} />
             {!can("pro") ? (
               <Card style={{ textAlign: "center", padding: "3rem" }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
@@ -3391,7 +3393,7 @@ export default function KlasUp() {
         {/* ── MICRO-LEARNING ── */}
         {page === "Micro-Learning" && (
           <div>
-            <PageHeader breadcrumb="🏠 Dashboard › 📚 Micro-Learning" title="Micro-Learning" subtitle={aiMicro.length > 0 ? `AI-powered recommendations for ${course} · ${week} · grounded in peer-reviewed research.` : "Surfaced from your course patterns · grounded in peer-reviewed research."} />
+            <PageHeader breadcrumb="🏠 Dashboard › 📚 Micro-Learning" title="Micro-Learning" subtitle={aiMicro.length > 0 ? `AI-powered recommendations for ${course} · ${week} · grounded in peer-reviewed research.` : "Surfaced from your course patterns · grounded in peer-reviewed research."} featureInfo={<FeatureInfo sectionId="micro-learning" />} />
 
             {aiMicroLoading && (
               <div style={{ background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "2rem", marginBottom: 14, textAlign: "center" }}>
@@ -3486,7 +3488,7 @@ export default function KlasUp() {
         {/* ── COHORT FORUM ── */}
         {page === "Think Tank" && !gatedPageIds.has("Think Tank") && (
           <div>
-            <PageHeader breadcrumb="🏠 Dashboard › 💡 Think Tank" title="Think Tank" subtitle="Faculty at similar institutions · working on similar challenges." />
+            <PageHeader breadcrumb="🏠 Dashboard › 💡 Think Tank" title="Think Tank" subtitle="Faculty at similar institutions · working on similar challenges." featureInfo={<FeatureInfo sectionId="think-tank" />} />
             <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
               {["All", "Socratic Seminar", "UDL", "Flipped Classroom", "Reflection", "Active Learning"].map(t => (
                 <span key={t} style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, padding: "5px 14px", borderRadius: 20, background: t === "All" ? C.navy : C.ivoryDark, color: t === "All" ? C.white : C.muted, cursor: "pointer" }}>{t}</span>
@@ -3557,7 +3559,7 @@ export default function KlasUp() {
         {/* ── REPORTS ── */}
         {page === "Reports" && !gatedPageIds.has("Reports") && (
           <div>
-            <PageHeader breadcrumb="🏠 Dashboard › 📊 Reports" title="Reports" subtitle="Accreditation-ready documentation of faculty growth and engagement." />
+            <PageHeader breadcrumb="🏠 Dashboard › 📊 Reports" title="Reports" subtitle="Accreditation-ready documentation of faculty growth and engagement." featureInfo={<FeatureInfo sectionId="reports" />} />
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
               {[{ label: "Dimensions Tracked", val: can("pro") ? "10" : "3", sub: can("pro") ? "Full suite active" : "Upgrade for full suite" }, { label: "Standards Mapped", val: can("institutional") ? "5" : can("pro") ? "3" : "1", sub: "Documented" }].map((s, i) => (
                 <div key={i} style={{ background: C.ivoryDark, borderRadius: 12, padding: "1rem" }}>
@@ -3662,7 +3664,7 @@ export default function KlasUp() {
           return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <PageHeader breadcrumb="🏠 Dashboard › 📁 Course Portfolio" title="Course Portfolio" subtitle="Your complete term record — uploads, AI insights, and reflective narrative." />
+              <PageHeader breadcrumb="🏠 Dashboard › 📁 Course Portfolio" title="Course Portfolio" subtitle="Your complete term record — uploads, AI insights, and reflective narrative." featureInfo={<FeatureInfo sectionId="course-portfolio" />} />
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={() => {
                   let html = makePdfHeader(profile?.name, `${portfolioCourse} · ${portfolioWeek === "All" ? "All Weeks" : portfolioWeek}`);
@@ -3922,12 +3924,12 @@ export default function KlasUp() {
 
         {/* ── STUDENT VOICE ── */}
         {page === "Student Voice" && !gatedPageIds.has("Student Voice") && (
-          <StudentVoicePage canPro={can("pro")} onUpgrade={upgrade} />
+          <StudentVoicePage canPro={can("pro")} onUpgrade={upgrade} featureInfo={<FeatureInfo sectionId="student-voice" />} />
         )}
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} featureInfo={<FeatureInfo sectionId="course-architect" />} />
         )}
 
         {/* ── COURSE SETUP ── */}
@@ -3977,7 +3979,7 @@ export default function KlasUp() {
 
           return (
           <div>
-            <PageHeader breadcrumb="🏠 Dashboard › 🌿 Wellness" title="Wellness" subtitle="Your wellbeing matters. Teaching is a practice — and so is taking care of yourself." />
+            <PageHeader breadcrumb="🏠 Dashboard › 🌿 Wellness" title="Wellness" subtitle="Your wellbeing matters. Teaching is a practice — and so is taking care of yourself." featureInfo={<FeatureInfo sectionId="wellness" />} />
 
             {/* Tabs */}
             <div style={{ display: "flex", gap: 4, marginBottom: 20, background: C.ivoryDark, borderRadius: 10, padding: 3 }}>

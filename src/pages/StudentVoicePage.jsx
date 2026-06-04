@@ -96,14 +96,14 @@ function CopyButton({ text }) {
   );
 }
 
-export default function StudentVoicePage({ canPro = false, onUpgrade }) {
+export default function StudentVoicePage({ canPro = false, onUpgrade, featureInfo }) {
   const mob = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <div>
 
       {/* Header */}
-      <PageHeader breadcrumb="🏠 Dashboard › 🎤 Student Voice" title="Student Voice" subtitle="Give your students a seat at the table. Here's how." />
+      <PageHeader breadcrumb="🏠 Dashboard › 🎤 Student Voice" title="Student Voice" subtitle="Give your students a seat at the table. Here's how." featureInfo={featureInfo} />
       <div style={{ marginBottom: 20 }}>
         <div style={{
           background: `${C.teal}12`, border: `1px solid ${C.teal}33`,
