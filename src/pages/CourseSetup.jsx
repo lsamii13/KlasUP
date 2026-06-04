@@ -7,6 +7,8 @@ import {
   fetchAssignments, insertAssignment, updateAssignment, deleteAssignment,
   fetchLoTags, addLoTag, removeLoTag,
 } from "../supabase";
+import SyllabusImportWizard from "../SyllabusImportWizard";
+import { mockProposals, mockCurrentCourse } from "../mockSyllabusProposals";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -386,6 +388,8 @@ export default function CourseSetup({ setPage, course, userId }) {
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
 
   const [loTags, setLoTags] = useState([]);
+  const [syllabusOpen, setSyllabusOpen] = useState(false);
+  const [syllabusToast, setSyllabusToast] = useState(false);
 
   // ── Load all data on mount ────────────────────────────
   useEffect(() => {
@@ -551,8 +555,22 @@ export default function CourseSetup({ setPage, course, userId }) {
       </div>
 
       {/* Title */}
-      <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 24 : 30, color: CA_COLORS.navy, margin: "0 0 4px" }}>⚙ Course Setup</h1>
-      <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, margin: "0 0 28px" }}>{courseLabel}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 24 : 30, color: CA_COLORS.navy, margin: 0 }}>⚙ Course Setup</h1>
+        {/* Enable in production in Stage 3 */}
+        {import.meta.env.DEV && (
+          <button onClick={() => setSyllabusOpen(true)} style={{
+            background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+            padding: "5px 12px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
+            color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap", transition: "border-color 0.15s",
+          }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = CA_COLORS.teal}
+            onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
+          >📄 Import from syllabus</button>
+        )}
+        {syllabusToast && <span style={{ fontSize: 12, color: CA_COLORS.teal, fontWeight: 600 }}>Demo mode — nothing was written</span>}
+      </div>
+      <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, margin: "4px 0 28px" }}>{courseLabel}</p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 640 }}>
 
@@ -618,6 +636,20 @@ export default function CourseSetup({ setPage, course, userId }) {
         </div>
 
       </div>
+
+      {syllabusOpen && (
+        <SyllabusImportWizard
+          proposals={mockProposals}
+          currentCourse={mockCurrentCourse}
+          onConfirm={(payload) => {
+            console.log("SYLLABUS IMPORT PAYLOAD", payload);
+            setSyllabusOpen(false);
+            setSyllabusToast(true);
+            setTimeout(() => setSyllabusToast(false), 4000);
+          }}
+          onCancel={() => setSyllabusOpen(false)}
+        />
+      )}
     </div>
   );
 }
