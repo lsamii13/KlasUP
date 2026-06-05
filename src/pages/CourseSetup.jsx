@@ -10,6 +10,7 @@ import {
 import SyllabusImportWizard from "../SyllabusImportWizard";
 import extractFileText from "../extractFileText";
 import { supabase } from "../supabase";
+import { writeImportPayload } from "../syllabusImport";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -389,8 +390,8 @@ export default function CourseSetup({ setPage, course, userId }) {
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
 
   const [loTags, setLoTags] = useState([]);
+  const [importVersion, setImportVersion] = useState(0);
   const [syllabusOpen, setSyllabusOpen] = useState(false);
-  const [syllabusToast, setSyllabusToast] = useState(false);
   const [syllabusLoading, setSyllabusLoading] = useState(false);
   const [syllabusError, setSyllabusError] = useState(null);
   const [syllabusProposals, setSyllabusProposals] = useState(null);
@@ -636,7 +637,6 @@ export default function CourseSetup({ setPage, course, userId }) {
             }} />
           </>
         )}
-        {syllabusToast && <span style={{ fontSize: 12, color: CA_COLORS.teal, fontWeight: 600 }}>Demo mode — nothing was written</span>}
         {syllabusFileMsg && <span style={{ fontSize: 12, color: CA_COLORS.textSoft }}>{syllabusFileMsg}</span>}
       </div>
       <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, margin: "4px 0 28px" }}>{courseLabel}</p>
@@ -650,7 +650,7 @@ export default function CourseSetup({ setPage, course, userId }) {
           {!losLoading && los.length === 0 && <div style={{ fontSize: 13, color: CA_COLORS.textSoft, marginBottom: 10 }}>Add your course learning outcomes — these are the backbone everything else maps to.</div>}
           {!losLoading && los.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {los.map((lo, i) => <LORow key={lo.id} lo={lo} index={i} total={los.length} onSave={handleLOSave} onMove={handleLOMove} onDelete={handleLODelete} />)}
+              {los.map((lo, i) => <LORow key={`${lo.id}-v${importVersion}`} lo={lo} index={i} total={los.length} onSave={handleLOSave} onMove={handleLOMove} onDelete={handleLODelete} />)}
             </div>
           )}
           <button onClick={handleAddLO} style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 600, color: CA_COLORS.teal, background: "none", border: "none", cursor: "pointer", padding: "8px 0", textAlign: "left", marginTop: los.length > 0 ? 4 : 0 }}>+ Add outcome</button>
@@ -673,7 +673,7 @@ export default function CourseSetup({ setPage, course, userId }) {
           )}
           {!weeksLoading && weeks.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {weeks.map(w => <WeekRow key={w.id} week={w} onSave={handleWeekSave} los={los} tags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />)}
+              {weeks.map(w => <WeekRow key={`${w.id}-v${importVersion}`} week={w} onSave={handleWeekSave} los={los} tags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />)}
               <button onClick={handleAddWeek} style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 600, color: CA_COLORS.teal, background: "none", border: "none", cursor: "pointer", padding: "8px 0", textAlign: "left" }}>+ Add week</button>
             </div>
           )}
@@ -687,12 +687,12 @@ export default function CourseSetup({ setPage, course, userId }) {
           {!assignmentsLoading && topLevel.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {topLevel.map(a => (
-                <AssignmentCard key={a.id} assignment={a} weeks={weeks} los={los} tags={loTags} onSave={handleAssignmentSave} onDelete={handleAssignmentDelete} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove}>
+                <AssignmentCard key={`${a.id}-v${importVersion}`} assignment={a} weeks={weeks} los={los} tags={loTags} onSave={handleAssignmentSave} onDelete={handleAssignmentDelete} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove}>
                   {/* Nested steps */}
                   {childrenOf(a.id).length > 0 && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
                       {childrenOf(a.id).map(child => (
-                        <AssignmentCard key={child.id} assignment={child} weeks={weeks} los={los} tags={loTags} onSave={handleAssignmentSave} onDelete={handleAssignmentDelete} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />
+                        <AssignmentCard key={`${child.id}-v${importVersion}`} assignment={child} weeks={weeks} los={los} tags={loTags} onSave={handleAssignmentSave} onDelete={handleAssignmentDelete} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />
                       ))}
                     </div>
                   )}
@@ -753,14 +753,27 @@ export default function CourseSetup({ setPage, course, userId }) {
             weeks: weeks.map(w => ({ week_number: w.week_number, topic: w.topic || null })),
             assignments,
           }}
-          onConfirm={(payload) => {
-            console.log("SYLLABUS IMPORT PAYLOAD", payload);
+          currentNumWeeks={course.num_weeks}
+          onConfirm={async (payload) => {
+            const result = await writeImportPayload(course.id, payload, weeks, los);
+            return result;
+          }}
+          onCancel={() => {
             setSyllabusOpen(false);
             setSyllabusProposals(null);
-            setSyllabusToast(true);
-            setTimeout(() => setSyllabusToast(false), 4000);
+            // Re-fetch data so any writes from a partial import are visible
+            if (course?.id) {
+              Promise.all([
+                fetchLearningOutcomes(course.id),
+                fetchCourseWeeks(course.id),
+                fetchAssignments(course.id),
+                fetchLoTags(course.id),
+              ]).then(([loRows, weekRows, asnRows, tagRows]) => {
+                setLos(loRows); setWeeks(weekRows); setAssignments(asnRows); setLoTags(tagRows);
+                setImportVersion(v => v + 1);
+              }).catch(e => console.error("[CourseSetup] Re-fetch after import:", e.message));
+            }
           }}
-          onCancel={() => { setSyllabusOpen(false); setSyllabusProposals(null); }}
         />
       )}
     </div>

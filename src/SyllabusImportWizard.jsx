@@ -86,8 +86,10 @@ function MissingSectionInterstitial({ sectionName, onSkip }) {
   );
 }
 
-export default function SyllabusImportWizard({ proposals, currentCourse, onConfirm, onCancel }) {
+export default function SyllabusImportWizard({ proposals, currentCourse, onConfirm, onCancel, currentNumWeeks }) {
   const [step, setStep] = useState(0);
+  const [writing, setWriting] = useState(false);
+  const [writeResult, setWriteResult] = useState(null); // { counts, extendedTo, error }
 
   // ── Outcomes state ──
   const [outcomeChecked, setOutcomeChecked] = useState(() =>
@@ -124,12 +126,12 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
   );
   const [editingAsn, setEditingAsn] = useState(null);
 
-  // ── Escape to cancel ──
+  // ── Escape to cancel (disabled during write) ──
   useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") onCancel(); };
+    const h = (e) => { if (e.key === "Escape" && !writing) onCancel(); };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
-  }, [onCancel]);
+  }, [onCancel, writing]);
 
   // ── Helpers ──
   const currentStep = STEPS[step];
@@ -149,6 +151,10 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
     setRemovedDeepFields(prev => ({ ...prev, [k]: !prev[k] }));
   };
   const isDeepFieldRemoved = (weekIdx, fieldKey, entryIdx) => !!removedDeepFields[`${weekIdx}-${fieldKey}-${entryIdx}`];
+  const payload_weeks_max = () => {
+    const nums = proposals.weeks.map((w, i) => weekChecked[i] ? w.week_number : 0);
+    return nums.length > 0 ? Math.max(...nums) : 0;
+  };
 
   // ── Build payload ──
   const buildPayload = useCallback(() => {
@@ -222,10 +228,12 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
         <h1 style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 24, color: C.navy, margin: 0 }}>
           Import from syllabus
         </h1>
-        <button onClick={onCancel} aria-label="Cancel" style={{
-          background: "none", border: "none", fontSize: 22, color: C.textSoft,
-          cursor: "pointer", padding: "4px 8px", lineHeight: 1,
-        }}>✕</button>
+        {!writing && !writeResult && (
+          <button onClick={onCancel} aria-label="Cancel" style={{
+            background: "none", border: "none", fontSize: 22, color: C.textSoft,
+            cursor: "pointer", padding: "4px 8px", lineHeight: 1,
+          }}>✕</button>
+        )}
       </div>
 
       <div style={{ padding: "16px 28px 0", flexShrink: 0 }}>
@@ -411,40 +419,105 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
           )
         )}
 
-        {/* ── STEP 4: CONFIRM ── */}
-        {currentStep === "confirm" && (
-          <div style={{ maxWidth: 520, margin: "2rem auto", textAlign: "center" }}>
+        {/* ── STEP 4: CONFIRM / WRITING / RESULT ── */}
+        {currentStep === "confirm" && !writing && !writeResult && (() => {
+          const highestAcceptedWeek = payload_weeks_max();
+          const willExtend = currentNumWeeks != null && highestAcceptedWeek > currentNumWeeks;
+          return (
+            <div style={{ maxWidth: 520, margin: "2rem auto", textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
+              <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 24, color: C.navy, marginBottom: 12 }}>
+                Ready to add
+              </div>
+              <div style={{ fontSize: 16, color: C.navy, lineHeight: 1.6, marginBottom: 8 }}>
+                {checkedOutcomes} outcome{checkedOutcomes !== 1 ? "s" : ""} · {checkedWeeks} week update{checkedWeeks !== 1 ? "s" : ""} · {checkedAsn} assignment{checkedAsn !== 1 ? "s" : ""}
+                {skippedCount > 0 && <span style={{ color: C.textSoft }}> · {skippedCount} item{skippedCount !== 1 ? "s" : ""} skipped</span>}
+              </div>
+              {willExtend && (
+                <div style={{ background: C.goldSoft, border: `1px solid ${C.gold}`, borderRadius: 10, padding: "10px 16px", margin: "12px auto", maxWidth: 400, fontSize: 13, color: C.navy, fontWeight: 600 }}>
+                  This will extend your course from {currentNumWeeks} to {highestAcceptedWeek} weeks.
+                </div>
+              )}
+              <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 32, marginTop: willExtend ? 8 : 0 }}>Nothing has been written yet.</div>
+            </div>
+          );
+        })()}
+
+        {writing && (
+          <div style={{ maxWidth: 520, margin: "4rem auto", textAlign: "center" }}>
+            <style>{`@keyframes wizPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }`}</style>
+            <div style={{ width: 12, height: 12, borderRadius: "50%", background: C.teal, margin: "0 auto 24px", animation: "wizPulse 1.4s ease-in-out infinite" }} />
+            <div style={{ fontFamily: F.heading, fontSize: 22, fontWeight: 700, color: C.navy }}>Adding to your course…</div>
+          </div>
+        )}
+
+        {writeResult && !writeResult.error && (
+          <div style={{ maxWidth: 520, margin: "3rem auto", textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
-            <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 24, color: C.navy, marginBottom: 12 }}>
-              Ready to add
+            <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 24, color: C.navy, marginBottom: 12 }}>Added to your course</div>
+            <div style={{ fontSize: 14, color: C.navy, lineHeight: 1.8 }}>
+              {writeResult.counts.outcomes > 0 && <div>{writeResult.counts.outcomes} outcome{writeResult.counts.outcomes !== 1 ? "s" : ""}</div>}
+              {writeResult.counts.weeksUpdated > 0 && <div>{writeResult.counts.weeksUpdated} week{writeResult.counts.weeksUpdated !== 1 ? "s" : ""} updated</div>}
+              {writeResult.counts.weeksCreated > 0 && <div>{writeResult.counts.weeksCreated} week{writeResult.counts.weeksCreated !== 1 ? "s" : ""} created</div>}
+              {writeResult.counts.assignments > 0 && <div>{writeResult.counts.assignments} assignment{writeResult.counts.assignments !== 1 ? "s" : ""}</div>}
+              {writeResult.counts.tags > 0 && <div>{writeResult.counts.tags} outcome tag{writeResult.counts.tags !== 1 ? "s" : ""}</div>}
             </div>
-            <div style={{ fontSize: 16, color: C.navy, lineHeight: 1.6, marginBottom: 8 }}>
-              {checkedOutcomes} outcome{checkedOutcomes !== 1 ? "s" : ""} · {checkedWeeks} week update{checkedWeeks !== 1 ? "s" : ""} · {checkedAsn} assignment{checkedAsn !== 1 ? "s" : ""}
-              {skippedCount > 0 && <span style={{ color: C.textSoft }}> · {skippedCount} item{skippedCount !== 1 ? "s" : ""} skipped</span>}
+            <button onClick={onCancel} style={{
+              marginTop: 28, background: C.teal, color: C.white, border: "none", borderRadius: 10,
+              padding: "12px 32px", fontFamily: F.body, fontWeight: 700, fontSize: 14, cursor: "pointer",
+            }}>Done</button>
+          </div>
+        )}
+
+        {writeResult && writeResult.error && (
+          <div style={{ maxWidth: 520, margin: "3rem auto", textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+            <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 20, color: C.navy, marginBottom: 12 }}>
+              We added some items before hitting a problem.
             </div>
-            <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 32 }}>Nothing has been written yet.</div>
+            <div style={{ fontSize: 14, color: C.navy, lineHeight: 1.8, marginBottom: 12 }}>
+              {writeResult.counts.outcomes > 0 && <div>✓ {writeResult.counts.outcomes} outcome{writeResult.counts.outcomes !== 1 ? "s" : ""}</div>}
+              {writeResult.counts.weeksUpdated > 0 && <div>✓ {writeResult.counts.weeksUpdated} week{writeResult.counts.weeksUpdated !== 1 ? "s" : ""} updated</div>}
+              {writeResult.counts.weeksCreated > 0 && <div>✓ {writeResult.counts.weeksCreated} week{writeResult.counts.weeksCreated !== 1 ? "s" : ""} created</div>}
+              {writeResult.counts.assignments > 0 && <div>✓ {writeResult.counts.assignments} assignment{writeResult.counts.assignments !== 1 ? "s" : ""}</div>}
+              {writeResult.counts.tags > 0 && <div>✓ {writeResult.counts.tags} outcome tag{writeResult.counts.tags !== 1 ? "s" : ""}</div>}
+            </div>
+            <div style={{ fontSize: 13, color: C.textSoft, background: C.ivory, borderRadius: 8, padding: "10px 14px", marginBottom: 20 }}>
+              {writeResult.error}
+            </div>
+            <button onClick={onCancel} style={{
+              background: C.navy, color: C.white, border: "none", borderRadius: 10,
+              padding: "12px 32px", fontFamily: F.body, fontWeight: 700, fontSize: 14, cursor: "pointer",
+            }}>Close</button>
           </div>
         )}
       </div>
 
-      {/* Footer nav */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "16px 28px", borderTop: `1px solid ${C.border}`, background: C.white, flexShrink: 0,
-      }}>
-        <div>
-          {navBtn("← Back", { onClick: () => setStep(s => s - 1), disabled: step === 0 })}
+      {/* Footer nav — hidden during writing/result */}
+      {!writing && !writeResult && (
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "16px 28px", borderTop: `1px solid ${C.border}`, background: C.white, flexShrink: 0,
+        }}>
+          <div>
+            {navBtn("← Back", { onClick: () => setStep(s => s - 1), disabled: step === 0 })}
+          </div>
+          <div style={{ fontSize: 12, color: C.textSoft }}>
+            {STEP_LABELS[currentStep]} ({step + 1} of {STEPS.length})
+          </div>
+          <div>
+            {currentStep === "confirm"
+              ? navBtn("Add to my course", { primary: true, onClick: async () => {
+                  setWriting(true);
+                  const result = await onConfirm(buildPayload());
+                  setWriting(false);
+                  setWriteResult(result);
+                }})
+              : navBtn(`Next: ${STEP_LABELS[STEPS[step + 1]]} →`, { navy: true, onClick: () => setStep(s => s + 1) })
+            }
+          </div>
         </div>
-        <div style={{ fontSize: 12, color: C.textSoft }}>
-          {STEP_LABELS[currentStep]} ({step + 1} of {STEPS.length})
-        </div>
-        <div>
-          {currentStep === "confirm"
-            ? navBtn("Add to my course", { primary: true, onClick: () => onConfirm(buildPayload()) })
-            : navBtn(`Next: ${STEP_LABELS[STEPS[step + 1]]} →`, { navy: true, onClick: () => setStep(s => s + 1) })
-          }
-        </div>
-      </div>
+      )}
     </div>
   );
 }

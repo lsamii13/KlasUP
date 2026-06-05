@@ -288,6 +288,36 @@ export async function addCourseWeek(courseId, weekNumber) {
   return data
 }
 
+export async function updateCourseWeekDeep(weekId, deepFields) {
+  const cleaned = {}
+  if (deepFields.weekly_outcomes !== undefined) cleaned.weekly_outcomes = deepFields.weekly_outcomes
+  if (deepFields.readings !== undefined) cleaned.readings = deepFields.readings
+  if (deepFields.lecture_topic !== undefined) cleaned.lecture_topic = deepFields.lecture_topic ? sanitize(deepFields.lecture_topic) : null
+  if (deepFields.activities !== undefined) cleaned.activities = deepFields.activities
+  if (deepFields.discussion_board !== undefined) cleaned.discussion_board = deepFields.discussion_board ? sanitize(deepFields.discussion_board) : null
+  if (deepFields.wellness_note !== undefined) cleaned.wellness_note = deepFields.wellness_note ? sanitize(deepFields.wellness_note) : null
+  cleaned.updated_at = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('course_weeks')
+    .update(cleaned)
+    .eq('id', weekId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getNextLoNumber(courseId) {
+  const { data, error } = await supabase
+    .from('learning_outcomes')
+    .select('code')
+    .eq('course_id', courseId)
+  if (error) throw error
+  if (!data || data.length === 0) return 1
+  const nums = data.map(lo => parseInt(lo.code.replace(/\D/g, ''), 10)).filter(n => !isNaN(n))
+  return nums.length > 0 ? Math.max(...nums) + 1 : 1
+}
+
 export async function updateCourseNumWeeks(courseId, numWeeks) {
   const { data, error } = await supabase
     .from('courses')
