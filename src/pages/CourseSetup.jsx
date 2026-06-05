@@ -564,9 +564,7 @@ export default function CourseSetup({ setPage, course, userId }) {
       {/* Title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 24 : 30, color: CA_COLORS.navy, margin: 0 }}>⚙ Course Setup</h1>
-        {/* Enable in production in Stage 3 */}
-        {import.meta.env.DEV && (
-          <>
+        <>
             <button onClick={() => syllabusFileRef.current?.click()} style={{
               background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
               padding: "5px 12px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
@@ -636,7 +634,6 @@ export default function CourseSetup({ setPage, course, userId }) {
               }
             }} />
           </>
-        )}
         {syllabusFileMsg && <span style={{ fontSize: 12, color: CA_COLORS.textSoft }}>{syllabusFileMsg}</span>}
       </div>
       <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, margin: "4px 0 28px" }}>{courseLabel}</p>

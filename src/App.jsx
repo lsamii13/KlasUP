@@ -596,6 +596,7 @@ const FLAG_GATED_PAGES = {
 };
 
 const FROM_KLASUP_ITEMS = [
+  { type: "feature", emoji: "📄", title: "Import your syllabus", body: "Upload your syllabus and KlasUp drafts your outcomes, weekly schedule, and assignments — you review and approve every item before anything is added.", date: "June 2026", cta: { label: "Try it in Course Setup →", page: "Course Setup" } },
   { type: "feature", emoji: "🎤", title: "Klas is here!", body: "Your AI brainstorming partner is ready. Ask Klas anything about your course \u2014 one question at a time." },
   { type: "tip", emoji: "💡", title: "Start with a question", body: "When using Klas, start vague \u2014 'I need help with an assignment' \u2014 and let Klas ask the right questions." },
   { type: "research", emoji: "🔬", title: "Active learning works", body: "Students in active learning courses are 1.5x more likely to pass than those in traditional lectures. (Freeman et al., 2014)" },
