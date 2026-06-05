@@ -600,7 +600,6 @@ const FROM_KLASUP_ITEMS = [
   { type: "feature", emoji: "🎤", title: "Klas is here!", body: "Your AI brainstorming partner is ready. Ask Klas anything about your course \u2014 one question at a time." },
   { type: "tip", emoji: "💡", title: "Start with a question", body: "When using Klas, start vague \u2014 'I need help with an assignment' \u2014 and let Klas ask the right questions." },
   { type: "research", emoji: "🔬", title: "Active learning works", body: "Students in active learning courses are 1.5x more likely to pass than those in traditional lectures. (Freeman et al., 2014)" },
-  { type: "feature", emoji: "📊", title: "Course Health Scores", body: "KlasUp tracks your teaching health week over week. Check your Up Score on the dashboard." },
   { type: "tip", emoji: "📝", title: "Use voice input", body: "Every text field in KlasUp supports voice input. Tap the mic icon and just talk." },
   { type: "research", emoji: "🧠", title: "Feedback matters", body: "Formative feedback improves student performance by 30% when given within 24 hours. (Hattie & Timperley, 2007)" },
   { type: "feature", emoji: "🎓", title: "Student Voice", body: "A new dedicated section with strategies and prompts to amplify student voice in your classroom." },
@@ -770,7 +769,6 @@ export default function KlasUp() {
   const [slideOutcomes, setSlideOutcomes] = useState([]);
   const [slideFeedback, setSlideFeedback] = useState(null);
   const [replyOpen, setReplyOpen] = useState(null);
-  const [notifOpen, setNotifOpen] = useState(false);
   const [assignType, setAssignType] = useState("");
   const [assignText, setAssignText] = useState("");
   const [selectedOutcomes, setSelectedOutcomes] = useState([]);
@@ -2108,13 +2106,6 @@ export default function KlasUp() {
           })()}
         </div>
 
-        {/* Impact widget */}
-        <div style={{ padding: "0.75rem", margin: "0.75rem", background: `${C.tealBright}15`, borderRadius: 10, borderTop: "0.5px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ fontSize: 9, fontFamily: F.accent, color: C.tealMid, fontWeight: 700, marginBottom: 5, letterSpacing: "0.05em" }}>UP SCORE</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginBottom: 1 }}>23 items · 8 weeks of data</div>
-          <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 700 }}>Health score +31 pts ↑</div>
-        </div>
-
         {/* Logout */}
         <button onClick={handleSignOut}
           style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", borderTop: "0.5px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)", fontFamily: F.body, fontSize: 12, padding: "0.75rem 1.25rem", cursor: "pointer", transition: "color 0.2s" }}
@@ -2127,50 +2118,15 @@ export default function KlasUp() {
       {/* Content */}
       <div style={{ flex: 1, padding: mob ? "1rem" : "2rem", overflowY: "auto", maxWidth: 1200, width: "100%", boxSizing: "border-box" }}>
 
-        {/* Notification bar with hamburger on mobile */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, position: "relative" }}>
-          {mob ? (
+        {/* Mobile hamburger */}
+        {mob && (
+          <div style={{ marginBottom: 14 }}>
             <button onClick={() => setSidebarOpen(true)}
               style={{ background: C.navy, border: "none", cursor: "pointer", fontSize: 22, padding: "6px 12px", borderRadius: 8, color: C.white, lineHeight: 1, minHeight: 44 }}>
               ☰
             </button>
-          ) : <div />}
-          <button onClick={() => setNotifOpen(!notifOpen)} style={{ position: "relative", background: C.navy, border: "none", cursor: "pointer", fontSize: 22, fontWeight: 900, padding: "4px 10px", borderRadius: 8, color: C.tealBright, lineHeight: 1 }}>
-            ↑
-            <div style={{ position: "absolute", top: 0, right: 0, width: 16, height: 16, background: C.rose, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: C.white, fontFamily: F.accent }}>7</div>
-          </button>
-          {notifOpen && (
-            <div style={{ position: "absolute", top: 36, right: 0, width: mob ? "calc(100vw - 32px)" : 360, maxWidth: 360, background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,0.12)", zIndex: 100, overflow: "hidden" }}>
-              <div style={{ padding: "0.75rem 1rem", borderBottom: `0.5px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontFamily: F.display, fontSize: 16 }}>Notifications</div>
-                <span style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700, cursor: "pointer" }}>Mark all read</span>
-              </div>
-              <div style={{ maxHeight: 380, overflowY: "auto" }}>
-                {[
-                  { icon: "📊", text: "MKT 301 health score increased to 83 (+4 this week)", time: "2h ago", unread: true, color: C.tealLight },
-                  { icon: "📝", text: "New micro-learning available: Low-stakes retrieval boosts retention", time: "3h ago", unread: true, color: C.sageLight },
-                  { icon: "💬", text: "Faculty · New England replied in Think Tank: Socratic Seminar", time: "4h ago", unread: true, color: C.tealLight },
-                  { icon: "⚑", text: "UDL gap detected in Slide 4 of your MKT 301 deck", time: "5h ago", unread: true, color: C.roseLight },
-                  { icon: "✓", text: "Post-class notes for Week 8 uploaded successfully", time: "Yesterday", unread: false, color: C.sageLight },
-                  { icon: "📝", text: "New micro-learning: Mid-term check-ins reverse disengagement", time: "Yesterday", unread: true, color: C.sageLight },
-                  { icon: "📈", text: "Term-over-term trend: you're up 9 points from Fall '24", time: "2d ago", unread: true, color: C.purpleLight },
-                ].map((n, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, padding: "0.65rem 1rem", borderBottom: `0.5px solid ${C.border}`, background: n.unread ? `${n.color}44` : "none", cursor: "pointer" }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: n.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{n.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, lineHeight: 1.5, color: n.unread ? C.navy : C.muted }}>{n.text}</div>
-                      <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{n.time}</div>
-                    </div>
-                    {n.unread && <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.tealBright, flexShrink: 0, marginTop: 6 }} />}
-                  </div>
-                ))}
-              </div>
-              <div style={{ padding: "0.6rem 1rem", borderTop: `0.5px solid ${C.border}`, textAlign: "center" }}>
-                <span style={{ fontSize: 12, fontFamily: F.accent, color: C.teal, fontWeight: 700, cursor: "pointer" }}>View all notifications</span>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── SUBSCRIPTION BANNERS ── */}
         {subStatus.trialExpired && !dismissedTrialBanner && (
@@ -3530,7 +3486,7 @@ export default function KlasUp() {
             </div>
             {[
               { standard: "NECHE 4.19 — Faculty Development", status: "Documented", detail: "Ongoing micro-learning, peer forum contributions, and course improvement cycles across 3 courses.", tier: "pro" },
-              { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Week-over-week health score trending available. Term comparison complete.", tier: "pro" },
+              { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Teaching materials, assignments, and learning-outcome alignment documented through course uploads and outcome tagging.", tier: "pro" },
               { standard: "HLC Criterion 3C — Teaching Quality", status: "Documented", detail: "Research-backed micro-learning completion with article citations on record.", tier: "pro" },
               { standard: "HLC Criterion 4A — UDL & Accessibility", status: "In Progress", detail: "UDL dimension tracking initiated. Multimodal gaps flagged in MKT 410.", tier: "institutional" },
               { standard: "SACSCOC 6.3 — Faculty Competence", status: "Documented", detail: "Active Learning, Flipped Classroom, and Case Study practices documented with research basis.", tier: "institutional" },
@@ -3550,7 +3506,7 @@ export default function KlasUp() {
             {can("pro") && (() => {
               const standards = [
                 { standard: "NECHE 4.19 — Faculty Development", status: "Documented", detail: "Ongoing micro-learning, peer forum contributions, and course improvement cycles across 3 courses." },
-                { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Week-over-week health score trending available. Term comparison complete." },
+                { standard: "NECHE 4.20 — Assessment of Teaching", status: "In Progress", detail: "Teaching materials, assignments, and learning-outcome alignment documented through course uploads and outcome tagging." },
                 { standard: "HLC Criterion 3C — Teaching Quality", status: "Documented", detail: "Research-backed micro-learning completion with article citations on record." },
                 { standard: "HLC Criterion 4A — UDL & Accessibility", status: "In Progress", detail: "UDL dimension tracking initiated. Multimodal gaps flagged in MKT 410." },
                 { standard: "SACSCOC 6.3 — Faculty Competence", status: "Documented", detail: "Active Learning, Flipped Classroom, and Case Study practices documented with research basis." },
@@ -3563,7 +3519,7 @@ export default function KlasUp() {
                     html += `<table><tr><th>Standard</th><th>Status</th><th>Evidence</th></tr>`;
                     standards.forEach(r => { html += `<tr><td><strong>${r.standard}</strong></td><td>${r.status}</td><td>${r.detail}</td></tr>`; });
                     html += `</table>`;
-                    html += `<h2>Summary Metrics</h2><ul><li>Avg Health Score: 74 (+13 from last term)</li><li>Dimensions Tracked: ${can("pro") ? 10 : 3}</li><li>Standards Mapped: ${can("institutional") ? 5 : 3}</li></ul>`;
+                    html += `<h2>Summary Metrics</h2><ul><li>Dimensions Tracked: ${can("pro") ? 10 : 3}</li><li>Standards Mapped: ${can("institutional") ? 5 : 3}</li></ul>`;
                     printPdf(html, "Accreditation Report — KlasUp");
                   }}
                     style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Export as PDF</button>
@@ -3575,7 +3531,6 @@ export default function KlasUp() {
                       paras.push(new Paragraph({ children: [new TextRun({ text: r.detail, size: 22, font: "Calibri" })], spacing: { after: 120 } }));
                     });
                     paras.push(new Paragraph({ text: "Summary Metrics", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } }));
-                    paras.push(new Paragraph({ children: [new TextRun({ text: `Avg Health Score: 74 (+13 from last term)`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
                     paras.push(new Paragraph({ children: [new TextRun({ text: `Dimensions Tracked: ${can("pro") ? 10 : 3}`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
                     paras.push(new Paragraph({ children: [new TextRun({ text: `Standards Mapped: ${can("institutional") ? 5 : 3}`, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
                     await exportGenericDocx(paras, "Accreditation Report", `${profile?.name || "Faculty"} · Generated by KlasUp`, "accreditation-report.docx");
