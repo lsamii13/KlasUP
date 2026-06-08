@@ -2253,7 +2253,15 @@ export default function KlasUp() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
               {dbCourses.map(c => (
-                <div key={c.id} style={{ background: "#1B2B4B", borderRadius: 14, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div key={c.id} role="button" tabIndex={0}
+                  onClick={() => { handleSetActiveCourse(c.id); setPage("Course Architect"); }}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSetActiveCourse(c.id); setPage("Course Architect"); } }}
+                  style={{ background: "#1B2B4B", borderRadius: 14, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4, cursor: "pointer", transition: "transform 0.15s, box-shadow 0.15s", outline: "none" }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 16px rgba(27,43,75,0.18)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                  onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px #2A9D8F"; }}
+                  onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}
+                >
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                     <span style={{ fontFamily: F.display, fontSize: 15, fontWeight: 600, color: C.white }}>{(c.course_code || "").toUpperCase()}</span>
                     {c.section && <span style={{ fontFamily: F.accent, fontSize: 12, color: "#9FB3D4" }}>· Section {c.section}</span>}
@@ -2261,10 +2269,6 @@ export default function KlasUp() {
                   <div style={{ fontFamily: F.accent, fontSize: 12, color: "#9FB3D4" }}>
                     {[c.term_code, c.num_weeks ? `${c.num_weeks} weeks` : null].filter(Boolean).join(" · ") || "No term set"}
                   </div>
-                  <span
-                    onClick={() => { setCareerSelectedCourseId(c.id); document.getElementById("career-anchor")?.scrollIntoView({ behavior: "smooth" }); }}
-                    style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: "#5DCAA5", cursor: "pointer", marginTop: 4 }}
-                  >why this matters ↓</span>
                 </div>
               ))}
             </div>
@@ -2556,23 +2560,6 @@ export default function KlasUp() {
                     )}
                   </div>
 
-                  {/* Recent Activity */}
-                  {recentItems.length > 0 && (
-                    <Card style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>RECENT ACTIVITY</div>
-                      {recentItems.map((item, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
-                          <span style={{ fontSize: 18, flexShrink: 0 }}>{UPLOAD_ICONS[item.category] || "📄"}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
-                            <div style={{ fontSize: 11, color: C.muted }}>{item.course} · {item.week}</div>
-                          </div>
-                          <div style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
-                        </div>
-                      ))}
-                    </Card>
-                  )}
-
                   {/* ── SECTION 5: MICRO-LEARNINGS ROW ── */}
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -2617,31 +2604,44 @@ export default function KlasUp() {
               );
             })()}
 
-            {/* Term Overview */}
-            {dbCourses.length > 0 && (
-              <Card style={{ marginTop: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontFamily: F.display, fontSize: 18 }}>Term Overview</div>
-                  <button onClick={() => setPage("Settings")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: "none", cursor: "pointer" }}>Manage Courses</button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-                  {dbCourses.map(c => (
-                    <div key={c.id} style={{ background: C.ivory, borderRadius: 10, padding: "12px 14px" }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: C.navy, marginBottom: 4 }}>{formatCourseLabel(c)}</div>
-                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-                        {c.term_start ? `Starts ${new Date(c.term_start + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "No start date set"}<br />
-                        {c.num_weeks || 16} week term
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
           </div>
 
           {/* Right sidebar — From KlasUp rotating panel */}
           <div style={{ width: mob ? "100%" : 280, flexShrink: 0, marginTop: mob ? 16 : 0 }}>
             <FromKlasUpPanel onNavigate={setPage} />
+
+            {/* Recent Activity */}
+            {(() => {
+              const sidebarRecent = uploadLog.slice(0, 4);
+              if (sidebarRecent.length === 0) return null;
+              const UPLOAD_ICONS = { "Post-class notes": "✏", "Announcements": "📢", "Assignments": "📝", "Discussions": "💬", "Learning Outcomes": "🎯", "Student Voice": "🗣", "PowerPoints": "📊" };
+              const relativeTime = (ts) => {
+                const diff = Date.now() - ts;
+                const mins = Math.floor(diff / 60000);
+                if (mins < 1) return "just now";
+                if (mins < 60) return `${mins}m ago`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return `${hrs}h ago`;
+                return `${Math.floor(hrs / 24)}d ago`;
+              };
+              return (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 14, fontWeight: 700, color: "#1B2B4B", marginBottom: 8 }}>Recent Activity</div>
+                  <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: "12px 14px" }}>
+                    {sidebarRecent.map((item, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i > 0 ? "0.5px solid #E5E7EB" : "none" }}>
+                        <span style={{ fontSize: 14, flexShrink: 0 }}>{UPLOAD_ICONS[item.category] || "📄"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1B2B4B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
+                          <div style={{ fontSize: 10, color: "#5a6a85" }}>{item.course}</div>
+                        </div>
+                        <div style={{ fontSize: 10, color: "#5a6a85", flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           </div>
         )}
