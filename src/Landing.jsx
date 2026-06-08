@@ -347,7 +347,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(260px, 1fr))", gap: mob ? 28 : 40 }}>
         {[
           { step: "01", icon: "📤", title: "Upload your content", desc: "Drop in your announcements, lecture slides, or assignment prompts. KlasUp reads what you're already teaching." },
-          { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized AI coaching, micro-learning, course health analysis, and career connection data — tailored to your exact content." },
+          { step: "02", icon: "🧠", title: "Get AI-powered insights", desc: "Receive personalized AI coaching, micro-learning, instant pedagogy feedback on your assignments and slides, and career connection data — tailored to your exact content." },
           { step: "03", icon: "📈", title: "Watch your teaching grow", desc: "Track improvement over time with term reflections, a living course portfolio, and accreditation-ready reports (coming Winter 2026–2027)." },
         ].map((item, i) => (
           <RevealSection key={i} delay={i * 0.15}>
@@ -379,8 +379,8 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(310px, 1fr))", gap: mob ? 16 : 24 }}>
         {[
           { icon: "◉", title: "AI Micro-Learning", desc: "Bite-sized pedagogical tips generated from your actual course content — not generic advice. Delivered weekly.", color: C.tealBright, bg: C.tealLight },
-          { icon: "❤", title: "Course Health Score", desc: "A living diagnostic that evaluates alignment, engagement strategies, assessment design, and inclusivity across your syllabus.", color: C.rose, bg: C.roseLight },
-          { icon: "🔗", title: "Career Connections", desc: "Show students how this week's lesson connects to real, growing careers — with labor market data and shareable cards.", color: C.sage, bg: C.sageLight },
+          { icon: "❤", title: "Course Health Score", desc: "A living diagnostic that will evaluate alignment, engagement strategies, assessment design, and inclusivity across your course — grounded in your real materials, never a black box.", color: C.rose, bg: C.roseLight, badge: "Coming Soon" },
+          { icon: "🔗", title: "Career Connections", desc: "Show students how each week's skills carry into real careers — honest connections drawn from your actual course content.", color: C.sage, bg: C.sageLight },
           { icon: "◈", title: "Think Tank", desc: "Ask any teaching question and get research-backed, practical answers. Like office hours with a pedagogical expert.", color: "#6B4E9B", bg: "#F0EBF8" },
           { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for your accreditation body, whatever it may be.", color: "#B8860B", bg: "#FFF8E7", badge: "Coming Winter 2026–2027" },
           { icon: "✦", title: "Term Reflection", desc: "End each term with an AI-powered narrative that captures what changed, what improved, and what to try next.", color: C.navy, bg: C.ivoryDark },
@@ -493,12 +493,12 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
         {[
           {
             name: "Free", price: "$0", period: "forever", desc: "Get started and explore the basics.",
-            features: ["1 course", "AI Micro-Learning (1/week)", "Course Health Score", "Career Connections (1 role)", "Think Tank (5 questions/mo)"],
+            features: ["1 course", "AI Micro-Learning (1/week)", "Course Health Score (coming soon)", "Career Connections (1 role)", "Think Tank (5 questions/mo)"],
             cta: "Start Free", featured: false,
           },
           {
             name: "Pro", price: "$15", period: "/month", desc: "For faculty ready to level up.",
-            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports ⸱ Coming Soon", "Term Reflection", "Course Portfolio"],
+            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics (coming soon)", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports ⸱ Coming Soon", "Term Reflection", "Course Portfolio"],
             cta: "Start Free Trial", featured: true,
           },
           {

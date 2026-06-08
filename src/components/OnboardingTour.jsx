@@ -33,7 +33,7 @@ const STEPS = [
   {
     emoji: "📊",
     heading: "Your teaching command center",
-    body: "The Dashboard shows your course health score, weekly insights, and career connections. The more you upload, the smarter it gets. Check in here every week.",
+    body: "The Dashboard is your home base — your courses, a suggested next step, and your recent activity at a glance.",
   },
   {
     emoji: "📝",

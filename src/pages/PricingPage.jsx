@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const features = {
   free: [
-    { label: "Course health scores", included: true },
+    { label: "Course health scores (coming soon)", included: true },
     { label: "Micro-learning library", included: true },
     { label: "Think Tank forum", included: true },
     { label: "Klas — AI-Powered Brainstorming (limited)", included: true },

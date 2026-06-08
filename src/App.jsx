@@ -4899,7 +4899,7 @@ export default function KlasUp() {
               {[
                 {
                   key: "free", name: "Free", sub: "The Signal", price: "$0", period: "forever", color: C.muted,
-                  features: ["1 course", "Basic health score (current week)", "2 micro-learnings/month", "Post-class notes & announcements", "Think Tank (read only)", "Career Connections (1 role preview)"],
+                  features: ["1 course", "Health scores (coming soon)", "2 micro-learnings/month", "Post-class notes & announcements", "Think Tank (read only)", "Career Connections (1 role preview)"],
                   locked: ["Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite", "Accreditation reports ⸱ Coming Soon"],
                   cta: "Get Started Free",
                 },
