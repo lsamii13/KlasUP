@@ -2376,20 +2376,22 @@ export default function KlasUp() {
                       };
 
                       return (
-                        <Card style={{ border: "0.5px solid #E4D9C8" }}>
-                          {/* Header: label + course switcher */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                            <div style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Career Connections</div>
+                        <div style={{ borderRadius: 14, overflow: "hidden" }}>
+                          {/* Gradient header bar */}
+                          <div style={{ background: "linear-gradient(135deg, #1B2B4B 0%, #2A9D8F 100%)", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontFamily: F.display, fontSize: 17, color: "#FAF7F2" }}>Career Connections</div>
                             {dbCourses.length > 1 && (
                               <select
                                 value={ccId}
                                 onChange={e => { setCareerSelectedCourseId(e.target.value); }}
-                                style={{ fontFamily: F.accent, fontSize: 12, padding: "4px 8px", borderRadius: 8, border: `1px solid ${C.border}`, color: C.navy, background: C.ivory, outline: "none", cursor: "pointer" }}
+                                style={{ fontFamily: F.accent, fontSize: 12, padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", color: "#FAF7F2", background: "rgba(255,255,255,0.12)", outline: "none", cursor: "pointer" }}
                               >
                                 {dbCourses.map(cx => <option key={cx.id} value={cx.id}>{formatCourseLabel(cx)}</option>)}
                               </select>
                             )}
                           </div>
+                          {/* Content area */}
+                          <div style={{ background: C.white, padding: "1.25rem", border: "0.5px solid #E4D9C8", borderTop: "none", borderRadius: "0 0 14px 14px" }}>
 
                           {/* GENERATING */}
                           {loading && (
@@ -2495,7 +2497,8 @@ export default function KlasUp() {
                               </>
                             );
                           })()}
-                        </Card>
+                          </div>
+                        </div>
                       );
                     })()}
             </div>
