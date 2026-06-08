@@ -122,9 +122,9 @@ function EmptyDataState({ text }) {
 function SemesterListView({ weeks, assignments, filter, getLoCodesFor }) {
   const [hoveredIdx, setHoveredIdx] = useState(-1);
   const STATUS_ICONS = [
-    { key: "lesson", emoji: "📋" },
-    { key: "slides", emoji: "📊" },
-    { key: "assignment", emoji: "📝" },
+    { key: "lesson", emoji: "📋", label: "Lesson plan" },
+    { key: "slides", emoji: "📊", label: "Slides" },
+    { key: "assignment", emoji: "📝", label: "Assignment" },
   ];
 
   if (weeks.length === 0) return <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}><EmptyDataState text="No weeks yet — open Course Setup to add them." /></div>;
@@ -165,10 +165,11 @@ function SemesterListView({ weeks, assignments, filter, getLoCodesFor }) {
             {STATUS_ICONS.map(si => {
               const done = row.status[si.key];
               return (
-                <div key={si.key} style={{
+                <div key={si.key} title={done ? si.label : `${si.label} — not yet added`} style={{
                   width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: done ? 14 : 13, background: done ? CA_COLORS.tealSoft : "#FFF4E6",
                   color: done ? CA_COLORS.teal : "#B8651A", border: done ? "none" : "1.5px dashed #D4A574", fontWeight: 700,
+                  cursor: "help",
                 }}>{done ? si.emoji : "+"}</div>
               );
             })}
