@@ -2563,16 +2563,16 @@ export default function KlasUp() {
               };
               return (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 14, fontWeight: 700, color: "#1B2B4B", marginBottom: 8 }}>Recent Activity</div>
-                  <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: "12px 14px" }}>
+                  <div style={{ fontFamily: F.display, fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Recent Activity</div>
+                  <div style={{ background: C.white, border: `0.5px solid ${C.border}`, borderRadius: 16, padding: "12px 14px" }}>
                     {sidebarRecent.map((item, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i > 0 ? "0.5px solid #E5E7EB" : "none" }}>
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
                         <span style={{ fontSize: 14, flexShrink: 0 }}>{UPLOAD_ICONS[item.category] || "📄"}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1B2B4B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
-                          <div style={{ fontSize: 10, color: "#5a6a85" }}>{item.course}</div>
+                          <div style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
+                          <div style={{ fontFamily: F.body, fontSize: 10, color: C.muted }}>{item.course}</div>
                         </div>
-                        <div style={{ fontSize: 10, color: "#5a6a85", flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
+                        <div style={{ fontFamily: F.body, fontSize: 10, color: C.muted, flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
                       </div>
                     ))}
                   </div>
