@@ -3,7 +3,7 @@ import Logo from "./Logo";
 import { supabase } from "./supabase";
 
 const C = {
-  navy: "#0F1F3D", navyMid: "#1A3260",
+  navy: "#1B2B4B", navyMid: "#1A3260",
   teal: "#0B8A8A", tealBright: "#0FB5B5", tealLight: "#D6F5F5",
   ivory: "#FAF8F4", ivoryDark: "#F0EDE6",
   sage: "#5A8A62", sageLight: "#E6F4E8",

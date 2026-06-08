@@ -2,7 +2,7 @@ import { useState } from "react";
 import Logo from "./Logo";
 
 const C = {
-  navy: "#0F1F3D", navyMid: "#1A3260",
+  navy: "#1B2B4B", navyMid: "#1A3260",
   teal: "#0B8A8A", tealBright: "#0FB5B5", tealLight: "#D6F5F5", tealMid: "#7FE0E0",
   ivory: "#FAF8F4", ivoryDark: "#F0EDE6",
   rose: "#C4687A", roseLight: "#FBEAF0",
