@@ -2273,54 +2273,8 @@ export default function KlasUp() {
               ))}
             </div>
 
-            {/* ── SECTION 3: SUGGESTED NEXT STEP ── */}
-            {(() => {
-              const currentWeekUploads = uploadLog.filter(e => e.week === week && e.course === course);
-              const hasSlides = currentWeekUploads.some(e => e.category === "PowerPoints");
-              const hasDiscussion = currentWeekUploads.some(e => e.category === "Discussions");
-
-              const rules = [
-                { match: !hasSlides, label: `${week} has no slide deck yet`, btn: "Open Slide Studio", action: () => setPage("Slide Studio"), icon: "📊" },
-                { match: !hasDiscussion, label: `Add a discussion prompt for ${week}`, btn: "Open Pedagogy Studio", action: () => { setPage("My Course"); setMyCourseCategory("Discussions"); }, icon: "💬" },
-                { match: true, label: "You're all caught up — explore the Research Library", btn: "Browse research", action: () => setPage("Research Library"), icon: "📚" },
-              ];
-
-              const hero = rules.find(r => r.match);
-              const secondary = rules.filter(r => r.match && r !== hero).slice(0, 3);
-              const recentItems = uploadLog.slice(0, 3);
-
-              const relativeTime = (ts) => {
-                const diff = Date.now() - ts;
-                const mins = Math.floor(diff / 60000);
-                if (mins < 1) return "just now";
-                if (mins < 60) return `${mins}m ago`;
-                const hrs = Math.floor(mins / 60);
-                if (hrs < 24) return `${hrs}h ago`;
-                const days = Math.floor(hrs / 24);
-                return `${days}d ago`;
-              };
-
-              const UPLOAD_ICONS = { "Post-class notes": "✏", "Announcements": "📢", "Assignments": "📝", "Discussions": "💬", "Learning Outcomes": "🎯", "Student Voice": "🗣", "PowerPoints": "📊" };
-
-              return (
-                <>
-                  {/* Hero suggestion */}
-                  <Card style={{ marginBottom: 14, borderLeft: `4px solid ${C.tealBright}` }}>
-                    <div style={{ display: "flex", alignItems: mob ? "flex-start" : "center", gap: 14, flexDirection: mob ? "column" : "row" }}>
-                      <span style={{ fontSize: 28, flexShrink: 0 }}>{hero.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy, marginBottom: 4 }}>{hero.label}</div>
-                        <button onClick={hero.action}
-                          style={{ fontSize: 13, fontFamily: F.accent, fontWeight: 700, background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "8px 18px", cursor: "pointer" }}>
-                          {hero.btn} →
-                        </button>
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* ── SECTION 4: CAREER CONNECTIONS + OTHER ACTIONS ── */}
-                  <div id="career-anchor" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
-                    {/* Career Connections */}
+            {/* ── CAREER CONNECTIONS ── */}
+            <div id="career-anchor" style={{ marginBottom: 14 }}>
                     {(() => {
                       const ccId = careerSelectedCourseId || activeCourseId || (dbCourses[0] && dbCourses[0].id) || null;
                       if (!ccId) return null;
@@ -2544,21 +2498,7 @@ export default function KlasUp() {
                         </Card>
                       );
                     })()}
-
-                    {/* Other things you could do */}
-                    {secondary.length > 0 && (
-                      <Card>
-                        <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>OTHER THINGS YOU COULD DO</div>
-                        {secondary.map((s, i) => (
-                          <div key={i} onClick={s.action}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
-                            <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
-                            <div style={{ fontSize: 13, color: C.navy, fontWeight: 500 }}>{s.label}</div>
-                          </div>
-                        ))}
-                      </Card>
-                    )}
-                  </div>
+            </div>
 
                   {/* ── SECTION 5: MICRO-LEARNINGS ROW ── */}
                   <div style={{ marginBottom: 14 }}>
@@ -2600,9 +2540,6 @@ export default function KlasUp() {
                       })}
                     </div>
                   </div>
-                </>
-              );
-            })()}
 
           </div>
 
