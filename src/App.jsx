@@ -597,20 +597,21 @@ const FLAG_GATED_PAGES = {
 
 const FROM_KLASUP_ITEMS = [
   { type: "feature", emoji: "📄", title: "Import your syllabus", body: "Upload your syllabus and KlasUp drafts your outcomes, weekly schedule, and assignments — you review and approve every item before anything is added.", date: "June 2026", cta: { label: "Try it in Course Setup →", page: "Course Setup" } },
-  { type: "feature", emoji: "🎤", title: "Klas is here!", body: "Your AI brainstorming partner is ready. Ask Klas anything about your course \u2014 one question at a time." },
+  { type: "feature", emoji: "🏛️", title: "Course Architect is here", body: "Your whole term in one place — weeks, assignments, and learning outcomes, viewable as a list, by assignment, or in full detail.", date: "June 2026", cta: { label: "Open Course Architect →", page: "Course Architect" } },
+  { type: "feature", emoji: "📖", title: "Your guide to KlasUp", body: "Every feature explained in plain language, with a glossary. Look for the ⓘ on any page when you want a quick orientation.", date: "June 2026", cta: { label: "Open the Guide →", page: "Guide" } },
+  { type: "feature", emoji: "📝", title: "AI feedback on your assignments", body: "Get pedagogy feedback on any assignment right inside Pedagogy Studio — Bloom's range, scaffolding, and clarity, with the why behind each note.", date: "June 2026", cta: { label: "Open Pedagogy Studio →", page: "Pedagogy Studio" } },
   { type: "tip", emoji: "💡", title: "Start with a question", body: "When using Klas, start vague \u2014 'I need help with an assignment' \u2014 and let Klas ask the right questions." },
-  { type: "research", emoji: "🔬", title: "Active learning works", body: "Students in active learning courses are 1.5x more likely to pass than those in traditional lectures. (Freeman et al., 2014)" },
-  { type: "tip", emoji: "📝", title: "Use voice input", body: "Every text field in KlasUp supports voice input. Tap the mic icon and just talk." },
-  { type: "research", emoji: "🧠", title: "Feedback matters", body: "Formative feedback improves student performance by 30% when given within 24 hours. (Hattie & Timperley, 2007)" },
-  { type: "feature", emoji: "🎓", title: "Student Voice", body: "A new dedicated section with strategies and prompts to amplify student voice in your classroom." },
-  { type: "tip", emoji: "📤", title: "Export everything", body: "Every assignment, slide deck, and report can be exported as PDF, Word, or PowerPoint." },
-  { type: "research", emoji: "💬", title: "Student voice drives retention", body: "Courses where faculty visibly act on student feedback see 23% higher end-of-term satisfaction scores." },
+  { type: "tip", emoji: "🎤", title: "Talk instead of type", body: "Every text box in KlasUp takes voice input. Thinking out loud is a legitimate drafting strategy." },
+  { type: "tip", emoji: "🏷️", title: "Tag as you build", body: "Tagging assignments to learning outcomes takes seconds now — and writes your accreditation documentation for you all term." },
+  { type: "research", emoji: "🔬", title: "Active learning works", body: "Students learn more by doing than by listening — discussion, application, and practice beat lecture-only time." },
+  { type: "research", emoji: "🧠", title: "Low-stakes practice beats cramming", body: "Frequent low-stakes practice helps students retain more than high-stakes exams alone — a small change with outsized payoff." },
+  { type: "research", emoji: "🌱", title: "Small flexibility, big belonging", body: "Humane policies like a late pass or a dropped lowest grade are linked to stronger student belonging and persistence." },
 ];
 
 const TYPE_ACCENT = { feature: "#2A9D8F", tip: "#1B2B4B", research: "#7BAE7F" };
 const TYPE_LABEL = { feature: "New Feature", tip: "Tip", research: "Research" };
 
-function FromKlasUpPanel() {
+function FromKlasUpPanel({ onNavigate }) {
   const [idx, setIdx] = useState(0);
   const total = FROM_KLASUP_ITEMS.length;
 
@@ -638,10 +639,11 @@ function FromKlasUpPanel() {
         <div style={{ padding: "18px 16px 14px", minHeight: 140 }}>
           <div style={{
             fontFamily: "'Manrope', sans-serif", fontSize: 10, fontWeight: 800,
-            color: accent, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6,
+            textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6,
             transition: "color 0.4s ease",
           }}>
-            {TYPE_LABEL[item.type]}
+            <span style={{ color: accent }}>{TYPE_LABEL[item.type]}</span>
+            {item.date && <span style={{ color: "#9CA3AF" }}> · {item.date}</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 20 }}>{item.emoji}</span>
@@ -652,6 +654,14 @@ function FromKlasUpPanel() {
           <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: 13, color: "#5a6a85", lineHeight: 1.6 }}>
             {item.body}
           </div>
+          {item.cta && onNavigate && (
+            <button onClick={() => onNavigate(item.cta.page)}
+              style={{ background: "none", border: "none", padding: "8px 0 0", fontFamily: "'Manrope', sans-serif", fontSize: 12, fontWeight: 700, color: accent, cursor: "pointer", transition: "opacity 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.7"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+              {item.cta.label}
+            </button>
+          )}
         </div>
 
         {/* Controls */}
@@ -2647,7 +2657,7 @@ export default function KlasUp() {
 
           {/* Right sidebar — From KlasUp rotating panel */}
           <div style={{ width: mob ? "100%" : 280, flexShrink: 0, marginTop: mob ? 16 : 0 }}>
-            <FromKlasUpPanel />
+            <FromKlasUpPanel onNavigate={setPage} />
           </div>
           </div>
         )}
