@@ -2251,7 +2251,7 @@ export default function KlasUp() {
               <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>YOUR COURSES</div>
               <span onClick={() => setPage("Settings")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, cursor: "pointer" }}>Manage courses</span>
             </div>
-            <div id="career-anchor" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
               {dbCourses.map(c => (
                 <div key={c.id} style={{ background: "#1B2B4B", borderRadius: 14, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -2268,8 +2268,6 @@ export default function KlasUp() {
                 </div>
               ))}
             </div>
-            {/* Career Connections state — preserved for Stage 2 relocation */}
-            {void(expandedCourseId || careerData || careerLoading || careerError || disciplineEdit || topicInput || copiedId || setExpandedCourseId || setCareerData || setCareerLoading || setCareerError || setDisciplineEdit || setTopicInput || setCopiedId)}
 
             {/* ── SECTION 3: SUGGESTED NEXT STEP ── */}
             {(() => {
@@ -2316,37 +2314,263 @@ export default function KlasUp() {
                     </div>
                   </Card>
 
-                  {/* ── SECTION 4: TWO COLUMNS ── */}
-                  {(secondary.length > 0 || recentItems.length > 0) && (
-                    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
-                      {secondary.length > 0 && (
-                        <Card>
-                          <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>OTHER THINGS YOU COULD DO</div>
-                          {secondary.map((s, i) => (
-                            <div key={i} onClick={s.action}
-                              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
-                              <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
-                              <div style={{ fontSize: 13, color: C.navy, fontWeight: 500 }}>{s.label}</div>
+                  {/* ── SECTION 4: CAREER CONNECTIONS + OTHER ACTIONS ── */}
+                  <div id="career-anchor" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                    {/* Career Connections */}
+                    {(() => {
+                      const ccId = careerSelectedCourseId || activeCourseId || (dbCourses[0] && dbCourses[0].id) || null;
+                      if (!ccId) return null;
+                      const ccCourse = dbCourses.find(x => x.id === ccId);
+                      const data = careerData[ccId];
+                      const loading = careerLoading[ccId];
+                      const errored = careerError[ccId];
+                      const editingDiscipline = disciplineEdit[ccId] != null;
+                      const topicOpen = topicInput[ccId] != null;
+                      const readyTopic = data?.topics?.find(t => t.status === "ready");
+
+                      // Fetch career data on select (if not cached)
+                      const fetchCareer = async (courseId) => {
+                        if (careerData[courseId] || careerLoading[courseId]) return;
+                        setCareerLoading(prev => ({ ...prev, [courseId]: true }));
+                        setCareerError(prev => ({ ...prev, [courseId]: false }));
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const cc = dbCourses.find(x => x.id === courseId);
+                          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/career-connections`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ course_id: courseId, course_title: cc?.course_name || cc?.course_code || "" }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok) throw new Error(json.error || "Server error");
+                          setCareerData(prev => ({ ...prev, [courseId]: json }));
+                        } catch (e) {
+                          console.error("[career-connections] fetch failed:", e.message);
+                          setCareerError(prev => ({ ...prev, [courseId]: true }));
+                        } finally {
+                          setCareerLoading(prev => ({ ...prev, [courseId]: false }));
+                        }
+                      };
+
+                      // Auto-fetch on mount/select
+                      if (!data && !loading && !errored) fetchCareer(ccId);
+
+                      const handleDisciplineSubmit = async (val) => {
+                        if (!val.trim()) return;
+                        setDisciplineEdit(prev => ({ ...prev, [ccId]: null }));
+                        setCareerData(prev => ({ ...prev, [ccId]: null }));
+                        setCareerLoading(prev => ({ ...prev, [ccId]: true }));
+                        setCareerError(prev => ({ ...prev, [ccId]: false }));
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/career-connections`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ course_id: ccId, course_title: ccCourse?.course_name || ccCourse?.course_code || "", override_discipline: val.trim(), confirmed: true }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok) throw new Error(json.error || "Server error");
+                          setCareerData(prev => ({ ...prev, [ccId]: json }));
+                        } catch (e) {
+                          console.error("[career-connections] discipline correction failed:", e.message);
+                          setCareerError(prev => ({ ...prev, [ccId]: true }));
+                        } finally {
+                          setCareerLoading(prev => ({ ...prev, [ccId]: false }));
+                        }
+                      };
+
+                      const handleTopicSubmit = async (val) => {
+                        if (!val.trim()) return;
+                        setTopicInput(prev => ({ ...prev, [ccId]: null }));
+                        setCareerLoading(prev => ({ ...prev, [ccId]: true }));
+                        setCareerError(prev => ({ ...prev, [ccId]: false }));
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/career-connections`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ course_id: ccId, course_title: ccCourse?.course_name || ccCourse?.course_code || "", topic: val.trim() }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok) throw new Error(json.error || "Server error");
+                          setCareerData(prev => ({ ...prev, [ccId]: json }));
+                        } catch (e) {
+                          console.error("[career-connections] topic override failed:", e.message);
+                          setCareerError(prev => ({ ...prev, [ccId]: true }));
+                        } finally {
+                          setCareerLoading(prev => ({ ...prev, [ccId]: false }));
+                        }
+                      };
+
+                      const handleCopy = () => {
+                        if (!data?.course) return;
+                        const courseName = ccCourse?.course_name || ccCourse?.course_code || "";
+                        const lines = [`Why this matters — ${courseName}`, "", data.course.blurb];
+                        if (readyTopic) lines.push("", `This week: ${readyTopic.topic}`, readyTopic.narrative);
+                        const roles = readyTopic?.roles || data.course.roles || [];
+                        const skills = readyTopic?.skills || data.course.skills || [];
+                        if (roles.length) lines.push("", `Where this can lead: ${roles.join(", ")}`);
+                        if (skills.length) lines.push(`Skills you're building: ${skills.join(", ")}`);
+                        navigator.clipboard.writeText(lines.join("\n")).then(() => {
+                          setCopiedId(ccId);
+                          setTimeout(() => setCopiedId(prev => prev === ccId ? null : prev), 2000);
+                        });
+                      };
+
+                      return (
+                        <Card style={{ border: "0.5px solid #E4D9C8" }}>
+                          {/* Header: label + course switcher */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                            <div style={{ fontSize: 11, fontFamily: F.accent, color: C.teal, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Career Connections</div>
+                            {dbCourses.length > 1 && (
+                              <select
+                                value={ccId}
+                                onChange={e => { setCareerSelectedCourseId(e.target.value); }}
+                                style={{ fontFamily: F.accent, fontSize: 12, padding: "4px 8px", borderRadius: 8, border: `1px solid ${C.border}`, color: C.navy, background: C.ivory, outline: "none", cursor: "pointer" }}
+                              >
+                                {dbCourses.map(cx => <option key={cx.id} value={cx.id}>{formatCourseLabel(cx)}</option>)}
+                              </select>
+                            )}
+                          </div>
+
+                          {/* GENERATING */}
+                          {loading && (
+                            <div>
+                              <div style={{ fontFamily: F.body, fontSize: 13, color: C.muted, marginBottom: 12 }}>Klas is mapping where this course leads…</div>
+                              {[1, 0.7, 0.4].map((op, si) => (
+                                <div key={si} style={{ height: 14, borderRadius: 8, background: `linear-gradient(90deg, #E4D9C8 25%, #FAF7F2 50%, #E4D9C8 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite", opacity: op, marginBottom: 8 }} />
+                              ))}
+                              <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
                             </div>
-                          ))}
-                        </Card>
-                      )}
-                      {recentItems.length > 0 && (
-                        <Card>
-                          <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>RECENT ACTIVITY</div>
-                          {recentItems.map((item, i) => (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
-                              <span style={{ fontSize: 18, flexShrink: 0 }}>{UPLOAD_ICONS[item.category] || "📄"}</span>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
-                                <div style={{ fontSize: 11, color: C.muted }}>{item.course} · {item.week}</div>
-                              </div>
-                              <div style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
+                          )}
+
+                          {/* ERROR */}
+                          {!loading && errored && (
+                            <div style={{ fontFamily: F.body, fontSize: 13, color: C.muted }}>
+                              Couldn't load this right now.{" "}
+                              <span onClick={() => { setCareerError(prev => ({ ...prev, [ccId]: false })); setCareerData(prev => { const n = { ...prev }; delete n[ccId]; return n; }); }} style={{ color: C.teal, cursor: "pointer", textDecoration: "underline" }}>Try again</span>
                             </div>
-                          ))}
+                          )}
+
+                          {/* NEEDS_DISCIPLINE */}
+                          {!loading && !errored && data?.needs_discipline && (
+                            <div style={{ fontFamily: F.body, fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+                              Klas needs a bit more about this course to map where it leads — add your syllabus or course materials and try again.
+                            </div>
+                          )}
+
+                          {/* READY */}
+                          {!loading && !errored && data?.course && (() => {
+                            const courseData = data.course;
+                            const allRoles = readyTopic?.roles || courseData.roles || [];
+                            const allSkills = readyTopic?.skills || courseData.skills || [];
+                            return (
+                              <>
+                                {/* Discipline pill + edit */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                                  <span style={{ display: "inline-block", background: "#2A9D8F", color: C.white, fontFamily: F.accent, fontSize: 12, fontWeight: 600, borderRadius: 20, padding: "4px 14px" }}>
+                                    {data.inferred_discipline}
+                                  </span>
+                                  {!editingDiscipline && (
+                                    <span onClick={() => setDisciplineEdit(prev => ({ ...prev, [ccId]: data.inferred_discipline }))} style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, cursor: "pointer" }}>✎ not right?</span>
+                                  )}
+                                </div>
+                                {editingDiscipline && (
+                                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                                    <input value={disciplineEdit[ccId] || ""} onChange={e => setDisciplineEdit(prev => ({ ...prev, [ccId]: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleDisciplineSubmit(disciplineEdit[ccId])}
+                                      style={{ flex: 1, fontFamily: F.body, fontSize: 13, padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.border}`, outline: "none" }} placeholder="e.g. Consumer Psychology" autoFocus />
+                                    <button onClick={() => handleDisciplineSubmit(disciplineEdit[ccId])} style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, background: "#2A9D8F", color: C.white, border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>Update</button>
+                                    <button onClick={() => setDisciplineEdit(prev => ({ ...prev, [ccId]: null }))} style={{ fontFamily: F.accent, fontSize: 12, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
+                                  </div>
+                                )}
+
+                                {/* Topic narrative (always visible in condensed) */}
+                                {readyTopic && (
+                                  <div style={{ background: C.ivory, border: "0.5px solid #E4D9C8", borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
+                                    <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: "#2A9D8F", textTransform: "uppercase", marginBottom: 6 }}>★ This week · {readyTopic.topic}</div>
+                                    <p style={{ fontFamily: F.body, fontSize: 13.5, lineHeight: 1.65, color: "#1B2B4B", margin: 0 }}>{readyTopic.narrative}</p>
+                                  </div>
+                                )}
+
+                                {/* Expand toggle */}
+                                <div onClick={() => setExpandedCourseId(prev => prev === ccId ? null : ccId)}
+                                  style={{ textAlign: "center", fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: C.teal, cursor: "pointer", padding: "4px 0", marginBottom: expandedCourseId === ccId ? 10 : 0 }}>
+                                  {expandedCourseId === ccId ? "hide details ⌃" : "see full — roles, skills, share ⌄"}
+                                </div>
+
+                                {/* Expanded details */}
+                                {expandedCourseId === ccId && (
+                                  <>
+                                    <p style={{ fontFamily: F.body, fontSize: 14, lineHeight: 1.7, color: "#1B2B4B", margin: "0 0 14px 0" }}>{courseData.blurb}</p>
+
+                                    {allRoles.length > 0 && (
+                                      <div style={{ marginBottom: 10 }}>
+                                        <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Where this can lead</div>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{allRoles.map(r => <span key={r} style={{ fontFamily: F.accent, fontSize: 12, border: "1px solid #E4D9C8", borderRadius: 20, padding: "4px 12px", color: "#1B2B4B", background: C.white }}>{r}</span>)}</div>
+                                      </div>
+                                    )}
+                                    {allSkills.length > 0 && (
+                                      <div style={{ marginBottom: 14 }}>
+                                        <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Skills you're building</div>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{allSkills.map(s => <span key={s} style={{ fontFamily: F.accent, fontSize: 12, background: "#E1F5EE", color: "#0F6E56", borderRadius: 20, padding: "4px 12px" }}>{s}</span>)}</div>
+                                      </div>
+                                    )}
+
+                                    <button onClick={handleCopy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#1B2B4B", color: C.white, fontFamily: F.accent, fontSize: 13, fontWeight: 600, border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", marginBottom: 4 }}>
+                                      <span style={{ fontSize: 15 }}>📋</span> {copiedId === ccId ? "Copied!" : "Share with students"}
+                                    </button>
+                                    <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 12 }}>Copies everything above — ready to paste into an announcement or slide.</div>
+
+                                    {!topicOpen && (
+                                      <div onClick={() => setTopicInput(prev => ({ ...prev, [ccId]: "" }))} style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: "#2A9D8F", cursor: "pointer" }}>+ connect a different topic</div>
+                                    )}
+                                    {topicOpen && (
+                                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                                        <input value={topicInput[ccId] || ""} onChange={e => setTopicInput(prev => ({ ...prev, [ccId]: e.target.value }))} onKeyDown={e => e.key === "Enter" && handleTopicSubmit(topicInput[ccId])}
+                                          style={{ flex: 1, fontFamily: F.body, fontSize: 13, padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.border}`, outline: "none" }} placeholder="e.g. Survey Design" autoFocus />
+                                        <button onClick={() => handleTopicSubmit(topicInput[ccId])} style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, background: "#2A9D8F", color: C.white, border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>Go</button>
+                                        <button onClick={() => setTopicInput(prev => ({ ...prev, [ccId]: null }))} style={{ fontFamily: F.accent, fontSize: 12, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </>
+                            );
+                          })()}
                         </Card>
-                      )}
-                    </div>
+                      );
+                    })()}
+
+                    {/* Other things you could do */}
+                    {secondary.length > 0 && (
+                      <Card>
+                        <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>OTHER THINGS YOU COULD DO</div>
+                        {secondary.map((s, i) => (
+                          <div key={i} onClick={s.action}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
+                            <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
+                            <div style={{ fontSize: 13, color: C.navy, fontWeight: 500 }}>{s.label}</div>
+                          </div>
+                        ))}
+                      </Card>
+                    )}
+                  </div>
+
+                  {/* Recent Activity */}
+                  {recentItems.length > 0 && (
+                    <Card style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 10 }}>RECENT ACTIVITY</div>
+                      {recentItems.map((item, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i > 0 ? `0.5px solid ${C.border}` : "none" }}>
+                          <span style={{ fontSize: 18, flexShrink: 0 }}>{UPLOAD_ICONS[item.category] || "📄"}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category}</div>
+                            <div style={{ fontSize: 11, color: C.muted }}>{item.course} · {item.week}</div>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{relativeTime(item.timestamp)}</div>
+                        </div>
+                      ))}
+                    </Card>
                   )}
 
                   {/* ── SECTION 5: MICRO-LEARNINGS ROW ── */}
