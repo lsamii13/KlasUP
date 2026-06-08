@@ -103,14 +103,15 @@ const MICRO = [
 ];
 
 const UPLOADS = [
-  { label: "Post-class notes", icon: "✏", desc: "Reflections after each session", tier: "free" },
-  { label: "Announcements", icon: "📢", desc: "Posted announcements", tier: "free" },
-  { label: "Assignments", icon: "📝", desc: "Assignment sheets & rubrics", tier: "pro" },
-  { label: "Discussions", icon: "💬", desc: "Discussion prompts & threads", tier: "pro" },
   { label: "Learning Outcomes", icon: "🎯", desc: "Syllabus & course outcomes", tier: "pro" },
+  { label: "Announcements", icon: "📢", desc: "Posted announcements", tier: "free" },
+  { label: "Discussions", icon: "💬", desc: "Discussion prompts & threads", tier: "pro" },
+  { label: "Assignments", icon: "📝", desc: "Assignment sheets & rubrics", tier: "pro" },
   { label: "Student Voice", icon: "🗣", desc: "Anonymized mid-term themes", tier: "pro" },
-  { label: "PowerPoints", icon: "📊", desc: "Slide content & topics", tier: "pro" },
+  { label: "Post-class notes", icon: "✏", desc: "Reflections after each session", tier: "free" },
 ];
+// Icon lookup for historical uploads (categories no longer in the selectable list)
+const LEGACY_CATEGORY_ICONS = { "PowerPoints": "📊" };
 
 const UPLOAD_PLACEHOLDERS = {
   "Post-class notes": "What worked well today? What fell flat? Where did students seem lost or disengaged?",
@@ -119,7 +120,6 @@ const UPLOAD_PLACEHOLDERS = {
   "Discussions": "Paste your discussion prompt here, or describe what you posted and how students responded.",
   "Learning Outcomes": "Paste your course learning outcomes or syllabus goals here.",
   "Student Voice": "Share anonymized themes from student feedback — what are they saying about the course?",
-  "PowerPoints": "Describe or paste the key topics and content from your slides this week.",
 };
 
 const WRITING_PROMPTS = {
@@ -153,11 +153,6 @@ const WRITING_PROMPTS = {
     "What are students consistently praising about the course?",
     "What complaints or confusion patterns are you seeing?",
     "Have you noticed any themes about pacing, workload, or clarity?",
-  ],
-  "PowerPoints": [
-    "What are the 3-5 key concepts covered in this week's slides?",
-    "Are there any activities, polls, or discussion breaks embedded in the deck?",
-    "How much text vs. visuals are on each slide?",
   ],
 };
 
@@ -807,7 +802,7 @@ export default function KlasUp() {
 
   // --- My Course redesign state ---
   const [pendingAssignmentId, setPendingAssignmentId] = useState(null);
-  const [myCourseCategory, setMyCourseCategory] = useState("Post-class notes");
+  const [myCourseCategory, setMyCourseCategory] = useState("Learning Outcomes");
   const [myCourseFeedback, setMyCourseFeedback] = useState(null);
   const [myCourseFeedbackLoading, setMyCourseFeedbackLoading] = useState(false);
   const [promptHelperOpen, setPromptHelperOpen] = useState(false);
@@ -2849,7 +2844,7 @@ export default function KlasUp() {
                     {weekGroups[wk].map((entry, ei) => {
                       const eKey = `${wk}-${ei}`;
                       const isExp = historyExpanded[eKey];
-                      const catObj = UPLOADS.find(u => u.label === entry.category) || UPLOADS[0];
+                      const catObj = UPLOADS.find(u => u.label === entry.category) || { label: entry.category, icon: LEGACY_CATEGORY_ICONS[entry.category] || "📄" };
                       const catHistory = microHistory[entry.category];
                       const matchEntry = catHistory?.find(h => Math.abs(h.timestamp - entry.timestamp) < 5000);
                       return (
@@ -4839,7 +4834,7 @@ export default function KlasUp() {
                 },
                 {
                   key: "pro", name: "Pro", sub: "The Practice", price: "$15", period: "/month per faculty", color: C.tealBright, featured: true,
-                  features: ["All courses", "Full trending — week, class & term", "All 10 health dimensions", "Assignment Builder with AI feedback", "Slide Studio with UDL analysis", "Full Career Connections + student share cards", "Full upload suite (9 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Metacognitive & UDL tracking", "Wellbeing & Student Voice signals", "Think Tank — full participation", "Self-generated reports"],
+                  features: ["All courses", "Full trending — week, class & term", "All 10 health dimensions", "Assignment Builder with AI feedback", "Slide Studio with UDL analysis", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Metacognitive & UDL tracking", "Wellbeing & Student Voice signals", "Think Tank — full participation", "Self-generated reports"],
                   locked: ["Institutional dashboard", "Aggregated analytics", "NECHE/HLC/SACSCOC export templates"],
                   cta: "Start Free Trial",
                 },
