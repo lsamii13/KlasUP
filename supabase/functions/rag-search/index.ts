@@ -124,7 +124,7 @@ Deno.serve(async (req: Request) => {
                 'anthropic-version': '2023-06-01',
               },
               body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-sonnet-4-6',
                 max_tokens: 4000,
                 system: 'You are a semantic embedding generator. Given a text, return ONLY a JSON array of exactly 512 floating point numbers between -1 and 1 that represent the semantic meaning of the text. The numbers should capture the key topics, concepts, and relationships in the text. Return ONLY the JSON array, no other text.',
                 messages: [{ role: 'user', content: inputText.slice(0, 2000) }],
