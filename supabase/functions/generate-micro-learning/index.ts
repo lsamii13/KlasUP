@@ -12,7 +12,19 @@ const corsHeaders = {
 // No embedding provider is required. When vector embeddings are added later,
 // this can be upgraded to use match_articles for semantic similarity.
 
-async function fetchRagContext(content: string, category: string): Promise<string> {
+interface RagArticle {
+  id: string
+  title: string
+  authors: string
+  year: number
+  journal: string
+  abstract: string
+  dimension: string
+  source_type?: string
+  url?: string
+}
+
+async function fetchRagArticles(content: string, category: string): Promise<RagArticle[]> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -29,18 +41,21 @@ async function fetchRagContext(content: string, category: string): Promise<strin
         filter_dimension: null,
       })
 
-    if (error || !articles?.length) return ''
+    if (error || !articles?.length) return []
 
-    return articles.map((a: {
-      title: string; authors: string; year: number; journal: string; abstract: string; dimension: string; source_type?: string; url?: string
-    }) => {
-      const type = a.source_type === 'ted_talk' ? 'TED Talk' : a.source_type === 'book_summary' ? 'Book' : a.source_type === 'ctl_resource' ? 'CTL Resource' : a.source_type === 'teaching_blog' ? 'Teaching Blog' : 'Article';
-      return `[${a.dimension} · ${type}] ${a.authors} (${a.year}). "${a.title}." ${a.journal || ''}${a.url ? ` — ${a.url}` : ''}.\nKey finding: ${a.abstract || 'N/A'}`;
-    }).join('\n\n')
+    return articles as RagArticle[]
   } catch (e) {
     console.error('[RAG] Context fetch failed:', e.message)
-    return ''
+    return []
   }
+}
+
+function formatRagContext(articles: RagArticle[]): string {
+  if (!articles.length) return ''
+  return articles.map((a) => {
+    const type = a.source_type === 'ted_talk' ? 'TED Talk' : a.source_type === 'book_summary' ? 'Book' : a.source_type === 'ctl_resource' ? 'CTL Resource' : a.source_type === 'teaching_blog' ? 'Teaching Blog' : 'Article';
+    return `[ID: ${a.id}] [${a.dimension} · ${type}] ${a.authors} (${a.year}). "${a.title}." ${a.journal || ''}${a.url ? ` — ${a.url}` : ''}.\nKey finding: ${a.abstract || 'N/A'}`;
+  }).join('\n\n')
 }
 
 // Safely extract and parse JSON from Claude's response text.
@@ -81,18 +96,18 @@ const MICRO_LEARNING_PROMPT = `You are KlasUp's Micro-Learning Engine — an AI 
 
 When a faculty member submits course content (announcements, assignments, discussion prompts, learning outcomes, post-class notes, or student voice data), analyze it and generate exactly 4 personalized micro-learning recommendations.
 
-You will be provided with a RESEARCH CONTEXT section containing relevant resources from KlasUp's knowledge base — including peer-reviewed articles, books, TED talks, CTL guides, and teaching blogs. Ground your recommendations in these sources when relevant. Use the exact citation information provided — do not fabricate or modify author names, years, or titles.
+You will be provided with a RESEARCH CONTEXT section containing relevant resources from KlasUp's knowledge base. Each resource is prefixed with an [ID: ...] tag. Ground your recommendations in these sources when relevant. Use the exact citation information provided — do not fabricate or modify author names, years, or titles. Never invent a citation. You must ONLY cite sources from the provided RESEARCH CONTEXT — do not cite any studies from outside this context.
 
 Each recommendation MUST:
 1. Be directly tied to a gap or opportunity you detect in the submitted content
-2. Reference a source from the RESEARCH CONTEXT when relevant, or cite other well-known peer-reviewed studies with correct author(s), year, and publication
+2. If a source from the RESEARCH CONTEXT is relevant, include its ID. If no provided source is relevant to a recommendation, set research_article_id to null — never guess or fabricate a citation.
 3. Include a concrete, actionable next step the faculty member can take in their next class session
 
 Respond with a JSON array of exactly 4 objects. Each object must have these fields:
 - "tag": one of "Active Learning", "Socratic Seminar", "UDL", "Reflection", "Flipped Classroom", "Student Voice", "Assessment Design", "Scaffolding", "Metacognition", "Inclusive Pedagogy", "Trauma-Informed Teaching"
 - "title": a concise, compelling finding (max 12 words)
 - "summary": 1-2 sentence explanation of the research finding and why it matters for this faculty member's content
-- "article": full APA-style citation of a real, peer-reviewed study (author(s), year, journal, volume/issue if known)
+- "research_article_id": the exact ID string from the [ID: ...] tag of the cited RESEARCH CONTEXT source, or null if no provided source is relevant
 - "action": a specific, concrete next step (start with a verb)
 
 Only output the JSON array — no markdown, no commentary.`
@@ -401,6 +416,7 @@ Deno.serve(async (req: Request) => {
     let systemPrompt: string
     let userMessage: string
     let maxTokens: number
+    let ragArticles: RagArticle[] = []
 
     if (type === 'reflection') {
       const { course, uploadLog, microHistory } = body
@@ -557,11 +573,12 @@ Apply this change and return the complete updated slide array.`
       maxTokens = 2000
 
       // Fetch relevant research articles from the knowledge base
-      const ragContext = await fetchRagContext(content, category || '')
+      ragArticles = await fetchRagArticles(content, category || '')
+      const ragContext = formatRagContext(ragArticles)
 
       const ragSection = ragContext
-        ? `\n\nRESEARCH CONTEXT (from KlasUp knowledge base — use these citations when relevant):\n---\n${ragContext}\n---`
-        : ''
+        ? `\n\nRESEARCH CONTEXT (from KlasUp knowledge base — cite ONLY from these sources):\n---\n${ragContext}\n---`
+        : '\n\nRESEARCH CONTEXT: No sources available for this content. Set research_article_id to null for all recommendations.'
 
       userMessage = `Faculty member teaching ${course}, ${week}.
 Content category: ${category}
@@ -570,7 +587,7 @@ Submitted content:
 ${content}
 ---${ragSection}
 
-Based on this content, identify pedagogical gaps and opportunities, then generate 4 personalized micro-learning recommendations grounded in peer-reviewed research.`
+Based on this content, identify pedagogical gaps and opportunities, then generate 4 personalized micro-learning recommendations. Only cite sources from the RESEARCH CONTEXT above — if none are relevant, use null for research_article_id.`
     }
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -614,8 +631,14 @@ Based on this content, identify pedagogical gaps and opportunities, then generat
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } else {
-      // Micro-learning
-      const recommendations = parseClaudeJSON(text)
+      // Micro-learning — validate research_article_ids against fetched articles
+      const recommendations = parseClaudeJSON(text) as Array<Record<string, unknown>>
+      const validIds = new Set(ragArticles.map((a: RagArticle) => a.id))
+      for (const rec of recommendations) {
+        if (rec.research_article_id != null && !validIds.has(rec.research_article_id as string)) {
+          rec.research_article_id = null
+        }
+      }
       return new Response(JSON.stringify({ recommendations }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
