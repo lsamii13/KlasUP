@@ -696,6 +696,17 @@ export async function fetchUploads(userId) {
 // ── Micro-learnings ──────────────────────────────────────────
 
 export async function insertMicroLearning(userId, uploadId, rec) {
+  // Resolve research_article_id to title + url at save time
+  let articleTitle = null
+  let articleUrl = null
+  if (rec.research_article_id) {
+    const article = await fetchArticleById(rec.research_article_id)
+    if (article) {
+      articleTitle = article.title
+      articleUrl = article.url
+    }
+  }
+
   const { data, error } = await supabase
     .from('micro_learnings')
     .insert({
@@ -704,8 +715,11 @@ export async function insertMicroLearning(userId, uploadId, rec) {
       tag: rec.tag || null,
       title: sanitize(rec.title),
       summary: rec.summary ? sanitize(rec.summary) : null,
-      article: rec.article || null,
+      article: null,
       action: rec.action ? sanitize(rec.action) : null,
+      research_article_id: rec.research_article_id || null,
+      article_title: articleTitle,
+      article_url: articleUrl,
     })
     .select()
     .single()
@@ -716,7 +730,7 @@ export async function insertMicroLearning(userId, uploadId, rec) {
 export async function fetchMicroLearnings(userId) {
   const { data, error } = await supabase
     .from('micro_learnings')
-    .select('id, upload_id, tag, title, summary, article, action, rating, created_at')
+    .select('id, upload_id, tag, title, summary, article, action, rating, created_at, research_article_id, article_title, article_url')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -867,7 +881,7 @@ export async function fetchAssignmentFeedback(courseId) {
   const uploadIds = uploads.map(u => u.id)
   const { data: recs, error: recErr } = await supabase
     .from('micro_learnings')
-    .select('id, upload_id, tag, title, summary, article, action, rating, created_at')
+    .select('id, upload_id, tag, title, summary, article, action, rating, created_at, research_article_id, article_title, article_url')
     .in('upload_id', uploadIds)
     .order('created_at', { ascending: false })
   if (recErr) throw recErr
@@ -875,6 +889,17 @@ export async function fetchAssignmentFeedback(courseId) {
   const uploadMap = {}
   for (const u of uploads) uploadMap[u.id] = u.assignment_id
   return (recs || []).map(r => ({ ...r, assignment_id: uploadMap[r.upload_id] }))
+}
+
+export async function fetchArticleById(id) {
+  if (!id) return null
+  const { data, error } = await supabase
+    .from('research_articles')
+    .select('id, title, url')
+    .eq('id', id)
+    .single()
+  if (error) return null
+  return data
 }
 
 export async function fetchArticlesByDimension(dimension, limit = 20) {

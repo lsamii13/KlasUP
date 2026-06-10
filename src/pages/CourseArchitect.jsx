@@ -296,10 +296,12 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                           }}>{rec.tag}</span>
                           <div style={{ fontFamily: CA_FONTS.heading, fontSize: 14, fontWeight: 700, color: CA_COLORS.navy, margin: "6px 0 4px" }}>{rec.title}</div>
                           <div style={{ fontSize: 12, color: CA_COLORS.textSoft, lineHeight: 1.5, marginBottom: rec.action ? 6 : 0 }}>{rec.summary}</div>
-                          {rec.article && (
+                          {(rec.article_title || rec.article) && (
                             <div style={{ background: "#fff", borderRadius: 8, padding: "6px 10px", margin: "6px 0" }}>
                               <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, marginBottom: 2, letterSpacing: "0.5px" }}>RESEARCH</div>
-                              <div style={{ fontSize: 11, color: CA_COLORS.textSoft, fontStyle: "italic", lineHeight: 1.4 }}>{rec.article}</div>
+                              <div style={{ fontSize: 11, color: CA_COLORS.textSoft, fontStyle: "italic", lineHeight: 1.4 }}>
+                                {rec.article_url ? <a href={rec.article_url} target="_blank" rel="noopener noreferrer" style={{ color: CA_COLORS.teal, textDecoration: "underline" }}>{rec.article_title}</a> : (rec.article_title || rec.article)}
+                              </div>
                             </div>
                           )}
                           {rec.action && (
