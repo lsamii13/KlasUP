@@ -41,7 +41,7 @@ import {
   adminCreateTestUser, adminResetTestUser, adminCreateAnnouncement,
   adminFetchUsageStats, adminFetchFunnel,
   requestDataDeletion,
-  keywordSearchArticles, fetchArticlesByDimension,
+  keywordSearchArticles, fetchArticlesByDimension, fetchArticleById,
   insertUpload, fetchUploads, uploadDocument,
   insertMicroLearning, fetchMicroLearnings,
   upsertReflection, fetchReflection,
@@ -99,7 +99,7 @@ const MICRO = [
   { tag: "UDL", title: "Multimodal content expands access and engagement", summary: "Courses in three or more formats show higher completion across diverse learners.", article: "Rose & Meyer (2002). Teaching Every Student. ASCD.", action: "Add one audio or video alternative to a text-heavy module.", tier: "pro", color: C.rose, bg: C.roseLight },
   { tag: "Reflection", title: "Exit tickets improve student self-regulation", summary: "Weekly metacognitive prompts reduce exam anxiety and improve self-directed study.", article: "Flavell (1979). American Psychologist.", action: "Add a two-question exit ticket: What clicked? What didn't?", tier: "pro", color: C.rose, bg: C.roseLight },
   { tag: "Flipped Classroom", title: "Pre-class content shifts time to application", summary: "Flipped classrooms show 19% improvement in exam performance with well-scaffolded pre-class materials.", article: "Bishop & Verleger (2013). ASEE Annual Conference.", action: "Upload one pre-class video and redesign that session as a workshop.", tier: "pro", color: C.sage, bg: C.sageLight },
-  { tag: "Student Voice", title: "Mid-term check-ins reverse disengagement", summary: "Acting visibly on mid-term feedback improves end-of-term satisfaction by 23%.", article: "Nilufar et al. (2019). JOLT.", action: "Run a 3-question anonymous pulse survey and share one change you made.", tier: "pro", color: C.gold, bg: C.goldLight },
+  { tag: "Student Voice", title: "Mid-term check-ins reverse disengagement", summary: "Collecting mid-term feedback and visibly acting on it signals to students that their experience matters, which supports engagement and retention.", action: "Run a 3-question anonymous pulse survey and share one change you made.", tier: "pro", color: C.gold, bg: C.goldLight },
 ];
 
 const UPLOADS = [
@@ -2628,22 +2628,29 @@ export default function KlasUp() {
             setMyCourseFeedback(null);
             setAiMicroError(null);
             generateMicroLearning({ content: text, category: myCourseCategory, course, week })
-              .then(recs => {
-                setAiMicro(recs);
+              .then(async recs => {
+                // Resolve research_article_id → article_title + article_url before rendering
+                const enriched = await Promise.all(recs.map(async (rec) => {
+                  if (!rec.research_article_id) return rec;
+                  const article = await fetchArticleById(rec.research_article_id);
+                  return article ? { ...rec, article_title: article.title, article_url: article.url } : rec;
+                }));
+                console.log("[MicroLearning] enriched recs:", enriched.map(r => ({ id: r.research_article_id, title: r.article_title, url: r.article_url })));
+                setAiMicro(enriched);
                 setMyCourseFeedbackLoading(false);
                 if (typeof gtag === "function") gtag("event", "micro_learning_generated", { category: myCourseCategory });
-                const fb = recs && recs.length > 0 ? recs[0] : null;
+                const fb = enriched && enriched.length > 0 ? enriched[0] : null;
                 setMyCourseFeedback(fb);
                 setMicroHistory(prev => ({
                   ...prev,
                   [myCourseCategory]: [
-                    { recs, week, course, timestamp: Date.now() },
+                    { recs: enriched, week, course, timestamp: Date.now() },
                     ...(prev[myCourseCategory] || []),
                   ],
                 }));
                 // Persist micro-learnings to DB
                 if (session?.user && uploadRow) {
-                  recs.forEach(rec => {
+                  enriched.forEach(rec => {
                     insertMicroLearning(session.user.id, uploadRow.id, rec).catch(e => console.warn("Micro-learning DB insert failed:", e));
                   });
                 }
@@ -2812,10 +2819,14 @@ export default function KlasUp() {
                   </div>
                   <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 6 }}>{m.title}</div>
                   <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.summary}</div>
+                  {(m.article_title || m.article) && (
                   <div style={{ background: C.ivoryDark, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
                     <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 3 }}>RESEARCH</div>
-                    <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{m.article}</div>
+                    <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>
+                      {m.article_url ? <a href={m.article_url} target="_blank" rel="noopener noreferrer" style={{ color: C.teal, textDecoration: "underline" }}>{m.article_title}</a> : (m.article_title || m.article)}
+                    </div>
                   </div>
+                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 4, height: 28, background: C.tealBright, borderRadius: 2 }} />
                     <div style={{ fontSize: 13, flex: 1 }}>
@@ -3283,10 +3294,14 @@ export default function KlasUp() {
                       </div>
                       <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>{m.title}</div>
                       <div style={{ fontSize: 14, color: C.text, marginBottom: 10, lineHeight: 1.6 }}>{m.summary}</div>
+                      {(m.article_title || m.article) && (
                       <div style={{ background: C.ivory, borderRadius: 8, padding: "0.6rem 0.9rem", marginBottom: 10 }}>
                         <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 2 }}>PEER-REVIEWED RESEARCH</div>
-                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{m.article}</div>
+                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>
+                          {m.article_url ? <a href={m.article_url} target="_blank" rel="noopener noreferrer" style={{ color: C.teal, textDecoration: "underline" }}>{m.article_title}</a> : (m.article_title || m.article)}
+                        </div>
                       </div>
+                      )}
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ width: 4, height: 32, background: tc.color, borderRadius: 2 }} />
                         <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Try this: <span style={{ fontWeight: 400 }}>{m.action}</span></div>
@@ -3313,10 +3328,12 @@ export default function KlasUp() {
                   </div>
                   <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>{m.title}</div>
                   <div style={{ fontSize: 14, color: C.text, marginBottom: 10, lineHeight: 1.6 }}>{m.summary}</div>
+                  {m.article && (
                   <div style={{ background: C.ivory, borderRadius: 8, padding: "0.6rem 0.9rem", marginBottom: 10 }}>
                     <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 2 }}>RESEARCH BASIS</div>
                     <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{m.article}</div>
                   </div>
+                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 4, height: 32, background: m.color, borderRadius: 2 }} />
                     <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Try this: <span style={{ fontWeight: 400 }}>{m.action}</span></div>
