@@ -2635,7 +2635,6 @@ export default function KlasUp() {
                   const article = await fetchArticleById(rec.research_article_id);
                   return article ? { ...rec, article_title: article.title, article_url: article.url } : rec;
                 }));
-                console.log("[MicroLearning] enriched recs:", enriched.map(r => ({ id: r.research_article_id, title: r.article_title, url: r.article_url })));
                 setAiMicro(enriched);
                 setMyCourseFeedbackLoading(false);
                 if (typeof gtag === "function") gtag("event", "micro_learning_generated", { category: myCourseCategory });
