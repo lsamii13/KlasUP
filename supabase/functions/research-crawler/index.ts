@@ -105,10 +105,12 @@ interface CrawledArticle {
   abstract: string
   dimension: string
   search_terms: string[]
+  url: string | null
+  source_type: string
 }
 
 async function crawlERIC(query: string, dimension: string): Promise<CrawledArticle[]> {
-  const url = `https://api.ies.ed.gov/eric/?search=${encodeURIComponent(query)}&format=json&rows=25&fields=title,author,publicationdateyear,source,description,subject&start=0`
+  const url = `https://api.ies.ed.gov/eric/?search=${encodeURIComponent(query)}&format=json&rows=25&fields=id,title,author,publicationdateyear,source,description,subject&start=0`
 
   const res = await fetch(url)
   if (!res.ok) {
@@ -122,6 +124,7 @@ async function crawlERIC(query: string, dimension: string): Promise<CrawledArtic
   return docs
     .filter((doc: { title: string; description: string }) => doc.title && doc.description)
     .map((doc: {
+      id: string
       title: string
       author: string[]
       publicationdateyear: number
@@ -139,6 +142,8 @@ async function crawlERIC(query: string, dimension: string): Promise<CrawledArtic
         ...(doc.subject || []).slice(0, 8).map((s: string) => s.toLowerCase()),
         dimension.toLowerCase(),
       ],
+      url: doc.id ? `https://eric.ed.gov/?id=${doc.id}` : null,
+      source_type: 'peer_reviewed',
     }))
 }
 
@@ -214,6 +219,8 @@ async function crawlPubMed(query: string, dimension: string): Promise<CrawledArt
       abstract,
       dimension,
       search_terms: [dimension.toLowerCase(), 'higher education', 'teaching', 'learning'],
+      url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
+      source_type: 'peer_reviewed',
     })
   }
 
@@ -299,6 +306,8 @@ Deno.serve(async (req: Request) => {
             abstract: article.abstract,
             dimension: article.dimension,
             search_terms: article.search_terms,
+            url: article.url,
+            source_type: article.source_type,
             // embedding is null — keyword search is used for retrieval.
             // Embeddings can be backfilled later when an embedding provider is configured.
           })
