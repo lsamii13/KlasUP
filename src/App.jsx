@@ -4193,17 +4193,11 @@ export default function KlasUp() {
             <Card style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy }}>Term Settings</div>
-                {!isAdding && (
-                  <button onClick={() => { setSettingsEditing("new"); setSettingsForm(emptyForm); }}
-                    style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                    + Add Course
-                  </button>
-                )}
               </div>
 
-              {dbCourses.length === 0 && !isAdding && (
+              {dbCourses.length === 0 && (
                 <div style={{ textAlign: "center", padding: "2rem", color: C.muted }}>
-                  <div style={{ fontSize: 13 }}>No courses yet. Add your first course to get started.</div>
+                  <div style={{ fontSize: 13 }}>No courses yet. <span onClick={() => setPage("Course Architect")} style={{ color: C.teal, cursor: "pointer", fontWeight: 600 }}>Go to Course Architect</span> to add your first course.</div>
                 </div>
               )}
 
@@ -4277,26 +4271,9 @@ export default function KlasUp() {
                 );
               })}
 
-              {isAdding && (
-                <div style={{ border: `1.5px solid ${C.tealBright}`, borderRadius: 12, padding: "1rem", marginBottom: 10, background: C.ivory }}>
-                  <div style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.teal, marginBottom: 10 }}>New Course</div>
-                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                    <div><label style={labelStyle}>Course Code *</label><input value={settingsForm.course_code || ""} onChange={e => setSettingsForm(p => ({ ...p, course_code: e.target.value }))} placeholder="e.g. MKT 301" style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Course Name *</label><input value={settingsForm.course_name || ""} onChange={e => setSettingsForm(p => ({ ...p, course_name: e.target.value }))} placeholder="e.g. Consumer Behavior" style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Section</label><input value={settingsForm.section || ""} onChange={e => setSettingsForm(p => ({ ...p, section: e.target.value }))} placeholder="e.g. 001" style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Term Code *</label><input value={settingsForm.term_code || ""} onChange={e => setSettingsForm(p => ({ ...p, term_code: e.target.value }))} placeholder="e.g. Fall 2025" style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Term Start</label><input type="date" value={settingsForm.term_start || ""} onChange={e => setSettingsForm(p => ({ ...p, term_start: e.target.value }))} style={inputStyle} /></div>
-                    <div><label style={labelStyle}>Weeks</label><input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))} style={inputStyle} /></div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button disabled={!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.term_code?.trim()}
-                      onClick={async () => { try { await addCourseFromForm(settingsForm); setSettingsEditing(null); setSettingsForm({}); } catch (err) { alert("Error: " + err.message); } }}
-                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!settingsForm.course_code?.trim() || !settingsForm.course_name?.trim() || !settingsForm.term_code?.trim()) ? 0.4 : 1 }}>Save Course</button>
-                    <button onClick={() => { setSettingsEditing(null); setSettingsForm({}); }}
-                      style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "7px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                  </div>
-                </div>
-              )}
+              <div style={{ fontSize: 12, color: C.muted, fontFamily: F.body, marginTop: dbCourses.length > 0 ? 8 : 0 }}>
+                To add a new course, <span onClick={() => setPage("Course Architect")} style={{ color: C.teal, cursor: "pointer", fontWeight: 600 }}>go to Course Architect</span>.
+              </div>
             </Card>
 
             {/* ── SECURITY ── */}
