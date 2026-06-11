@@ -525,6 +525,7 @@ function AddCourseModal({ onClose, userId, onCreated, profileInstitutions = [], 
 export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
   const [los, setLos] = useState([]);
   const [activeLOFilter, setActiveLOFilter] = useState(null);
+  const [activeInstitutionFilter, setActiveInstitutionFilter] = useState(null);
   const [semesterView, setSemesterView] = useState("list");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -544,6 +545,9 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
   const mob = ww < 768;
 
   const activeCourse = courses.find(c => c.id === activeCourseId) || courses[0] || null;
+
+  const distinctInstitutions = [...new Set(courses.map(c => c.institution).filter(Boolean))];
+  const pickerCourses = activeInstitutionFilter ? courses.filter(c => c.institution === activeInstitutionFilter) : courses;
 
   // ── Part A: Real data fetching ────────────────────────
   const [weeks, setWeeks] = useState([]);
@@ -644,7 +648,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
                   <div style={{ borderTop: "1px solid #f0f0f0", margin: "4px 0" }} />
                 </>
               )}
-              {courses.map(c => (
+              {pickerCourses.map(c => (
                 <div key={c.id}
                   onClick={() => { onSetActiveCourse(c.id); setPickerOpen(false); }}
                   onMouseEnter={e => e.currentTarget.style.background = CA_COLORS.tealSoft}
@@ -666,6 +670,47 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
           )}
         </div>
       </div>
+
+      {/* ── Institution filter pill row ── */}
+      {distinctInstitutions.length >= 2 && (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: "1rem" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: CA_COLORS.textSoft, marginRight: 4 }}>Institution:</span>
+          {distinctInstitutions.map(inst => {
+            const active = activeInstitutionFilter === inst;
+            return (
+              <button key={inst} onClick={() => setActiveInstitutionFilter(active ? null : inst)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  background: active ? CA_COLORS.tealSoft : "#fff",
+                  border: `1px solid ${active ? CA_COLORS.teal : CA_COLORS.border}`,
+                  borderRadius: 999, padding: "0.35rem 0.85rem", fontSize: 13,
+                  fontFamily: CA_FONTS.body, color: active ? CA_COLORS.teal : CA_COLORS.navy,
+                  fontWeight: active ? 600 : 500, cursor: "pointer", transition: "all 0.15s ease",
+                }}>
+                {inst}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Institution filter banner ── */}
+      {activeInstitutionFilter && (
+        <div style={{
+          background: CA_COLORS.tealSoft, borderLeft: `4px solid ${CA_COLORS.teal}`,
+          padding: "10px 16px", borderRadius: 6, margin: "0 0 1rem 0",
+          fontFamily: CA_FONTS.body, fontSize: 13, color: CA_COLORS.navy, fontWeight: 500,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem",
+        }}>
+          <span>
+            🏛 Filtering by <span style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, color: CA_COLORS.teal }}>{activeInstitutionFilter}</span> — showing only courses at this institution
+          </span>
+          <button onClick={() => setActiveInstitutionFilter(null)}
+            style={{ background: "#E89B7E", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 16, fontSize: 11, fontWeight: 700, fontFamily: CA_FONTS.body, cursor: "pointer", whiteSpace: "nowrap" }}>
+            ✕ Clear filter
+          </button>
+        </div>
+      )}
 
       {/* ── Learning Outcomes pill row ── */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: "2rem" }}>
