@@ -4021,6 +4021,9 @@ export default function KlasUp() {
               lms: profile.lms || "",
               education_level: profile.education_level || "",
               bio: profile.bio || "",
+              institutions: Array.isArray(profile.institutions) && profile.institutions.length > 0
+                ? profile.institutions
+                : profile.institution ? [profile.institution] : [],
             }));
           }
           const pf = settingsProfileForm || {};
@@ -4089,6 +4092,28 @@ export default function KlasUp() {
                   <label style={labelStyle}>Institution</label>
                   <input value={pf.institution || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, institution: e.target.value }))} placeholder="e.g. Boston University" style={inputStyle} />
                 </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={labelStyle}>My Institutions</label>
+                  {(pf.institutions || []).map((inst, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, color: C.muted, fontFamily: F.accent, fontWeight: 700, minWidth: 24 }}>{i + 1}.</span>
+                      <input value={inst} onChange={e => {
+                        const updated = [...(pf.institutions || [])];
+                        updated[i] = e.target.value;
+                        setSettingsProfileForm(p => ({ ...p, institutions: updated }));
+                      }} placeholder="e.g. Boston University" style={{ ...inputStyle, flex: 1 }} />
+                      <button onClick={() => {
+                        const updated = (pf.institutions || []).filter((_, j) => j !== i);
+                        setSettingsProfileForm(p => ({ ...p, institutions: updated }));
+                      }}
+                        style={{ background: C.roseLight, color: C.rose, border: "none", borderRadius: 8, padding: "5px 10px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>✕ Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={() => setSettingsProfileForm(p => ({ ...p, institutions: [...(p.institutions || []), ""] }))}
+                    style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 600, fontSize: 12, color: C.teal, cursor: "pointer" }}>
+                    + Add another institution
+                  </button>
+                </div>
                 <div>
                   <label style={labelStyle}>LMS</label>
                   <select value={pf.lms || ""} onChange={e => setSettingsProfileForm(p => ({ ...p, lms: e.target.value }))} style={{ ...inputStyle, cursor: "pointer" }}>
@@ -4132,10 +4157,12 @@ export default function KlasUp() {
                   setSettingsProfileSaving(true);
                   setSettingsProfileMsg(null);
                   try {
+                    const cleanedInstitutions = (pf.institutions || []).map(s => s.trim()).filter(Boolean);
                     const updated = await upsertProfile(session.user.id, {
                       ...profile,
                       name: pf.name.trim(),
                       institution: pf.institution?.trim() || null,
+                      institutions: cleanedInstitutions.length > 0 ? cleanedInstitutions : null,
                       job_title: pf.job_title || null,
                       lms: pf.lms || null,
                       education_level: pf.education_level || null,

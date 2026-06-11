@@ -118,6 +118,7 @@ export async function upsertProfile(userId, profile) {
     photo_url: profile.photo_url || null,
     education_level: profile.education_level || null,
     bio: profile.bio ? sanitize(profile.bio) : null,
+    institutions: Array.isArray(profile.institutions) ? profile.institutions.map(s => sanitize(s)) : null,
     tos_accepted_at: profile.tos_accepted_at || null,
     tos_version: profile.tos_version || null,
   }
