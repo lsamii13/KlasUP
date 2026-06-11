@@ -202,6 +202,7 @@ export async function insertCourse(course, userId) {
       term_code: sanitize(course.term_code),
       term_start: course.term_start || null,
       num_weeks: course.num_weeks,
+      institution: course.institution ? sanitize(course.institution) : null,
       user_id: userId,
     })
     .select()

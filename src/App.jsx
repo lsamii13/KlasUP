@@ -3796,7 +3796,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} featureInfo={<FeatureInfo sectionId="course-architect" />} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} />
         )}
 
         {/* ── COURSE SETUP ── */}

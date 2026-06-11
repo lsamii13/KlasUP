@@ -436,8 +436,9 @@ function ExportBar() {
 }
 
 // ── Add Course Modal ────────────────────────────────────
-function AddCourseModal({ onClose, userId, onCreated }) {
-  const [form, setForm] = useState({ course_name: "", course_code: "", term_code: "", num_weeks: "", section: "", term_start: "" });
+function AddCourseModal({ onClose, userId, onCreated, profileInstitutions = [], homeInstitution = "" }) {
+  const [form, setForm] = useState({ course_name: "", course_code: "", term_code: "", num_weeks: "", section: "", term_start: "", institution: "" });
+  const institutionOptions = [...new Set([...profileInstitutions, ...(homeInstitution && !profileInstitutions.includes(homeInstitution) ? [homeInstitution] : [])].filter(Boolean))];
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -457,6 +458,7 @@ function AddCourseModal({ onClose, userId, onCreated }) {
         num_weeks: parseInt(form.num_weeks, 10),
         section: form.section.trim() || null,
         term_start: form.term_start || null,
+        institution: form.institution || null,
       }, userId);
       onCreated(row);
       onClose();
@@ -494,7 +496,17 @@ function AddCourseModal({ onClose, userId, onCreated }) {
             <div><label style={labelStyle}>Number of weeks *</label><input type="number" min={1} max={30} value={form.num_weeks} onChange={set("num_weeks")} placeholder="e.g. 15" style={inputStyle} /></div>
             <div><label style={labelStyle}>Section</label><input value={form.section} onChange={set("section")} placeholder="e.g. 01" style={inputStyle} /></div>
           </div>
-          <div><label style={labelStyle}>Start date</label><input type="date" value={form.term_start} onChange={set("term_start")} style={inputStyle} /></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div><label style={labelStyle}>Start date</label><input type="date" value={form.term_start} onChange={set("term_start")} style={inputStyle} /></div>
+            {institutionOptions.length > 0 && (
+              <div><label style={labelStyle}>Institution</label>
+                <select value={form.institution} onChange={set("institution")} style={{ ...inputStyle, cursor: "pointer" }}>
+                  <option value="">— None —</option>
+                  {institutionOptions.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
           {error && <div style={{ fontFamily: CA_FONTS.body, fontSize: 13, color: "#c0392b" }}>{error}</div>}
           <button type="submit" disabled={!valid || submitting} style={{
             fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 15,
@@ -510,7 +522,7 @@ function AddCourseModal({ onClose, userId, onCreated }) {
 }
 
 // ── Main component ──────────────────────────────────────
-export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, featureInfo }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
   const [los, setLos] = useState([]);
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [semesterView, setSemesterView] = useState("list");
@@ -766,7 +778,8 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
 
       {showAddModal && (
         <AddCourseModal onClose={() => setShowAddModal(false)} userId={userId}
-          onCreated={(row) => { if (onCourseCreated) onCourseCreated(row); }} />
+          onCreated={(row) => { if (onCourseCreated) onCourseCreated(row); }}
+          profileInstitutions={profileInstitutions} homeInstitution={homeInstitution} />
       )}
     </div>
   );
