@@ -2244,7 +2244,7 @@ export default function KlasUp() {
             {/* ── SECTION 2: COURSE TILE GRID ── */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>YOUR COURSES</div>
-              <span onClick={() => setPage("Settings")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, cursor: "pointer" }}>Manage courses</span>
+              <span onClick={() => setPage("Course Architect")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, cursor: "pointer" }}>Course Architect</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
               {dbCourses.map(c => (
