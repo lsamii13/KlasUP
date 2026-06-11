@@ -594,6 +594,71 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                   { label: "Inclusive Teaching", url: "https://dcal.dartmouth.edu/resources/teaching-methods/inclusive-teaching" },
                 ],
               },
+              {
+                name: "Worcester Polytechnic Institute (WPI)",
+                center: "Center for Project-Based Learning",
+                url: "https://wp.wpi.edu/projectbasedlearning/",
+                desc: "A global leader in project-based learning; its Center helps other colleges and universities advance PBL on their own campuses.",
+                topics: ["Project-Based Learning"],
+                resources: [
+                  { label: "Institute on Project-Based Learning", url: "https://wp.wpi.edu/projectbasedlearning/offerings/institute-on-pbl/" },
+                  { label: "Project-Based Learning at WPI", url: "https://www.wpi.edu/project-based-learning" },
+                ],
+              },
+              {
+                name: "Worcester State University",
+                center: "Center for Teaching & Learning",
+                url: "https://www.worcester.edu/center-for-teaching-learning/teaching-resources-strategies-guides/andragogy-adult-learners/",
+                desc: "Offers evidence-based andragogy strategies for effectively teaching adult learners.",
+                topics: ["Andragogy"],
+                resources: [
+                  { label: "Andragogy / Adult Learners", url: "https://www.worcester.edu/center-for-teaching-learning/teaching-resources-strategies-guides/andragogy-adult-learners/" },
+                  { label: "Pedagogy to Heutagogy (UC Boulder)", url: "https://www.colorado.edu/center/teaching-learning/teaching-resources/understanding-your-learners/pedagogy-heutagogy" },
+                ],
+              },
+              {
+                name: "Collaborative Action Research Network (CARN)",
+                center: "International network for action research",
+                url: "https://www.carn.org.uk/",
+                desc: "Founded in 1976, CARN is the international community supporting action research across education, health, and the public sector, and publishes the Educational Action Research journal.",
+                topics: ["Action Research"],
+                resources: [
+                  { label: "About CARN", url: "https://www.carn.org.uk/about/" },
+                  { label: "CARN Bulletins", url: "https://www.carn.org.uk/resources/carn-bulletins/" },
+                ],
+              },
+              {
+                name: "The Community of Inquiry (Athabasca University)",
+                center: "The CoI framework project",
+                url: "https://coi.athabascau.ca/",
+                desc: "The home of the Community of Inquiry framework, the most-researched model for designing social, cognitive, and teaching presence in online and blended courses.",
+                topics: ["Community of Inquiry"],
+                resources: [
+                  { label: "About the Framework", url: "https://www.thecommunityofinquiry.org/framework" },
+                ],
+              },
+              {
+                name: "Naropa University",
+                center: "Center for the Advancement of Contemplative Education (CACE)",
+                url: "https://www.naropa.edu/academics/schools-centers/cace/",
+                desc: "A leading hub for contemplative education, helping educators integrate mindfulness and contemplative practice into their teaching.",
+                topics: ["Contemplative Pedagogy"],
+                resources: [
+                  { label: "UVA Contemplative Sciences Center", url: "https://csc.virginia.edu/" },
+                  { label: "Contemplative Institute for Teaching & Learning (UVA)", url: "https://cte.virginia.edu/programs/contemplative-institute-for-teaching-and-learning" },
+                ],
+              },
+              {
+                name: "Society for Simulation in Healthcare (SSH)",
+                center: "Global healthcare simulation organization",
+                url: "https://www.ssih.org/",
+                desc: "The largest healthcare simulation organization in the world, setting standards and certifications for simulation-based education.",
+                topics: ["Simulation-Based Learning"],
+                resources: [
+                  { label: "SSH Academy", url: "https://www.ssih.org/ssh-academy" },
+                  { label: "Healthcare Simulation Standards (INACSL)", url: "https://www.inacsl.org/healthcare-simulation-standards" },
+                ],
+              },
             ];
             const filtered = centers.filter(ctl => !ctlFilter || ctl.topics.includes(ctlFilter));
             return filtered.length === 0 ? (
