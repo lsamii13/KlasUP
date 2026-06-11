@@ -707,7 +707,7 @@ export default function KlasUp() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
   const [showResearch, setShowResearch] = useState(window.location.hash === "#/research");
-  const [showBeta, setShowBeta] = useState(window.location.hash === "#/beta");
+  const [showBeta, setShowBeta] = useState(false);
   const [showTerms, setShowTerms] = useState(null); // null | "terms" | "privacy"
   const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
   const [authEmail, setAuthEmail] = useState("");
@@ -4688,7 +4688,7 @@ export default function KlasUp() {
                     setAdminCrawlerLoading(true); setAdminCrawlerResult(null);
                     try {
                       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-crawler`;
-                      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` }, body: JSON.stringify({ source: "all" }) });
+                      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }, body: JSON.stringify({ source: "all" }) });
                       const data = await res.json();
                       setAdminCrawlerResult(data);
                       loadAdminResearch();
