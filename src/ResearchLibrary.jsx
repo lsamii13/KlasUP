@@ -407,7 +407,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching",
                 url: "https://cft.vanderbilt.edu",
                 desc: "One of the most comprehensive teaching centers in the country, offering research-backed guides on active learning, course design, and inclusive teaching.",
-                topics: ["Active Learning", "Pedagogy", "Inclusive Teaching", "Bloom's Taxonomy"],
+                topics: ["Active Learning", "Pedagogy", "Inclusive Teaching", "Bloom's Taxonomy", "Flipped Classroom"],
                 resources: [
                   { label: "Teaching Guides A-Z", url: "https://cft.vanderbilt.edu/guides-sub-pages/teaching-guides/" },
                   { label: "Active Learning", url: "https://cft.vanderbilt.edu/guides-sub-pages/active-learning/" },
@@ -419,7 +419,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Bok Center for Teaching and Learning",
                 url: "https://bokcenter.harvard.edu",
                 desc: "Harvard's teaching center focused on evidence-based pedagogy, offering resources for new and experienced faculty across disciplines.",
-                topics: ["Pedagogy", "Faculty Development", "Active Learning"],
+                topics: ["Pedagogy", "Faculty Development", "Active Learning", "Flipped Classroom", "Case Studies"],
                 resources: [
                   { label: "Teaching Resources", url: "https://bokcenter.harvard.edu/resources" },
                   { label: "Discussions", url: "https://bokcenter.harvard.edu/discussions" },
@@ -431,7 +431,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching and Learning",
                 url: "https://ctl.stanford.edu",
                 desc: "Stanford's CTL supports faculty with resources on course design, inclusive teaching, and educational technology integration.",
-                topics: ["Pedagogy", "Inclusive Teaching", "Active Learning"],
+                topics: ["Pedagogy", "Inclusive Teaching", "Active Learning", "Socratic Seminar"],
                 resources: [
                   { label: "Teaching Commons", url: "https://teachingcommons.stanford.edu" },
                   { label: "Course Design", url: "https://ctl.stanford.edu/course-design" },
@@ -443,7 +443,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for the Advancement of Teaching & Learning (CATL)",
                 url: "https://www.elon.edu/u/academics/catl/",
                 desc: "A nationally recognized teaching center focused on evidence-based, inclusive, and equitable teaching practices, SoTL, and faculty learning communities.",
-                topics: ["Inclusive Teaching", "Faculty Development", "Reflective Practice"],
+                topics: ["Inclusive Teaching", "Faculty Development", "Reflective Practice", "High Impact Practices", "Experiential Learning"],
                 resources: [
                   { label: "Teaching & Learning Resources", url: "https://www.elon.edu/u/academics/catl/tlresources/" },
                   { label: "Programs & Fellowships", url: "https://www.elon.edu/u/academics/catl/programsservices/programs/" },
@@ -515,7 +515,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Innovative Teaching and Learning (CITL)",
                 url: "https://citl.indiana.edu/",
                 desc: "CITL supports IU Bloomington faculty with instructional consulting, classroom observations, workshops, and resources for innovative and effective teaching.",
-                topics: ["Pedagogy", "Active Learning", "Faculty Development"],
+                topics: ["Pedagogy", "Active Learning", "Faculty Development", "Trauma-Informed Teaching"],
                 resources: [
                   { label: "Teaching Resources", url: "https://citl.indiana.edu/teaching-resources/" },
                   { label: "Programs & Services", url: "https://citl.indiana.edu/programs-services/" },
@@ -527,7 +527,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Eberly Center for Teaching Excellence",
                 url: "https://www.cmu.edu/teaching/",
                 desc: "Evidence-based teaching tools; famous 'Solve a Teaching Problem' interactive resource.",
-                topics: ["Feedback Quality", "Active Learning", "Bloom's Taxonomy", "Pedagogy"],
+                topics: ["Feedback Quality", "Active Learning", "Bloom's Taxonomy", "Pedagogy", "Teamwork & Group Projects"],
                 resources: [
                   { label: "Solve a Teaching Problem", url: "https://www.cmu.edu/teaching/solveproblem/" },
                   { label: "Teaching & Learning Resources", url: "https://www.cmu.edu/teaching/resources/" },
@@ -563,7 +563,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Poorvu Center for Teaching and Learning",
                 url: "https://poorvucenter.yale.edu",
                 desc: "Equitable, engaged teaching; strong inclusive teaching and course design resources.",
-                topics: ["Inclusive Teaching", "Pedagogy", "Feedback Quality"],
+                topics: ["Inclusive Teaching", "Pedagogy", "Feedback Quality", "Case Studies"],
                 resources: [
                   { label: "Inclusive Teaching Strategies", url: "https://poorvucenter.yale.edu/InclusiveTeachingStrategies" },
                   { label: "Accessible Teaching", url: "https://poorvucenter.yale.edu/teaching/teaching-resource-library/accessible-teaching" },
@@ -575,7 +575,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                 center: "Center for Teaching Innovation",
                 url: "https://teaching.cornell.edu",
                 desc: "Inclusive, evidence-based, active learning; home of the Active Learning Initiative.",
-                topics: ["Active Learning", "Inclusive Teaching", "Pedagogy"],
+                topics: ["Active Learning", "Inclusive Teaching", "Pedagogy", "Problem-Based Learning", "Kagan Structures"],
                 resources: [
                   { label: "Teaching Resources", url: "https://teaching.cornell.edu/teaching-resources" },
                   { label: "Active Learning", url: "https://teaching.cornell.edu/teaching-resources/active-collaborative-learning/active-learning" },
