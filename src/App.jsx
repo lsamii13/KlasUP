@@ -2883,6 +2883,14 @@ export default function KlasUp() {
                                     <Tag label={m.tag} color={tc.color} bg={tc.bg} />
                                     <div style={{ fontFamily: F.display, fontSize: 14, color: C.navy, margin: "6px 0 4px" }}>{m.title}</div>
                                     <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{m.summary}</div>
+                                    {(m.article_title || m.article) && (
+                                    <div style={{ background: C.ivory, borderRadius: 8, padding: "0.6rem 0.9rem", marginTop: 6, marginBottom: 4 }}>
+                                      <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 2 }}>RESEARCH</div>
+                                      <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>
+                                        {m.article_url ? <a href={m.article_url} target="_blank" rel="noopener noreferrer" style={{ color: C.teal, textDecoration: "underline" }}>{m.article_title}</a> : (m.article_title || m.article)}
+                                      </div>
+                                    </div>
+                                    )}
                                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
                                       <div style={{ fontSize: 12, color: C.tealBright, fontWeight: 600 }}>→ {m.action}</div>
                                       <CopyBtn text={m.action} label="Copy" />

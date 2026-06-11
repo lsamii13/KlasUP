@@ -30,14 +30,18 @@ async function fetchRagArticles(content: string, category: string): Promise<RagA
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Build a short keyword query from the content — full-text search works
-    // best with a few meaningful terms rather than the whole upload
-    const queryText = `${category} ${content}`.slice(0, 200)
+    // Build an OR-separated keyword query — websearch_to_tsquery treats
+    // unquoted words as AND, so we explicitly OR them for partial matching
+    const queryText = `${category} ${content}`
+      .split(/\s+/)
+      .filter(w => w.length > 3)
+      .slice(0, 15)
+      .join(' OR ')
 
     const { data: articles, error } = await supabase
       .rpc('keyword_search_articles', {
         query_text: queryText,
-        match_count: 5,
+        match_count: 8,
         filter_dimension: null,
       })
 
