@@ -638,7 +638,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
                   onMouseEnter={e => e.currentTarget.style.background = CA_COLORS.tealSoft}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px", cursor: "pointer", fontSize: 13, fontFamily: CA_FONTS.heading, color: CA_COLORS.navy, transition: "background 0.15s" }}>
-                  <span>{c.course_name} · {c.term_code}</span>
+                  <span>{[c.course_code, c.course_name, c.term_code].filter(Boolean).join(" · ")}</span>
                   {c.id === (activeCourse?.id) && <span style={{ color: CA_COLORS.teal, fontWeight: 700, marginLeft: 8 }}>✓</span>}
                 </div>
               ))}
