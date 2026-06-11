@@ -116,7 +116,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
         // Direct query with filters
         let q = supabase
           .from("research_articles")
-          .select("id, title, authors, year, journal, abstract, dimension, search_terms")
+          .select("id, title, authors, year, journal, abstract, dimension, search_terms, url")
           .order("year", { ascending: false })
           .range(page * PER_PAGE, (page + 1) * PER_PAGE - 1);
 
@@ -279,7 +279,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
 
                   {/* Title */}
                   <h3 style={{ fontFamily: F.display, fontSize: mob ? 17 : 20, color: C.navy, margin: "0 0 6px", lineHeight: 1.3 }}>
-                    {a.title}
+                    {a.url ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: C.navy, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={e => e.currentTarget.style.color = C.teal} onMouseLeave={e => e.currentTarget.style.color = C.navy}>{a.title}</a> : a.title}
                   </h3>
 
                   {/* Authors + Journal */}
