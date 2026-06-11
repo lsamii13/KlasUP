@@ -5,7 +5,7 @@ import {
   fetchLearningOutcomes, insertLearningOutcome, updateLearningOutcome,
   deleteLearningOutcome, reorderLearningOutcomes,
   fetchAssignments, insertAssignment, updateAssignment, deleteAssignment,
-  fetchLoTags, addLoTag, removeLoTag,
+  fetchLoTags, addLoTag, removeLoTag, uploadDocument,
 } from "../supabase";
 import SyllabusImportWizard from "../SyllabusImportWizard";
 import extractFileText from "../extractFileText";
@@ -573,14 +573,89 @@ export default function CourseSetup({ setPage, course, userId }) {
               onMouseEnter={e => e.currentTarget.style.borderColor = CA_COLORS.teal}
               onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
             >📄 Import from syllabus</button>
-            <input ref={syllabusFileRef} type="file" accept=".docx,.txt,.pptx" style={{ display: "none" }} onChange={async (e) => {
+            <input ref={syllabusFileRef} type="file" accept=".docx,.txt,.pptx,.pdf" style={{ display: "none" }} onChange={async (e) => {
               const file = e.target.files?.[0];
               e.target.value = "";
               if (!file) return;
               const ext = file.name.split(".").pop().toLowerCase();
               if (ext === "pdf") {
-                setSyllabusFileMsg("PDF import is coming soon — for now, save your syllabus as .docx or .txt and import that.");
-                setTimeout(() => setSyllabusFileMsg(null), 8000);
+                setSyllabusFileMsg(null);
+                setSyllabusError(null);
+                setSyllabusLoading(true);
+                let storagePath = null;
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  // Upload PDF to Storage so extract-pdf can read it
+                  const uploaded = await uploadDocument(userId, file);
+                  storagePath = uploaded.storagePath;
+                  // Call the isolated extract-pdf Edge Function
+                  const pdfRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-pdf`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ storage_path: storagePath }),
+                  });
+                  const pdfJson = await pdfRes.json();
+                  if (!pdfRes.ok || !pdfJson.success) {
+                    setSyllabusLoading(false);
+                    setSyllabusError(pdfJson.error || "We couldn't extract text from that PDF.");
+                    return;
+                  }
+                  if (pdfJson.likely_scanned) {
+                    setSyllabusLoading(false);
+                    setSyllabusFileMsg("That PDF looks like a scanned image, so we can't read the text. Save your syllabus as .docx or .txt and import that instead.");
+                    setTimeout(() => setSyllabusFileMsg(null), 10000);
+                    return;
+                  }
+                  const text = pdfJson.text;
+                  if (!text || text.trim().length === 0) {
+                    setSyllabusLoading(false);
+                    setSyllabusError("No readable text found in that PDF. Try saving it as .docx or .txt.");
+                    return;
+                  }
+                  // Hand off to the same extract-syllabus → wizard flow the other formats use
+                  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-syllabus`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({
+                      text,
+                      course_context: { course_name: course.course_name, course_code: course.course_code, num_weeks: course.num_weeks },
+                    }),
+                  });
+                  if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    if (res.status === 400 && errJson.error?.includes("too short")) {
+                      setSyllabusLoading(false);
+                      setSyllabusError("That document looks too short to be a syllabus. Check it's the right file?");
+                      return;
+                    }
+                    if (res.status === 422) {
+                      setSyllabusLoading(false);
+                      setSyllabusError("We had trouble structuring what we read. This sometimes happens — trying again usually works.");
+                      return;
+                    }
+                    if (res.status === 401) {
+                      setSyllabusLoading(false);
+                      setSyllabusError("Your session expired — please refresh and log back in.");
+                      return;
+                    }
+                    setSyllabusLoading(false);
+                    setSyllabusError("Something went wrong on our end. Try again in a moment.");
+                    return;
+                  }
+                  const json = await res.json();
+                  setSyllabusProposals(json.proposals);
+                  setSyllabusLoading(false);
+                  setSyllabusOpen(true);
+                } catch (err) {
+                  console.error("[CourseSetup] PDF import failed:", err);
+                  setSyllabusLoading(false);
+                  setSyllabusError(err.message || "We couldn't read that PDF.");
+                } finally {
+                  // Always clean up the temporary PDF from Storage
+                  if (storagePath) {
+                    supabase.storage.from("documents").remove([storagePath]).catch(() => {});
+                  }
+                }
                 return;
               }
               if (!["docx", "txt", "pptx"].includes(ext)) {
