@@ -162,7 +162,7 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
 
           {/* Tabs */}
           <div style={{ display: "flex", gap: 0, marginBottom: 20 }}>
-            {[{ id: "research", label: "Research Library" }, { id: "ctl", label: "CTL Directory" }].map(t => (
+            {[{ id: "research", label: "Research Library" }, { id: "ctl", label: "CTL Directory" }, { id: "prompts", label: "Free AI Prompts" }].map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 style={{
                   background: "none", border: "none", borderBottom: activeTab === t.id ? `3px solid ${C.white}` : "3px solid transparent",
@@ -708,6 +708,32 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* ── FREE AI PROMPTS TAB ── */}
+      {activeTab === "prompts" && (
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: mob ? "32px 16px" : "48px 24px" }}>
+          <div style={{
+            background: C.ivory, border: `1px solid ${C.navy}18`, borderRadius: 16,
+            padding: mob ? "32px 20px" : "48px 40px", boxShadow: "0 2px 12px rgba(15,31,61,0.04)",
+            textAlign: "center", maxWidth: 640, margin: "0 auto",
+          }}>
+            <div style={{ fontFamily: F.display, fontSize: mob ? 24 : 32, color: C.navy, marginBottom: 12 }}>
+              12 Faculty AI Prompts
+            </div>
+            <div style={{ fontSize: mob ? 14 : 16, color: C.muted, fontFamily: F.body, lineHeight: 1.7, marginBottom: 24, maxWidth: 500, margin: "0 auto 24px" }}>
+              A free download of ready-to-use AI prompts designed to help faculty save time on course prep, give better feedback, and teach more effectively.
+            </div>
+            <a href="/free-prompts"
+              style={{
+                display: "inline-block", background: C.tealBright, color: C.white, border: "none",
+                padding: "14px 28px", borderRadius: 10, fontFamily: F.accent, fontWeight: 700,
+                fontSize: 15, textDecoration: "none", cursor: "pointer", minHeight: 44,
+              }}>
+              Get the free prompts →
+            </a>
+          </div>
         </div>
       )}
 
