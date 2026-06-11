@@ -4284,6 +4284,7 @@ export default function KlasUp() {
                             <span>{c.term_code}</span>
                             {c.term_start && <span>Starts {new Date(c.term_start + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
                             <span>{c.num_weeks || 16} weeks</span>
+                            {c.institution && <span>{c.institution}</span>}
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
