@@ -2262,7 +2262,7 @@ export default function KlasUp() {
                     {c.section && <span style={{ fontFamily: F.accent, fontSize: 12, color: "#9FB3D4" }}>· Section {c.section}</span>}
                   </div>
                   <div style={{ fontFamily: F.accent, fontSize: 12, color: "#9FB3D4" }}>
-                    {[c.term_code, c.num_weeks ? `${c.num_weeks} weeks` : null].filter(Boolean).join(" · ") || "No term set"}
+                    {[c.term_code, c.num_weeks ? `${c.num_weeks} weeks` : null, c.institution || null].filter(Boolean).join(" · ") || "No term set"}
                   </div>
                 </div>
               ))}
