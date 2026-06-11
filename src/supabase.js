@@ -217,6 +217,7 @@ export async function updateCourse(id, updates) {
   if (cleaned.course_name) cleaned.course_name = sanitize(cleaned.course_name)
   if (cleaned.section !== undefined) cleaned.section = sanitize(cleaned.section)
   if (cleaned.term_code) cleaned.term_code = sanitize(cleaned.term_code)
+  if (cleaned.institution !== undefined && cleaned.institution !== null) cleaned.institution = sanitize(cleaned.institution)
   const { data, error } = await supabase
     .from('courses')
     .update(cleaned)

@@ -4259,11 +4259,23 @@ export default function KlasUp() {
                             <label style={labelStyle}>Weeks</label>
                             <input type="number" min={1} max={52} value={settingsForm.num_weeks || 16} onChange={e => setSettingsForm(p => ({ ...p, num_weeks: e.target.value }))} style={inputStyle} />
                           </div>
+                          {(() => {
+                            const opts = [...new Set([...(settingsProfileForm?.institutions || []), ...((settingsProfileForm?.institution && !(settingsProfileForm?.institutions || []).includes(settingsProfileForm.institution)) ? [settingsProfileForm.institution] : [])].filter(Boolean))];
+                            return opts.length > 0 ? (
+                              <div>
+                                <label style={labelStyle}>Institution</label>
+                                <select value={settingsForm.institution || ""} onChange={e => setSettingsForm(p => ({ ...p, institution: e.target.value }))} style={{ ...inputStyle, cursor: "pointer" }}>
+                                  <option value="">— None —</option>
+                                  {opts.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                                </select>
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={async () => {
                             try {
-                              await editCourse(c.id, { course_code: settingsForm.course_code.trim(), course_name: settingsForm.course_name.trim(), section: settingsForm.section.trim() || null, term_code: settingsForm.term_code.trim(), term_start: settingsForm.term_start || null, num_weeks: parseInt(settingsForm.num_weeks) || 16 });
+                              await editCourse(c.id, { course_code: settingsForm.course_code.trim(), course_name: settingsForm.course_name.trim(), section: settingsForm.section.trim() || null, term_code: settingsForm.term_code.trim(), term_start: settingsForm.term_start || null, num_weeks: parseInt(settingsForm.num_weeks) || 16, institution: settingsForm.institution || null });
                               setSettingsEditing(null);
                             } catch (err) { alert("Error: " + err.message); }
                           }}
@@ -4288,7 +4300,7 @@ export default function KlasUp() {
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => { setSettingsEditing(c.id); setSettingsForm({ course_code: c.course_code, course_name: c.course_name, section: c.section || "", term_code: c.term_code, term_start: c.term_start || "", num_weeks: c.num_weeks || 16 }); }}
+                          <button onClick={() => { setSettingsEditing(c.id); setSettingsForm({ course_code: c.course_code, course_name: c.course_name, section: c.section || "", term_code: c.term_code, term_start: c.term_start || "", num_weeks: c.num_weeks || 16, institution: c.institution || "" }); }}
                             style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Edit</button>
                           <button onClick={async () => { if (confirm(`Remove ${c.course_code}?`)) { try { await removeCourse(c.id); } catch (err) { alert("Error: " + err.message); } } }}
                             style={{ background: C.roseLight, color: C.rose, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Remove</button>
