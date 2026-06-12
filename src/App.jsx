@@ -881,7 +881,6 @@ export default function KlasUp() {
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showWelcomeCard, setShowWelcomeCard] = useState(false);
   const [showSpotlights, setShowSpotlights] = useState(false);
-  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // --- Wellness state ---
   const [wellnessScore, setWellnessScore] = useState(null);
@@ -1066,26 +1065,9 @@ export default function KlasUp() {
           .then(anns => setAnnouncements(anns))
           .catch(() => {});
 
-        // Show welcome banner only during the first 3 days after signup,
-        // unless the user has manually dismissed it.
-        if (p && !localStorage.getItem("klasup_welcome_dismissed")) {
-          const signupTime = new Date(p.created_at).getTime();
-          const now = Date.now();
-          const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-          if (now - signupTime < threeDaysMs) {
-            setShowWelcomeBanner(true);
-          }
-        }
-
-        // Show welcome card once for new users who haven't completed the old tour
+        // Show welcome card once for new users who haven't completed onboarding
         if (p && !p.onboarding_complete && !localStorage.getItem("klasup_welcome_card_shown")) {
           setShowWelcomeCard(true);
-        }
-
-        // DEV: set localStorage klasup_test_spotlights = "1" then reload to trigger spotlights
-        if (localStorage.getItem("klasup_test_spotlights") === "1") {
-          localStorage.removeItem("klasup_test_spotlights");
-          setShowSpotlights(true);
         }
 
       } catch (err) {
@@ -2177,40 +2159,6 @@ export default function KlasUp() {
           </div>
         )}
 
-        {/* Welcome banner — shows on all pages for new users */}
-        {showWelcomeBanner && (
-          <div style={{
-            background: "#1B2B4B", color: "#fff", borderRadius: 10, padding: "0 16px",
-            marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: 10, height: 44, overflow: "hidden",
-            transition: "opacity 0.3s ease, height 0.3s ease, margin 0.3s ease, padding 0.3s ease",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>&#10022;</span>
-              <span style={{ fontFamily: F.body, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                You're in! Want to see what KlasUp can do?
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => { localStorage.setItem("klasup_welcome_dismissed", "1"); setShowWelcomeBanner(false); setShowOnboardingTour(true); }}
-                style={{
-                  background: "#2A9D8F", color: "#fff", border: "none", borderRadius: 8,
-                  padding: "5px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12,
-                  cursor: "pointer", whiteSpace: "nowrap",
-                }}>
-                Take the Tour
-              </button>
-              <button onClick={() => { setShowWelcomeBanner(false); localStorage.setItem("klasup_welcome_dismissed", "1"); }}
-                style={{
-                  background: "none", border: "none", color: "rgba(255,255,255,0.5)",
-                  fontSize: 16, cursor: "pointer", padding: "2px 4px", lineHeight: 1,
-                }}>
-                &#10005;
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Announcements from admin */}
         {announcements.map(a => (
           <div key={a.id} style={{ background: C.tealLight, border: `1px solid ${C.tealBright}44`, borderRadius: 12, padding: "1rem 1.25rem", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -2251,17 +2199,19 @@ export default function KlasUp() {
                 weekNum ? `Week ${weekNum}${totalWeeks ? ` of ${totalWeeks}` : ""}` : null,
               ].filter(Boolean);
               return (
-                <PageHeader
-                  breadcrumb="🏠 Dashboard"
-                  title={`${greeting}${displayName ? `, ${displayName}` : ""}`}
-                  subtitle={subtitleParts.length > 0 ? subtitleParts.join(" · ") : "Welcome to KlasUp"}
-                  featureInfo={<FeatureInfo sectionId="dashboard" />}
-                />
+                <div data-tour="dashboard">
+                  <PageHeader
+                    breadcrumb="🏠 Dashboard"
+                    title={`${greeting}${displayName ? `, ${displayName}` : ""}`}
+                    subtitle={subtitleParts.length > 0 ? subtitleParts.join(" · ") : "Welcome to KlasUp"}
+                    featureInfo={<FeatureInfo sectionId="dashboard" />}
+                  />
+                </div>
               );
             })()}
 
             {/* ── SECTION 2: COURSE TILE GRID ── */}
-            <div data-tour="dashboard" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>YOUR COURSES</div>
               <span onClick={() => setPage("Course Architect")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, cursor: "pointer" }}>Course Architect</span>
             </div>
@@ -2565,7 +2515,7 @@ export default function KlasUp() {
             <FromKlasUpPanel onNavigate={setPage} />
 
             {/* ── GET STARTED CHECKLIST (new users, first 7 days) ── */}
-            {profile && !profile.onboarding_complete && (() => {
+            {profile && (() => {
               const age = Date.now() - new Date(profile.created_at).getTime();
               if (age > 7 * 24 * 60 * 60 * 1000) return null;
               return (
@@ -4977,23 +4927,8 @@ export default function KlasUp() {
       {showSpotlights && (
         <Spotlights
           sageOpen={sageOpen}
-          onDismiss={() => setShowSpotlights(false)}
-        />
-      )}
-
-      {/* ── WELCOME CARD ── */}
-      {showWelcomeCard && (
-        <WelcomeCard
-          onGoToSyllabus={() => { setPage("Course Setup"); }}
-          onDismiss={() => setShowWelcomeCard(false)}
-        />
-      )}
-
-      {/* ── ONBOARDING TOUR ── */}
-      {showOnboardingTour && (
-        <OnboardingTour
-          onComplete={async () => {
-            setShowOnboardingTour(false);
+          onDismiss={async () => {
+            setShowSpotlights(false);
             if (session?.user) {
               try {
                 await upsertProfile(session.user.id, { ...profile, onboarding_complete: true, email: session.user.email });
@@ -5001,8 +4936,18 @@ export default function KlasUp() {
               } catch (e) { console.error("Failed to save onboarding_complete:", e); }
             }
           }}
-          onGoToProfile={() => { setPage("Settings"); setSettingsProfileForm(null); }}
-          onGoToSyllabus={() => { setPage("Course Setup"); }}
+        />
+      )}
+
+      {/* ── WELCOME CARD ── */}
+      {showWelcomeCard && (
+        <WelcomeCard
+          onDismiss={() => {
+            setShowWelcomeCard(false);
+            if (!localStorage.getItem("klasup_spotlights_seen")) {
+              setShowSpotlights(true);
+            }
+          }}
         />
       )}
 

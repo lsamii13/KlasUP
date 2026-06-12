@@ -42,6 +42,12 @@ const DESKTOP_STOPS = [
     body: "Bite-sized teaching tips, peer-reviewed research, the faculty community, and Wellness — because good teachers are always learning.",
     position: "right",
   },
+  {
+    selector: '[data-tour="checklist"]',
+    heading: "Start with your syllabus.",
+    body: "This is your quick-start list — begin at the top. Import your syllabus and watch KlasUp turn it into your course.",
+    position: "left",
+  },
 ];
 
 // Padding around the highlighted element
@@ -115,10 +121,14 @@ export default function Spotlights({ onDismiss, sageOpen }) {
   }, [stopIdx, effectiveStops]);
 
   useEffect(() => {
-    measureTarget();
+    // Delay initial measurement so the DOM has time to lay out after state changes
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(measureTarget);
+    });
     window.addEventListener("resize", measureTarget);
     window.addEventListener("scroll", measureTarget, true);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("resize", measureTarget);
       window.removeEventListener("scroll", measureTarget, true);
     };
@@ -159,7 +169,7 @@ export default function Spotlights({ onDismiss, sageOpen }) {
             Welcome to your dashboard.
           </div>
           <div style={{ fontFamily: F.body, fontSize: 15, color: C.muted, lineHeight: 1.7, marginBottom: 24 }}>
-            This is your home base — your courses, Career Connections, and Klas, your teaching partner, are all right here. Tap around and explore.
+            This is your home base — your courses, Career Connections, and Klas, your teaching partner, are all right here. Check out the Get Started list to begin with your syllabus.
           </div>
           <button onClick={dismiss} style={{
             background: C.navy, color: C.white, border: "none", borderRadius: 10,

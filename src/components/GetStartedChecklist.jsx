@@ -50,7 +50,7 @@ export default function GetStartedChecklist({ onNavigate }) {
   const doneCount = ITEMS.filter(item => done[item.key]).length;
 
   return (
-    <div style={{ marginTop: 16 }}>
+    <div data-tour="checklist" style={{ marginTop: 16 }}>
       <div style={{ fontFamily: F.display, fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 8 }}>
         Get started
       </div>
