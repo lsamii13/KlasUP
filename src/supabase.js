@@ -601,6 +601,15 @@ export async function adminFetchUsageStats() {
   return data
 }
 
+export async function adminFetchTodayStats() {
+  const { data, error } = await supabase
+    .from('admin_today_stats')
+    .select('*')
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function adminFetchFunnel() {
   const { data, error } = await supabase
     .from('admin_funnel')

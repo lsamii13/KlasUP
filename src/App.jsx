@@ -39,7 +39,7 @@ import {
   fetchActiveAnnouncements, dismissAnnouncement,
   adminFetchAllUsers, adminUpdateUserRole, adminSetSubscription,
   adminCreateTestUser, adminResetTestUser, adminCreateAnnouncement,
-  adminFetchUsageStats, adminFetchFunnel,
+  adminFetchUsageStats, adminFetchTodayStats, adminFetchFunnel,
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension, fetchArticleById,
   insertUpload, fetchUploads, uploadDocument,
@@ -736,6 +736,7 @@ export default function KlasUp() {
   // --- Admin state ---
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
+  const [adminTodayStats, setAdminTodayStats] = useState(null);
   const [adminFunnelData, setAdminFunnelData] = useState(null);
   const [adminAnnouncementForm, setAdminAnnouncementForm] = useState({ title: "", body: "" });
   const [adminTestForm, setAdminTestForm] = useState({ email: "", password: "", name: "" });
@@ -1249,14 +1250,16 @@ export default function KlasUp() {
     if (profile?.role !== "admin") return;
     setAdminLoading(true);
     try {
-      const [users, stats, funnel] = await Promise.all([
+      const [users, stats, todayStats, funnel] = await Promise.all([
         adminFetchAllUsers(),
         adminFetchUsageStats(),
+        adminFetchTodayStats(),
         adminFetchFunnel(),
       ]);
       console.log("Admin users loaded:", users?.length, users);
       setAdminUsers(users);
       setAdminStats(stats);
+      setAdminTodayStats(todayStats);
       setAdminFunnelData(funnel);
     } catch (err) { console.error("Admin load error:", err); }
     finally { setAdminLoading(false); }
@@ -4429,6 +4432,26 @@ export default function KlasUp() {
           return (
           <div>
             <PageHeader breadcrumb="🏠 Dashboard › 🔧 Admin" title="Admin Panel" subtitle="Manage users, view analytics, and send announcements." />
+
+            {/* Today at a Glance */}
+            {adminTodayStats && (
+              <>
+                <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 14 }}>Today at a Glance</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: "Signups Today", value: adminTodayStats.signups_today, color: C.navy },
+                    { label: "Uploads Today", value: adminTodayStats.uploads_today, color: C.sage },
+                    { label: "Micro-Learnings Today", value: adminTodayStats.micro_learnings_today, color: C.purple },
+                    { label: "Active Today", value: adminTodayStats.active_today, color: C.tealBright },
+                  ].map((s, i) => (
+                    <Card key={i} style={{ textAlign: "center", padding: "1rem" }}>
+                      <div style={{ fontFamily: F.display, fontSize: 28, color: s.color }}>{s.value ?? "—"}</div>
+                      <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Usage Stats */}
             {adminStats && (
