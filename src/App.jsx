@@ -3,6 +3,7 @@ import Landing from "./Landing";
 import ResearchLibrary from "./ResearchLibrary";
 import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
+import WelcomeCard from "./components/WelcomeCard";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import StudentVoicePage from "./pages/StudentVoicePage";
 import CourseArchitect from "./pages/CourseArchitect";
@@ -876,6 +877,7 @@ export default function KlasUp() {
   const [settingsPwMsg, setSettingsPwMsg] = useState(null);
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+  const [showWelcomeCard, setShowWelcomeCard] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // --- Wellness state ---
@@ -1070,6 +1072,11 @@ export default function KlasUp() {
           if (now - signupTime < threeDaysMs) {
             setShowWelcomeBanner(true);
           }
+        }
+
+        // Show welcome card once for new users who haven't completed the old tour
+        if (p && !p.onboarding_complete && !localStorage.getItem("klasup_welcome_card_shown")) {
+          setShowWelcomeCard(true);
         }
 
       } catch (err) {
@@ -4941,6 +4948,14 @@ export default function KlasUp() {
         )}
 
       </div>
+
+      {/* ── WELCOME CARD ── */}
+      {showWelcomeCard && (
+        <WelcomeCard
+          onGoToSyllabus={() => { setPage("Course Setup"); }}
+          onDismiss={() => setShowWelcomeCard(false)}
+        />
+      )}
 
       {/* ── ONBOARDING TOUR ── */}
       {showOnboardingTour && (
