@@ -661,6 +661,17 @@ export default function ResearchLibrary({ onBack, onSignUp }) {
                   { label: "Healthcare Simulation Standards (INACSL)", url: "https://www.inacsl.org/healthcare-simulation-standards" },
                 ],
               },
+              {
+                name: "Landmark College",
+                center: "Institute for Research and Training",
+                url: "https://www.landmark.edu/institute",
+                desc: "The only accredited college in the U.S. designed exclusively for neurodivergent students. Their Institute shares research-backed strategies for teaching students with ADHD, autism, dyslexia, and other learning differences.",
+                topics: ["Neurodiversity", "Inclusive Teaching", "Universal Design for Learning"],
+                resources: [
+                  { label: "Landmark College Institute", url: "https://www.landmark.edu/institute" },
+                  { label: "Neurodiversity Resources for Educators", url: "https://www.landmark.edu/institute/resources" },
+                ],
+              },
             ];
             const filtered = centers.filter(ctl => !ctlFilter || ctl.topics.includes(ctlFilter));
             return filtered.length === 0 ? (
