@@ -5,6 +5,7 @@ import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
 import WelcomeCard from "./components/WelcomeCard";
 import Spotlights from "./components/Spotlights";
+import GetStartedChecklist from "./components/GetStartedChecklist";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import StudentVoicePage from "./pages/StudentVoicePage";
 import CourseArchitect from "./pages/CourseArchitect";
@@ -2562,6 +2563,21 @@ export default function KlasUp() {
           {/* Right sidebar — From KlasUp rotating panel */}
           <div style={{ width: mob ? "100%" : 280, flexShrink: 0, marginTop: mob ? 16 : 0 }}>
             <FromKlasUpPanel onNavigate={setPage} />
+
+            {/* ── GET STARTED CHECKLIST (new users, first 7 days) ── */}
+            {profile && !profile.onboarding_complete && (() => {
+              const age = Date.now() - new Date(profile.created_at).getTime();
+              if (age > 7 * 24 * 60 * 60 * 1000) return null;
+              return (
+                <GetStartedChecklist onNavigate={(key) => {
+                  if (key === "syllabus") setPage("Course Setup");
+                  else if (key === "klas") openSage();
+                  else if (key === "architect") setPage("Course Architect");
+                  else if (key === "resources") { setShowResearch(true); window.location.hash = "#/research"; }
+                  else if (key === "profile") { setPage("Settings"); setSettingsProfileForm(null); }
+                }} />
+              );
+            })()}
 
             {/* Recent Activity */}
             {(() => {
