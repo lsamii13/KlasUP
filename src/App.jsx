@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Landing from "./Landing";
-import ResearchLibrary from "./ResearchLibrary";
+import ResearchLibrary, { DIMENSIONS } from "./ResearchLibrary";
 import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
 import WelcomeCard from "./components/WelcomeCard";
@@ -749,6 +749,7 @@ export default function KlasUp() {
   const [adminBetaAgreements, setAdminBetaAgreements] = useState([]);
   const [adminArticles, setAdminArticles] = useState([]);
   const [adminDimCounts, setAdminDimCounts] = useState([]);
+  const [adminCrawlerDimension, setAdminCrawlerDimension] = useState("all");
   const [adminArticleForm, setAdminArticleForm] = useState({ title: "", authors: "", year: "", journal: "", abstract: "", content: "", dimension: "Active Learning", search_terms: "" });
   const [adminCrawlerResult, setAdminCrawlerResult] = useState(null);
   const [adminCrawlerLoading, setAdminCrawlerLoading] = useState(false);
@@ -4687,12 +4688,18 @@ export default function KlasUp() {
                 </Card>
 
                 {/* Actions row */}
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
+                  <select value={adminCrawlerDimension} onChange={e => setAdminCrawlerDimension(e.target.value)}
+                    style={{ fontFamily: F.accent, fontSize: 13, padding: "8px 12px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
+                    <option value="all">All dimensions</option>
+                    {DIMENSIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                   <button onClick={async () => {
                     setAdminCrawlerLoading(true); setAdminCrawlerResult(null);
                     try {
                       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-crawler`;
-                      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }, body: JSON.stringify({ source: "all" }) });
+                      const crawlBody = adminCrawlerDimension === "all" ? { source: "all" } : { source: "eric", dimension: adminCrawlerDimension };
+                      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }, body: JSON.stringify(crawlBody) });
                       const data = await res.json();
                       setAdminCrawlerResult(data);
                       loadAdminResearch();

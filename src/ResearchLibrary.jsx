@@ -20,7 +20,7 @@ const F = {
   accent: "'Manrope', sans-serif",
 };
 
-const DIMENSIONS = [
+export const DIMENSIONS = [
   "AI in Teaching", "Action Research", "Active Learning", "Andragogy",
   "Bloom's Taxonomy", "Case Studies", "Community of Inquiry",
   "Contemplative Pedagogy", "Experiential Learning", "Faculty Development",
