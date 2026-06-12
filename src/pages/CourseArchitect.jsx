@@ -154,11 +154,11 @@ function SemesterListView({ weeks, assignments, filter, getLoCodesFor }) {
   if (filtered.length === 0) return <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}><EmptyFilterState /></div>;
 
   return (
-    <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}>
+    <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}` }}>
       <style>{`.ca-icon-tip:hover .ca-icon-tip-label { opacity: 1 !important; }`}</style>
       {filtered.map((row, i) => (
         <div key={row.id} onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(-1)}
-          style={{ display: "flex", alignItems: "center", gap: "1.5rem", padding: "1.1rem 1.5rem", borderBottom: i < filtered.length - 1 ? "1px solid #f5f1ea" : "none", background: hoveredIdx === i ? CA_COLORS.ivory : "#fff", transition: "background 0.15s ease" }}>
+          style={{ display: "flex", alignItems: "center", gap: "1.5rem", padding: "1.1rem 1.5rem", borderBottom: i < filtered.length - 1 ? "1px solid #f5f1ea" : "none", background: hoveredIdx === i ? CA_COLORS.ivory : "#fff", transition: "background 0.15s ease", borderRadius: i === 0 && filtered.length === 1 ? 13 : i === 0 ? "13px 13px 0 0" : i === filtered.length - 1 ? "0 0 13px 13px" : 0 }}>
           <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 13, color: row.is_milestone ? "#E89B7E" : CA_COLORS.teal, minWidth: 65, textTransform: "uppercase", letterSpacing: "0.5px" }}>
             Week {row.week_number}
           </div>
@@ -186,7 +186,7 @@ function SemesterListView({ weeks, assignments, filter, getLoCodesFor }) {
                 }}>
                   {done ? si.emoji : "+"}
                   <span className="ca-icon-tip-label" style={{
-                    position: "absolute", top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
+                    position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
                     background: "#1B2B4B", color: "#FAF7F2", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
                     padding: "4px 10px", borderRadius: 6, whiteSpace: "nowrap", pointerEvents: "none",
                     opacity: 0, transition: "opacity 0.12s",
