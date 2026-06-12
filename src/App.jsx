@@ -73,7 +73,7 @@ const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
 const NAV = [
   // Top-level
   { id: "Dashboard", icon: "⊞" },
-  { id: "Course Architect", icon: "🏛️", adminOnly: true },
+  { id: "Course Architect", icon: "🏛️" },
   { id: "Wellness", icon: "🌿" },
   { id: "Student Voice", icon: "🎤" },
   // Learning Hub
@@ -2094,7 +2094,7 @@ export default function KlasUp() {
         {/* Nav */}
         <div style={{ flex: 1, paddingTop: 4 }}>
           {(() => {
-            const canSeeCourseArchitect = profile?.role === "admin" && !gatedPageIds.has("Course Architect");
+            const canSeeCourseArchitect = !gatedPageIds.has("Course Architect");
             const visible = NAV.filter(n =>
               (!n.adminOnly || profile?.role === "admin") &&
               !gatedPageIds.has(n.id) &&
@@ -2667,7 +2667,7 @@ export default function KlasUp() {
               .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
           };
 
-          const canSeeCourseArchitect = profile?.role === "admin" && !gatedPageIds.has("Course Architect");
+          const canSeeCourseArchitect = !gatedPageIds.has("Course Architect");
           return (
           <div>
             {canSeeCourseArchitect && (
@@ -2943,7 +2943,7 @@ export default function KlasUp() {
 
         {/* ── SLIDE STUDIO (PowerPoint Planner) ── */}
         {page === "Slide Studio" && (() => {
-          const canSeeCourseArchitect = profile?.role === "admin" && !gatedPageIds.has("Course Architect");
+          const canSeeCourseArchitect = !gatedPageIds.has("Course Architect");
           return (
           <div>
             {canSeeCourseArchitect && (
