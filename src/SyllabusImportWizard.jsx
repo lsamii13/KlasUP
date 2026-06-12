@@ -249,7 +249,15 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
             <MissingSectionInterstitial sectionName="learning outcomes" onSkip={() => setStep(1)} />
           ) : (
             <div>
-              <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Learning Outcomes</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Learning Outcomes</div>
+                <button onClick={() => {
+                  const allChecked = proposals.outcomes.every((_, i) => outcomeChecked[i]);
+                  setOutcomeChecked(Object.fromEntries(proposals.outcomes.map((_, i) => [i, !allChecked])));
+                }} style={{ background: "none", border: "none", fontSize: 12, fontWeight: 700, color: C.teal, cursor: "pointer", fontFamily: F.body, padding: "2px 0" }}>
+                  {proposals.outcomes.every((_, i) => outcomeChecked[i]) ? "Deselect all" : "Select all"}
+                </button>
+              </div>
               <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 18 }}>Check the outcomes to import. Edit any before importing.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 700 }}>
                 {proposals.outcomes.map((o, i) => (
@@ -293,7 +301,15 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
             <MissingSectionInterstitial sectionName="a weekly schedule" onSkip={() => setStep(2)} />
           ) : (
             <div>
-              <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Weekly Schedule</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Weekly Schedule</div>
+                <button onClick={() => {
+                  const allChecked = proposals.weeks.every((_, i) => weekChecked[i]);
+                  setWeekChecked(Object.fromEntries(proposals.weeks.map((_, i) => [i, !allChecked])));
+                }} style={{ background: "none", border: "none", fontSize: 12, fontWeight: 700, color: C.teal, cursor: "pointer", fontFamily: F.body, padding: "2px 0" }}>
+                  {proposals.weeks.every((_, i) => weekChecked[i]) ? "Deselect all" : "Select all"}
+                </button>
+              </div>
               <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 18 }}>Review the proposed week topics. Expand any week to review details.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 700 }}>
                 {proposals.weeks.map((w, i) => {
@@ -374,7 +390,15 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
             <MissingSectionInterstitial sectionName="assignments" onSkip={() => setStep(3)} />
           ) : (
             <div>
-              <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Assignments</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Assignments</div>
+                <button onClick={() => {
+                  const allChecked = proposals.assignments.every((_, i) => asnChecked[i]);
+                  setAsnChecked(Object.fromEntries(proposals.assignments.map((_, i) => [i, !allChecked])));
+                }} style={{ background: "none", border: "none", fontSize: 12, fontWeight: 700, color: C.teal, cursor: "pointer", fontFamily: F.body, padding: "2px 0" }}>
+                  {proposals.assignments.every((_, i) => asnChecked[i]) ? "Deselect all" : "Select all"}
+                </button>
+              </div>
               <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 18 }}>Review the assignments found in the syllabus.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 700 }}>
                 {proposals.assignments.map((a, i) => (
