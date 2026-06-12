@@ -3908,7 +3908,7 @@ export default function KlasUp() {
                       <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, lineHeight: 1.5 }}>Choose a pattern and duration. Just breathe.</div>
                     </div>
                     <button onClick={() => setBreathExerciseOpen({ step: "settings", pattern: "box", minutes: 3 })}
-                      style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginTop: 12, alignSelf: "flex-start" }}>
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginTop: 12, alignSelf: "flex-start" }}>
                       Begin 🌿
                     </button>
                   </div>
@@ -3918,14 +3918,14 @@ export default function KlasUp() {
                 <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Meditations for Faculty</div>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
                   {FACULTY_MEDITATIONS.filter(m => m.audioUrl).map((m, i) => (
-                    <Card key={i} style={{ background: "#EAF3DE", border: `1px solid ${C.sage}22` }}>
+                    <Card key={i} style={{ background: "#FFFFFF", border: `1px solid ${C.teal}22` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                         <div style={{ fontFamily: F.display, fontSize: 16, color: C.navy }}>{m.title}</div>
-                        <Tag label={fmtDuration(m)} color={C.sage} bg={`${C.sage}18`} />
+                        <Tag label={fmtDuration(m)} color={C.teal} bg={`${C.teal}18`} />
                       </div>
                       <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
                       <button onClick={() => setBreathingOpen(m)}
-                        style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                         Begin 🌿
                       </button>
                     </Card>
@@ -3939,12 +3939,12 @@ export default function KlasUp() {
             {wellnessTab === "students" && (
               <div>
                 {/* Weekly reflection */}
-                <Card style={{ marginBottom: 16, background: "#EAF3DE", border: `1px solid ${C.sage}22` }}>
+                <Card style={{ marginBottom: 16, background: "#FFFFFF", border: `1px solid ${C.teal}22` }}>
                   <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 8 }}>What have you done to support the whole student this week?</div>
                   <textarea value={wellnessReflection} onChange={e => setWellnessReflection(e.target.value)}
                     placeholder="Share a moment — big or small — where you saw or supported the whole student..."
                     rows={4}
-                    style={{ width: "100%", border: `1px solid ${C.sage}33`, borderRadius: 10, padding: 12, fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.7)", lineHeight: 1.6 }} />
+                    style={{ width: "100%", border: `1px solid ${C.teal}33`, borderRadius: 10, padding: 12, fontFamily: F.body, fontSize: 14, resize: "none", boxSizing: "border-box", background: "rgba(255,255,255,0.7)", lineHeight: 1.6 }} />
                   <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
                     <button onClick={async () => {
                       if (!wellnessReflection.trim()) return;
@@ -3959,7 +3959,7 @@ export default function KlasUp() {
                       setWellnessReflectionLoading(false);
                     }}
                       disabled={!wellnessReflection.trim() || wellnessReflectionLoading}
-                      style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: wellnessReflectionLoading ? "wait" : "pointer", opacity: !wellnessReflection.trim() ? 0.5 : 1 }}>
+                      style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: wellnessReflectionLoading ? "wait" : "pointer", opacity: !wellnessReflection.trim() ? 0.5 : 1 }}>
                       {wellnessReflectionLoading ? "Reflecting..." : "Submit Reflection"}
                     </button>
                   </div>
@@ -3974,19 +3974,19 @@ export default function KlasUp() {
                 <div style={{ fontFamily: F.display, fontSize: 17, color: C.navy, marginBottom: 12 }}>Guided Exercises for Students</div>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
                   {STUDENT_MEDITATIONS.filter(m => m.audioUrl).map((m, i) => (
-                    <Card key={i} style={{ border: `1px solid ${C.sage}22` }}>
+                    <Card key={i} style={{ border: `1px solid ${C.teal}22` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                         <div>
                           <span style={{ fontSize: 20, marginRight: 8 }}>{m.emoji}</span>
                           <span style={{ fontFamily: F.display, fontSize: 15, color: C.navy }}>{m.title}</span>
                         </div>
-                        <Tag label={fmtDuration(m)} color={C.sage} bg={`${C.sage}18`} />
+                        <Tag label={fmtDuration(m)} color={C.teal} bg={`${C.teal}18`} />
                       </div>
                       <div style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, marginBottom: 6 }}>{m.state}</div>
                       <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.desc}</div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button onClick={() => setBreathingOpen(m)}
-                          style={{ background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                          style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                           Begin
                         </button>
                         <button onClick={() => {
