@@ -18,6 +18,16 @@ const CA_FONTS = {
 
 const LAUNCHPAD_BASE = [
   {
+    id: "setup",
+    emoji: "⚙️",
+    title: "Course Setup",
+    tag: "OUTCOMES, WEEKS & ASSIGNMENTS",
+    description: "Add learning outcomes, build your weekly schedule, manage assignments, and import from a syllabus.",
+    accent: CA_COLORS.navy,
+    cta: "Open Course Setup →",
+    navigateTo: "Course Setup",
+  },
+  {
     id: "pedagogy",
     emoji: "📚",
     title: "Pedagogy Studio",
@@ -32,7 +42,7 @@ const LAUNCHPAD_BASE = [
     emoji: "📊",
     title: "Slide Studio",
     tag: "DESIGN LECTURES & DECKS",
-    description: "Plain-English slide outlines, UDL analysis, active learning flags, and exports to PowerPoint.",
+    description: "Plain-English slide outlines, UDL analysis, active learning flags, and slide exports.",
     accent: "#E89B7E",
     cta: "Open Slide Studio →",
     navigateTo: "Slide Studio",
@@ -768,7 +778,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         <h2 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 22, color: CA_COLORS.navy, margin: "0 0 1rem 0" }}>
           🛠️ Build something today
         </h2>
-        <div style={{ display: "grid", gridTemplateColumns: ww < 600 ? "1fr" : "1fr 1fr", gap: "1.25rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: ww < 600 ? "1fr" : "1fr 1fr 1fr", gap: "1.25rem" }}>
           {LAUNCHPAD_BASE.map((base) => {
             let stats = [];
             if (base.id === "pedagogy" && activeCourse) {
