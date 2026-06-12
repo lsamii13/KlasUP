@@ -83,6 +83,22 @@ const ERIC_SEARCHES: { query: string; dimension: string }[] = [
   { query: '"undergraduate research" student learning', dimension: 'High Impact Practices' },
   { query: '"capstone course" higher education learning', dimension: 'High Impact Practices' },
   { query: '"internship" experiential higher education outcomes', dimension: 'High Impact Practices' },
+  // Neurodiversity
+  { query: '"neurodiversity" higher education', dimension: 'Neurodiversity' },
+  { query: '"neurodivergent" college teaching', dimension: 'Neurodiversity' },
+  { query: '"learning differences" postsecondary instruction', dimension: 'Neurodiversity' },
+  { query: '"autism" college students teaching', dimension: 'Neurodiversity' },
+  { query: '"ADHD" higher education instruction', dimension: 'Neurodiversity' },
+  { query: '"executive function" college learning support', dimension: 'Neurodiversity' },
+  // AI in Teaching
+  { query: '"artificial intelligence" higher education teaching', dimension: 'AI in Teaching' },
+  { query: '"generative AI" college instruction', dimension: 'AI in Teaching' },
+  { query: '"ChatGPT" teaching pedagogy', dimension: 'AI in Teaching' },
+  { query: '"AI literacy" higher education', dimension: 'AI in Teaching' },
+  { query: '"large language models" college teaching', dimension: 'AI in Teaching' },
+  { query: '"academic integrity" artificial intelligence', dimension: 'AI in Teaching' },
+  { query: '"AI" assessment higher education', dimension: 'AI in Teaching' },
+  { query: '"agentic AI" higher education', dimension: 'AI in Teaching' },
 ]
 
 const PUBMED_SEARCHES: { query: string; dimension: string }[] = [
