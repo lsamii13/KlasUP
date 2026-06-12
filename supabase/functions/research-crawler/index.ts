@@ -305,6 +305,19 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json()
     const source = body.source || 'all'
+    const dimensionFilter = body.dimension || null
+
+    // If a dimension filter is provided, verify it matches at least one query
+    if (dimensionFilter) {
+      const ericMatches = (source === 'all' || source === 'eric') ? ERIC_SEARCHES.filter(s => s.dimension === dimensionFilter).length : 0
+      const pubmedMatches = (source === 'all' || source === 'pubmed') ? PUBMED_SEARCHES.filter(s => s.dimension === dimensionFilter).length : 0
+      if (ericMatches + pubmedMatches === 0) {
+        return new Response(JSON.stringify({ error: `No queries found for dimension "${dimensionFilter}"` }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
 
     // Fetch existing titles for dedup
     const { data: existing, error: existErr } = await supabase
@@ -318,7 +331,10 @@ Deno.serve(async (req: Request) => {
 
     // ── Crawl ERIC ──
     if (source === 'all' || source === 'eric') {
-      for (const search of ERIC_SEARCHES) {
+      const searches = dimensionFilter
+        ? ERIC_SEARCHES.filter(s => s.dimension === dimensionFilter)
+        : ERIC_SEARCHES
+      for (const search of searches) {
         const articles = await crawlERIC(search.query, search.dimension)
         allCrawled.push(...articles)
         await new Promise(r => setTimeout(r, 200))
@@ -327,7 +343,10 @@ Deno.serve(async (req: Request) => {
 
     // ── Crawl PubMed ──
     if (source === 'all' || source === 'pubmed') {
-      for (const search of PUBMED_SEARCHES) {
+      const searches = dimensionFilter
+        ? PUBMED_SEARCHES.filter(s => s.dimension === dimensionFilter)
+        : PUBMED_SEARCHES
+      for (const search of searches) {
         const articles = await crawlPubMed(search.query, search.dimension)
         allCrawled.push(...articles)
         await new Promise(r => setTimeout(r, 300))
