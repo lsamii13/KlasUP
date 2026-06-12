@@ -2051,7 +2051,7 @@ export default function KlasUp() {
       {/* Sidebar */}
       <div style={{
         width: mob ? 280 : 220, background: C.navy, display: "flex", flexDirection: "column", padding: "0",
-        position: mob ? "fixed" : "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto",
+        position: "fixed", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto",
         zIndex: mob ? 9000 : "auto",
         transform: mob && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
         transition: "transform 0.25s ease",
@@ -2122,7 +2122,7 @@ export default function KlasUp() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: mob ? "1rem" : "2rem", overflowY: "auto", maxWidth: 1200, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ flex: 1, padding: mob ? "1rem" : "2rem", maxWidth: 1200, width: "100%", boxSizing: "border-box", marginLeft: mob ? 0 : 220 }}>
 
         {/* Mobile hamburger */}
         {mob && (
