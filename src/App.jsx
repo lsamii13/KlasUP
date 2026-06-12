@@ -4,6 +4,7 @@ import ResearchLibrary from "./ResearchLibrary";
 import BetaAgreement from "./BetaAgreement";
 import OnboardingTour from "./components/OnboardingTour";
 import WelcomeCard from "./components/WelcomeCard";
+import Spotlights from "./components/Spotlights";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import StudentVoicePage from "./pages/StudentVoicePage";
 import CourseArchitect from "./pages/CourseArchitect";
@@ -878,6 +879,7 @@ export default function KlasUp() {
   const [settingsDeleteConfirm, setSettingsDeleteConfirm] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showWelcomeCard, setShowWelcomeCard] = useState(false);
+  const [showSpotlights, setShowSpotlights] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // --- Wellness state ---
@@ -1077,6 +1079,12 @@ export default function KlasUp() {
         // Show welcome card once for new users who haven't completed the old tour
         if (p && !p.onboarding_complete && !localStorage.getItem("klasup_welcome_card_shown")) {
           setShowWelcomeCard(true);
+        }
+
+        // DEV: set localStorage klasup_test_spotlights = "1" then reload to trigger spotlights
+        if (localStorage.getItem("klasup_test_spotlights") === "1") {
+          localStorage.removeItem("klasup_test_spotlights");
+          setShowSpotlights(true);
         }
 
       } catch (err) {
@@ -2110,10 +2118,10 @@ export default function KlasUp() {
             return visible.flatMap(n => {
               const items = [];
               if (n.cluster && clusterHasItems[n.cluster]) {
-                items.push(<div key={`cluster-${n.cluster}`} style={{ fontFamily: F.display, fontWeight: 700, fontSize: 10, color: C.tealMid, textTransform: "uppercase", letterSpacing: "1.5px", padding: "12px 14px 4px" }}>{n.cluster}</div>);
+                items.push(<div key={`cluster-${n.cluster}`} {...(n.cluster === "LEARNING HUB" ? { "data-tour": "nav-learning-hub" } : {})} style={{ fontFamily: F.display, fontWeight: 700, fontSize: 10, color: C.tealMid, textTransform: "uppercase", letterSpacing: "1.5px", padding: "12px 14px 4px" }}>{n.cluster}</div>);
               }
               items.push(
-                <button key={n.id} onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
+                <button key={n.id} {...(n.id === "Course Architect" ? { "data-tour": "nav-course-architect" } : {})} onClick={() => { if (n.id === "Pedagogical Resources") { setShowResearch(true); window.location.hash = "#/research"; if (mob) setSidebarOpen(false); return; } setPage(n.id); if (mob) setSidebarOpen(false); if (n.id === "Admin") loadAdminData(); if (n.id === "Settings") setSettingsProfileForm(null); if (n.id === "Pricing" && typeof gtag === "function") gtag("event", "pricing_page_viewed"); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: page === n.id ? `${C.tealBright}18` : "none", border: "none", borderLeft: page === n.id ? `3px solid ${C.tealBright}` : "3px solid transparent", color: page === n.id ? C.white : "rgba(255,255,255,0.45)", fontFamily: F.body, fontSize: 13, fontWeight: page === n.id ? 600 : 400, textAlign: "left", padding: "0.55rem 1.25rem", cursor: "pointer", minHeight: 44 }}>
                   <span style={{ fontSize: 13, opacity: 0.8 }}>{n.icon}</span>{n.id}
                 </button>
               );
@@ -2252,7 +2260,7 @@ export default function KlasUp() {
             })()}
 
             {/* ── SECTION 2: COURSE TILE GRID ── */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div data-tour="dashboard" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontFamily: F.accent, color: C.muted, fontWeight: 700 }}>YOUR COURSES</div>
               <span onClick={() => setPage("Course Architect")} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.teal, cursor: "pointer" }}>Course Architect</span>
             </div>
@@ -4949,6 +4957,14 @@ export default function KlasUp() {
 
       </div>
 
+      {/* ── SPOTLIGHTS ── */}
+      {showSpotlights && (
+        <Spotlights
+          sageOpen={sageOpen}
+          onDismiss={() => setShowSpotlights(false)}
+        />
+      )}
+
       {/* ── WELCOME CARD ── */}
       {showWelcomeCard && (
         <WelcomeCard
@@ -5466,7 +5482,7 @@ export default function KlasUp() {
 
       {/* Floating bubble */}
       {!sageOpen && (
-        <button onClick={openSage} title="Chat with Klas"
+        <button data-tour="klas" onClick={openSage} title="Chat with Klas"
           style={{
             position: "fixed", bottom: mob ? 16 : 24, right: mob ? 16 : 24, width: 90, height: 90, borderRadius: "50%",
             background: C.navy, color: C.white, border: "none", cursor: "pointer",
