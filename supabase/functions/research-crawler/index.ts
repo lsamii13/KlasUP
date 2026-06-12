@@ -99,6 +99,11 @@ const ERIC_SEARCHES: { query: string; dimension: string }[] = [
   { query: '"academic integrity" artificial intelligence', dimension: 'AI in Teaching' },
   { query: '"AI" assessment higher education', dimension: 'AI in Teaching' },
   { query: '"agentic AI" higher education', dimension: 'AI in Teaching' },
+  // First-Generation Students
+  { query: '"first-generation" college students teaching', dimension: 'First-Generation Students' },
+  { query: '"first-generation" students higher education pedagogy', dimension: 'First-Generation Students' },
+  { query: '"first-generation" student belonging higher education', dimension: 'First-Generation Students' },
+  { query: '"hidden curriculum" first-generation college', dimension: 'First-Generation Students' },
 ]
 
 const PUBMED_SEARCHES: { query: string; dimension: string }[] = [
