@@ -4955,6 +4955,7 @@ export default function KlasUp() {
             }
           }}
           onGoToProfile={() => { setPage("Settings"); setSettingsProfileForm(null); }}
+          onGoToSyllabus={() => { setPage("Course Setup"); }}
         />
       )}
 

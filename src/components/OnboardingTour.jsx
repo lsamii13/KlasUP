@@ -16,44 +16,45 @@ const F = {
 const STEPS = [
   {
     emoji: "🎉",
-    heading: "Welcome to KlasUP!",
-    body: "You're one of our first beta testers — and that means a lot. KlasUP is your AI-powered teaching partner, built by a professor who lived the same challenges you do. Let's show you around.",
+    heading: "Welcome to KlasUp.",
+    body: "KlasUp is your AI teaching partner, built by someone who has seen higher ed from many angles — adjunct, faculty, the dean's office, a center for teaching and learning, and academic affairs. You're an expert in your field; no one trained any of us to teach it, or to support the whole student behind the work. That's what KlasUp is for. This is your home base — your courses, your weekly Career Connections, and what you've been working on, all in one place.",
   },
   {
     emoji: "💡",
     heading: "Teach smarter. Not harder.",
-    body: "Every week you upload what you're already teaching — slides, assignments, announcements. KlasUP reads your content and gives you personalized, research-backed coaching to help every class get better.",
+    body: "Bring in what you're already teaching — assignments, announcements, your syllabus — and KlasUp gives you personalized, research-backed micro-learnings to help every class get a little better.",
   },
   {
     emoji: "👤",
-    heading: "Set up your profile",
-    body: "Your profile helps KlasUP personalize everything for you. Make sure your institution, teaching level, and LMS are filled in — it takes less than 2 minutes.",
+    heading: "Set up your profile.",
+    body: "A few details — your institution, role, and LMS — help KlasUp fit how you actually teach. Takes about two minutes.",
     profileStep: true,
   },
   {
-    emoji: "📊",
-    heading: "Your teaching command center",
-    body: "The Dashboard is your home base — your courses, a suggested next step, and your recent activity at a glance.",
+    emoji: "📄",
+    heading: "Start with your syllabus.",
+    body: "The fastest way to feel what KlasUp does: import your syllabus and watch it become your course — outcomes, weeks, and assignments — in moments. It's the quickest path from \"empty\" to \"this is mine.\"",
+    syllabusStep: true,
   },
   {
     emoji: "📝",
-    heading: "Upload what you're already teaching",
-    body: "Head to My Course and drop in a lecture slide, assignment prompt, or class announcement. KlasUP will read it and give you instant micro-learning recommendations tailored to your content.",
+    heading: "Build in Pedagogy Studio.",
+    body: "Inside Course Architect, Pedagogy Studio is where you design assignments and lessons — with plain-English tools and feedback from Klas. Drop in what you're teaching and you'll get micro-learning recommendations backed by peer-reviewed research, with real citations you can click and read.",
   },
   {
     emoji: "🌿",
-    heading: "Meet Klas, your instructional design partner",
-    body: "See that navy bubble in the bottom right? That's Klas. Ask anything about your teaching — course design, student engagement, assignment feedback. Klas is calm, research-informed, and always in your corner.",
+    heading: "Meet Klas, bottom-right.",
+    body: "See that bubble in the corner? That's Klas, your teaching partner — always one click away. Ask about course design, an assignment, or anything you want to brainstorm from a pedagogy standpoint. Calm, research-informed, and always in your corner.",
   },
   {
     emoji: "📚",
-    heading: "Everything else you need",
-    body: "Micro-Learning gives you bite-sized, research-backed teaching tips. Pedagogical Resources connects you to peer-reviewed articles and top university CTLs. And Wellness? That's just for you — because good teaching starts with a good teacher.",
+    heading: "And there's more when you want it.",
+    body: "Course Architect maps your whole term at a glance. Micro-Learning gives you bite-sized, research-backed tips. Pedagogical Resources connects you to peer-reviewed articles and top university teaching centers. And Wellness? That's for you — because good teachers are always learning.",
     finalStep: true,
   },
 ];
 
-export default function OnboardingTour({ onComplete, onGoToProfile }) {
+export default function OnboardingTour({ onComplete, onGoToProfile, onGoToSyllabus }) {
   const [step, setStep] = useState(0);
   const current = STEPS[step];
   const total = STEPS.length;
@@ -62,6 +63,10 @@ export default function OnboardingTour({ onComplete, onGoToProfile }) {
   const goProfile = () => {
     onComplete();
     if (onGoToProfile) onGoToProfile();
+  };
+  const goSyllabus = () => {
+    onComplete();
+    if (onGoToSyllabus) onGoToSyllabus();
   };
 
   return (
@@ -130,6 +135,25 @@ export default function OnboardingTour({ onComplete, onGoToProfile }) {
                     cursor: "pointer", minHeight: 44,
                   }}>
                   Go to Profile
+                </button>
+                <button onClick={() => setStep(s => s + 1)}
+                  style={{
+                    background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10,
+                    padding: "12px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                    cursor: "pointer", minHeight: 44,
+                  }}>
+                  I'll do it later
+                </button>
+              </>
+            ) : current.syllabusStep ? (
+              <>
+                <button onClick={goSyllabus}
+                  style={{
+                    background: C.tealBright, color: C.white, border: "none", borderRadius: 10,
+                    padding: "12px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 14,
+                    cursor: "pointer", minHeight: 44,
+                  }}>
+                  Import my syllabus →
                 </button>
                 <button onClick={() => setStep(s => s + 1)}
                   style={{
