@@ -21,18 +21,19 @@ const F = {
 };
 
 const DIMENSIONS = [
-  "Action Research", "Active Learning", "Andragogy", "Bloom's Taxonomy",
-  "Case Studies", "Community of Inquiry", "Contemplative Pedagogy",
-  "Experiential Learning", "Faculty Development", "Feedback Quality",
-  "Flipped Classroom", "High Impact Practices", "Inclusive Teaching",
-  "Kagan Structures", "Metacognition", "Neurodiversity", "Pedagogy",
-  "Problem-Based Learning", "Project-Based Learning", "Reflective Practice",
-  "Simulation-Based Learning", "Socratic Seminar", "Student Wellbeing",
-  "Teamwork & Group Projects", "Trauma-Informed Teaching",
+  "AI in Teaching", "Action Research", "Active Learning", "Andragogy",
+  "Bloom's Taxonomy", "Case Studies", "Community of Inquiry",
+  "Contemplative Pedagogy", "Experiential Learning", "Faculty Development",
+  "Feedback Quality", "Flipped Classroom", "High Impact Practices",
+  "Inclusive Teaching", "Kagan Structures", "Metacognition", "Neurodiversity",
+  "Pedagogy", "Problem-Based Learning", "Project-Based Learning",
+  "Reflective Practice", "Simulation-Based Learning", "Socratic Seminar",
+  "Student Wellbeing", "Teamwork & Group Projects", "Trauma-Informed Teaching",
   "Universal Design for Learning",
 ];
 
 const DIM_COLORS = {
+  "AI in Teaching": C.navyMid,
   "Action Research": C.sage,
   "Active Learning": C.tealBright,
   "Andragogy": C.navyMid,
