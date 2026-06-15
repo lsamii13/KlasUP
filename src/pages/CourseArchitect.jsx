@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PageHeader from "../components/PageHeader";
-import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback } from "../supabase";
+import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback, addLoTag, removeLoTag } from "../supabase";
+import LoTagger from "../components/LoTagger";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -214,7 +215,7 @@ const FEEDBACK_TAG_COLORS = {
 };
 
 // ── AssignmentsView (real data) ─────────────────────────
-function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPedagogy, feedbackByAssignment = {} }) {
+function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPedagogy, feedbackByAssignment = {}, los, loTags, onTagAdd, onTagRemove }) {
   const [hoveredKey, setHoveredKey] = useState(null);
   const [expandedFeedback, setExpandedFeedback] = useState({});
 
@@ -271,7 +272,7 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                     <div style={{ fontFamily: CA_FONTS.body, fontSize: 12, color: CA_COLORS.textSoft }}>{item.meta}</div>
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {item.loCodes.map(c => <LOTag key={c} code={c} />)}
+                    <LoTagger taggableType="assignment" taggableId={item.id} los={los} tags={loTags} onAdd={onTagAdd} onRemove={onTagRemove} />
                     {onSendToPedagogy && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onSendToPedagogy(item, item.weekNumber); }}
@@ -618,6 +619,20 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
     }).filter(Boolean);
   }, [loTags, los]);
 
+  const handleTagAdd = useCallback(async (loId, taggableType, taggableId) => {
+    try {
+      await addLoTag(loId, taggableType, taggableId);
+      setLoTags(prev => [...prev, { id: `${loId}-${taggableType}-${taggableId}`, learning_outcome_id: loId, taggable_type: taggableType, taggable_id: taggableId }]);
+    } catch (e) { console.error("[CourseArchitect] Tag add failed:", e.message); }
+  }, []);
+
+  const handleTagRemove = useCallback(async (loId, taggableType, taggableId) => {
+    try {
+      await removeLoTag(loId, taggableType, taggableId);
+      setLoTags(prev => prev.filter(t => !(t.learning_outcome_id === loId && t.taggable_type === taggableType && t.taggable_id === taggableId)));
+    } catch (e) { console.error("[CourseArchitect] Tag remove failed:", e.message); }
+  }, []);
+
   // Build assignment_id → sorted recs lookup from aiFeedback
   const feedbackByAssignment = {};
   for (const rec of aiFeedback) {
@@ -834,7 +849,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         ) : (
           <>
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
-            {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} />}
+            {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />}
             {semesterView === "details" && <DetailsView weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
           </>
         )}
