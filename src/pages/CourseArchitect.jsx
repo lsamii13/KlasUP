@@ -724,7 +724,7 @@ function AddCourseModal({ onClose, userId, onCreated, profileInstitutions = [], 
 }
 
 // ── Main component ──────────────────────────────────────
-export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, onOpenAssignmentBuilder, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
   const [los, setLos] = useState([]);
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [activeInstitutionFilter, setActiveInstitutionFilter] = useState(null);
@@ -984,7 +984,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         <h2 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 22, color: CA_COLORS.navy, margin: "0 0 1rem 0" }}>
           🛠️ Build something today
         </h2>
-        <div style={{ display: "grid", gridTemplateColumns: ww < 600 ? "1fr" : "1fr 1fr 1fr", gap: "1.25rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: ww < 600 ? "1fr" : ww < 900 ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: "1.25rem" }}>
           {LAUNCHPAD_BASE.map((base) => {
             let stats = [];
             if (base.id === "pedagogy" && activeCourse) {
@@ -999,6 +999,18 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
             }
             return <LaunchpadCard key={base.title} card={{ ...base, stats }} onNavigate={setPage} />;
           })}
+          <LaunchpadCard
+            card={{
+              emoji: "📝",
+              title: "Assignment Builder",
+              tag: "AI-POWERED ASSIGNMENT DOCS",
+              description: "Generate a full assignment — instructions, rubric, and milestones — from a plain-English description.",
+              accent: "#5A8A62",
+              cta: "Open Assignment Builder →",
+              navigateTo: "__builder",
+            }}
+            onNavigate={() => onOpenAssignmentBuilder && onOpenAssignmentBuilder()}
+          />
         </div>
       </div>
 

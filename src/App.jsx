@@ -46,6 +46,7 @@ import {
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension, fetchArticleById,
   insertUpload, fetchUploads, uploadDocument,
+  insertAssignment, fetchCourseWeeks,
   insertMicroLearning, fetchMicroLearnings,
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
@@ -821,6 +822,13 @@ export default function KlasUp() {
   const [assignDocEditing, setAssignDocEditing] = useState(false);
   const [assignDocUpdateText, setAssignDocUpdateText] = useState("");
   const [assignDocUpdating, setAssignDocUpdating] = useState(false);
+  const [assignDocSavedId, setAssignDocSavedId] = useState(null);
+  const [assignDocSaveOpen, setAssignDocSaveOpen] = useState(false);
+  const [assignDocSaveTitle, setAssignDocSaveTitle] = useState("");
+  const [assignDocSaveWeekId, setAssignDocSaveWeekId] = useState(null);
+  const [assignDocSaveWeeks, setAssignDocSaveWeeks] = useState([]);
+  const [assignDocSaving, setAssignDocSaving] = useState(false);
+  const [assignDocSaveError, setAssignDocSaveError] = useState(null);
 
   // --- PowerPoint Planner state ---
   const [pptDesc, setPptDesc] = useState("");
@@ -2652,6 +2660,12 @@ export default function KlasUp() {
             <PageHeader breadcrumb="🏠 Dashboard › 📝 Pedagogy Studio" title="Pedagogy Studio" subtitle="Share what's happening in your classroom. KlasUp turns it into growth." featureInfo={<FeatureInfo sectionId="pedagogy-studio" />} />
             <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
 
+            {/* Assignment Builder entry point */}
+            <button onClick={() => setSageBuilderOpen(true)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 16 }}>
+              Open Assignment Builder
+            </button>
+
             {/* ── 1. FOCUSED INPUT AREA ── */}
             <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
               {/* Category dropdown */}
@@ -3781,7 +3795,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenAssignmentBuilder={() => setSageBuilderOpen(true)} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} />
         )}
 
         {/* ── COURSE SETUP ── */}
@@ -5977,6 +5991,7 @@ export default function KlasUp() {
                       setAssignDocLoading(true);
                       setAssignDocError(null);
                       setAssignDocResult(null);
+                      setAssignDocSavedId(null);
                       generateAssignmentDoc({
                         description: assignDocDesc + (assignType ? `\nAssignment type: ${assignType}` : "") + (selectedOutcomes.length ? `\nLearning outcomes to address: ${selectedOutcomes.join("; ")}` : "") + (milestones.filter(Boolean).length ? `\nMilestones/checkpoints: ${milestones.filter(Boolean).join(", ")}` : ""),
                         course,
@@ -6050,6 +6065,41 @@ export default function KlasUp() {
                             style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
                             Export as Text
                           </button>
+                          <button
+                            onClick={() => {
+                              let guessTitle = "";
+                              if (assignDocResult) {
+                                const lines = assignDocResult.split("\n");
+                                let foundHeader = false;
+                                for (const line of lines) {
+                                  const t = line.trim();
+                                  if (/^ASSIGNMENT\s+TITLE/i.test(t)) { foundHeader = true; continue; }
+                                  if (foundHeader && t && !/^[A-Z][A-Z &/\-:()]{4,}$/.test(t)) { guessTitle = t; break; }
+                                }
+                              }
+                              if (!guessTitle) guessTitle = (assignDocDesc || "").slice(0, 80);
+                              setAssignDocSaveTitle(guessTitle);
+                              setAssignDocSaveWeekId(null);
+                              setAssignDocSaveError(null);
+                              const courseObj = dbCourses.find(c => c.course_code === course);
+                              if (courseObj) {
+                                fetchCourseWeeks(courseObj.id).then(w => setAssignDocSaveWeeks(w || [])).catch(() => setAssignDocSaveWeeks([]));
+                              } else {
+                                setAssignDocSaveWeeks([]);
+                              }
+                              setAssignDocSaveOpen(true);
+                            }}
+                            disabled={!!assignDocSavedId}
+                            style={{
+                              fontSize: 12, fontFamily: F.accent, fontWeight: 700,
+                              color: assignDocSavedId ? C.sage : C.white,
+                              background: assignDocSavedId ? C.sageLight : C.sage,
+                              border: assignDocSavedId ? `1px solid ${C.sage}44` : "none",
+                              borderRadius: 8, padding: "4px 12px",
+                              cursor: assignDocSavedId ? "default" : "pointer",
+                            }}>
+                            {assignDocSavedId ? "Saved ✓" : "Save to Course"}
+                          </button>
                         </div>
                       </div>
                       {assignDocEditing ? (
@@ -6093,6 +6143,84 @@ export default function KlasUp() {
                         </div>
                       </div>
                     </Card>
+                  )}
+
+                  {/* Save to Course dialog */}
+                  {assignDocSaveOpen && (
+                    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,31,61,0.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      onClick={() => setAssignDocSaveOpen(false)}>
+                      <div onClick={e => e.stopPropagation()} style={{ background: C.white, borderRadius: 16, padding: "1.75rem", maxWidth: 440, width: "90%", boxShadow: "0 8px 40px rgba(15,31,61,0.2)" }}>
+                        <div style={{ fontFamily: F.display, fontSize: 20, fontWeight: 700, color: C.navy, marginBottom: 16 }}>Save assignment to course</div>
+
+                        <label style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: C.muted, display: "block", marginBottom: 4 }}>Title</label>
+                        <input
+                          value={assignDocSaveTitle}
+                          onChange={e => setAssignDocSaveTitle(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", fontFamily: F.body, fontSize: 14, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.border}`, outline: "none", color: C.navy, background: C.ivory, marginBottom: 14 }}
+                          autoFocus
+                        />
+
+                        <label style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: C.muted, display: "block", marginBottom: 4 }}>Week (optional)</label>
+                        <select
+                          value={assignDocSaveWeekId || ""}
+                          onChange={e => setAssignDocSaveWeekId(e.target.value || null)}
+                          style={{ width: "100%", boxSizing: "border-box", fontFamily: F.body, fontSize: 14, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.border}`, color: C.navy, background: C.ivory, cursor: "pointer", marginBottom: 14 }}>
+                          <option value="">No week / unassigned</option>
+                          {[...assignDocSaveWeeks].sort((a, b) => a.week_number - b.week_number).map(w => (
+                            <option key={w.id} value={w.id}>Week {w.week_number}{w.topic ? ` — ${w.topic}` : ""}</option>
+                          ))}
+                        </select>
+
+                        {assignDocSaveError && (
+                          <div style={{ fontFamily: F.accent, fontSize: 12, color: C.rose, marginBottom: 10 }}>{assignDocSaveError}</div>
+                        )}
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                          <button
+                            disabled={!assignDocSaveTitle.trim() || assignDocSaving}
+                            onClick={async () => {
+                              const courseObj = dbCourses.find(c => c.course_code === course);
+                              if (!courseObj) { setAssignDocSaveError("Could not find course."); return; }
+                              setAssignDocSaving(true);
+                              setAssignDocSaveError(null);
+                              try {
+                                const row = await insertAssignment(courseObj.id, {
+                                  title: assignDocSaveTitle.trim(),
+                                  assignmentType: assignType || "Other",
+                                  description: assignDocDesc || null,
+                                  weekId: assignDocSaveWeekId || null,
+                                  meta: {
+                                    generated_doc: assignDocResult,
+                                    generated_at: new Date().toISOString(),
+                                    source: "pedagogy_studio",
+                                    prompt: assignDocDesc,
+                                  },
+                                });
+                                setAssignDocSavedId(row.id);
+                                setAssignDocSaveOpen(false);
+                              } catch (err) {
+                                setAssignDocSaveError(err?.message || "Save failed. Please try again.");
+                              } finally {
+                                setAssignDocSaving(false);
+                              }
+                            }}
+                            style={{
+                              background: !assignDocSaveTitle.trim() || assignDocSaving ? C.border : C.sage,
+                              color: !assignDocSaveTitle.trim() || assignDocSaving ? C.muted : C.white,
+                              border: "none", borderRadius: 10, padding: "10px 20px",
+                              fontFamily: F.accent, fontWeight: 700, fontSize: 13,
+                              cursor: !assignDocSaveTitle.trim() || assignDocSaving ? "default" : "pointer",
+                            }}>
+                            {assignDocSaving ? "Saving…" : "Save"}
+                          </button>
+                          <button
+                            onClick={() => setAssignDocSaveOpen(false)}
+                            style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   {/* AI Feedback Panel */}

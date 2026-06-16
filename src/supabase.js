@@ -407,7 +407,7 @@ export async function fetchAssignments(courseId) {
   return data || []
 }
 
-export async function insertAssignment(courseId, { title, assignmentType, description, dueDate, weekId, parentAssignmentId }) {
+export async function insertAssignment(courseId, { title, assignmentType, description, dueDate, weekId, parentAssignmentId, meta }) {
   const { data, error } = await supabase
     .from('assignments')
     .insert({
@@ -418,6 +418,7 @@ export async function insertAssignment(courseId, { title, assignmentType, descri
       due_date: dueDate ? sanitize(dueDate) : null,
       week_id: weekId || null,
       parent_assignment_id: parentAssignmentId || null,
+      ...(meta !== undefined ? { meta } : {}),
     })
     .select()
     .single()
@@ -432,6 +433,7 @@ export async function updateAssignment(assignmentId, fields) {
   if (fields.description !== undefined) cleaned.description = fields.description ? sanitize(fields.description) : null
   if (fields.due_date !== undefined) cleaned.due_date = fields.due_date ? sanitize(fields.due_date) : null
   if (fields.week_id !== undefined) cleaned.week_id = fields.week_id || null
+  if (fields.meta !== undefined) cleaned.meta = fields.meta
   cleaned.updated_at = new Date().toISOString()
   const { data, error } = await supabase
     .from('assignments')
