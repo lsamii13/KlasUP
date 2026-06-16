@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PageHeader from "../components/PageHeader";
 import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback, addLoTag, removeLoTag } from "../supabase";
 import LoTagger from "../components/LoTagger";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from "docx";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -422,7 +423,7 @@ function DetailsView({ weeks, filter, getLoCodesFor }) {
   );
 }
 
-function ExportButton({ label, featured = false }) {
+function ExportButton({ label, featured = false, onClick, disabled = false }) {
   const [hovered, setHovered] = useState(false);
   const base = featured
     ? { background: CA_COLORS.navy, color: "#fff", borderColor: CA_COLORS.navy }
@@ -431,27 +432,206 @@ function ExportButton({ label, featured = false }) {
     ? { background: CA_COLORS.teal, borderColor: CA_COLORS.teal }
     : { background: "#fff", borderColor: CA_COLORS.teal };
   return (
-    <button onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    <button
+      onClick={disabled ? undefined : onClick}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      title={disabled ? "Coming soon" : undefined}
       style={{
         display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
-        border: `1px solid ${hovered ? hover.borderColor : base.borderColor}`,
-        background: hovered ? hover.background : base.background, color: base.color,
-        fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease",
-      }}>{label}</button>
+        border: `1px solid ${disabled ? CA_COLORS.border : hovered ? hover.borderColor : base.borderColor}`,
+        background: disabled ? "#f0f0f0" : hovered ? hover.background : base.background,
+        color: disabled ? "#aaa" : base.color,
+        fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 700,
+        cursor: disabled ? "default" : "pointer", transition: "all 0.15s ease",
+        opacity: disabled ? 0.7 : 1,
+      }}>
+      {label}{disabled && <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4, color: "#bbb" }}>(soon)</span>}
+    </button>
   );
 }
 
-function ExportBar() {
+// ── CSV export (RFC-4180) ────────────────────────────────
+function csvField(val) {
+  const s = val == null ? "" : String(val);
+  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function buildLoCodeMap(los) {
+  const map = {};
+  for (let i = 0; i < los.length; i++) map[los[i].id] = `LO${i + 1}`;
+  return map;
+}
+
+function resolveAssignmentLoCodes(assignment, loTags, loCodeMap) {
+  // Direct assignment tags first
+  const direct = (loTags || [])
+    .filter(t => t.taggable_type === "assignment" && t.taggable_id === assignment.id)
+    .map(t => loCodeMap[t.learning_outcome_id])
+    .filter(Boolean);
+  if (direct.length > 0) return direct;
+  // Fall back to inherited week tags
+  if (!assignment.week_id) return [];
+  return (loTags || [])
+    .filter(t => t.taggable_type === "week" && t.taggable_id === assignment.week_id)
+    .map(t => loCodeMap[t.learning_outcome_id])
+    .filter(Boolean);
+}
+
+function exportCourseCSV(weeks, assignments, los, loTags, activeCourse) {
+  const weekMap = {};
+  for (const w of (weeks || [])) weekMap[w.id] = w;
+
+  const loCodeMap = buildLoCodeMap(los || []);
+
+  const header = ["Week Number", "Week Topic", "Assignment Title", "Type", "Description", "Due Date"];
+  const rows = [header.map(csvField).join(",")];
+
+  const sorted = [...(assignments || [])].sort((a, b) => {
+    const wa = a.week_id && weekMap[a.week_id] ? weekMap[a.week_id].week_number : 9999;
+    const wb = b.week_id && weekMap[b.week_id] ? weekMap[b.week_id].week_number : 9999;
+    return wa - wb;
+  });
+
+  for (const a of sorted) {
+    const w = a.week_id ? weekMap[a.week_id] : null;
+    rows.push([
+      csvField(w ? w.week_number : ""),
+      csvField(w ? w.topic : ""),
+      csvField(a.title),
+      csvField(a.assignment_type),
+      csvField(a.description),
+      csvField(a.due_date),
+    ].join(","));
+  }
+
+  const csv = rows.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = `${(activeCourse?.course_code || "course").replace(/\s+/g, "-")}-assignments.csv`;
+  anchor.click();
+}
+
+// ── Word export (full semester lesson plan) ──────────────
+async function exportCourseDocx(weeks, assignments, los, loTags, activeCourse) {
+  const loCodeMap = buildLoCodeMap(los || []);
+
+  const weekMap = {};
+  for (const w of (weeks || [])) weekMap[w.id] = w;
+
+  const asnByWeek = {};
+  for (const a of (assignments || [])) {
+    const key = a.week_id || "__unassigned";
+    if (!asnByWeek[key]) asnByWeek[key] = [];
+    asnByWeek[key].push(a);
+  }
+
+  const courseName = [activeCourse?.course_code, activeCourse?.course_name].filter(Boolean).join(" — ") || "Course";
+  const termLabel = [activeCourse?.term_code, activeCourse?.num_weeks ? `${activeCourse.num_weeks} weeks` : null].filter(Boolean).join(" · ");
+
+  const children = [
+    new Paragraph({ children: [new TextRun({ text: courseName, bold: true, size: 32, color: "0B8A8A", font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
+    new Paragraph({ children: [new TextRun({ text: termLabel || "Generated by KlasUp", italics: true, size: 18, color: "4A5568", font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 400 }, border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "0FB5B5" } } }),
+  ];
+
+  const sortedWeeks = [...(weeks || [])].sort((a, b) => a.week_number - b.week_number);
+
+  for (const w of sortedWeeks) {
+    children.push(new Paragraph({
+      text: `Week ${w.week_number}${w.topic ? " — " + w.topic : ""}${w.is_milestone ? " ★" : ""}`,
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 360, after: 120 },
+      run: { bold: true, size: 26, color: "1B2B4B", font: "Calibri" },
+    }));
+
+    if (w.detail) {
+      children.push(new Paragraph({ children: [new TextRun({ text: w.detail, size: 22, font: "Calibri", color: "5a6a85" })], spacing: { after: 80 } }));
+    }
+
+    const sections = [
+      { label: "Weekly Outcomes", items: w.weekly_outcomes },
+      { label: "Readings", items: w.readings },
+      { label: "Lecture Topic", text: w.lecture_topic },
+      { label: "In-Class Activities", items: w.activities },
+      { label: "Discussion Board", text: w.discussion_board },
+      { label: "Wellness Note", text: w.wellness_note },
+    ];
+
+    for (const sec of sections) {
+      if (sec.items && Array.isArray(sec.items) && sec.items.length > 0) {
+        children.push(new Paragraph({ children: [new TextRun({ text: sec.label, bold: true, size: 20, color: "2A9D8F", font: "Calibri" })], spacing: { before: 120, after: 40 } }));
+        for (const item of sec.items) {
+          children.push(new Paragraph({ children: [new TextRun({ text: item, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } }));
+        }
+      } else if (sec.text) {
+        children.push(new Paragraph({ children: [new TextRun({ text: sec.label, bold: true, size: 20, color: "2A9D8F", font: "Calibri" })], spacing: { before: 120, after: 40 } }));
+        children.push(new Paragraph({ children: [new TextRun({ text: sec.text, size: 22, font: "Calibri" })], spacing: { after: 60 } }));
+      }
+    }
+
+    const weekAsns = asnByWeek[w.id] || [];
+    if (weekAsns.length > 0) {
+      children.push(new Paragraph({ children: [new TextRun({ text: "Assignments", bold: true, size: 20, color: "2A9D8F", font: "Calibri" })], spacing: { before: 120, after: 40 } }));
+      for (const a of weekAsns) {
+        const codes = resolveAssignmentLoCodes(a, loTags, loCodeMap).join(", ");
+        const meta = [a.assignment_type, a.due_date ? `Due: ${a.due_date}` : null, codes ? `LOs: ${codes}` : null].filter(Boolean).join(" · ");
+        children.push(new Paragraph({ children: [new TextRun({ text: a.title || "Untitled", bold: true, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 20 } }));
+        if (meta) {
+          children.push(new Paragraph({ children: [new TextRun({ text: meta, size: 18, font: "Calibri", color: "5a6a85", italics: true })], spacing: { after: 20 }, indent: { left: 720 } }));
+        }
+        if (a.description) {
+          children.push(new Paragraph({ children: [new TextRun({ text: a.description, size: 20, font: "Calibri" })], spacing: { after: 40 }, indent: { left: 720 } }));
+        }
+      }
+    }
+  }
+
+  const unassigned = asnByWeek["__unassigned"] || [];
+  if (unassigned.length > 0) {
+    children.push(new Paragraph({
+      text: "Unassigned to a Week",
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 360, after: 120 },
+      run: { bold: true, size: 26, color: "1B2B4B", font: "Calibri" },
+    }));
+    for (const a of unassigned) {
+      const codes = resolveAssignmentLoCodes(a, loTags, loCodeMap).join(", ");
+      const meta = [a.assignment_type, a.due_date ? `Due: ${a.due_date}` : null, codes ? `LOs: ${codes}` : null].filter(Boolean).join(" · ");
+      children.push(new Paragraph({ children: [new TextRun({ text: a.title || "Untitled", bold: true, size: 22, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 20 } }));
+      if (meta) {
+        children.push(new Paragraph({ children: [new TextRun({ text: meta, size: 18, font: "Calibri", color: "5a6a85", italics: true })], spacing: { after: 20 }, indent: { left: 720 } }));
+      }
+      if (a.description) {
+        children.push(new Paragraph({ children: [new TextRun({ text: a.description, size: 20, font: "Calibri" })], spacing: { after: 40 }, indent: { left: 720 } }));
+      }
+    }
+  }
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font: "Calibri", size: 22 } } } },
+    sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children }],
+  });
+  const blob = await Packer.toBlob(doc);
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = `${(activeCourse?.course_code || "course").replace(/\s+/g, "-")}-course.docx`;
+  anchor.click();
+}
+
+function ExportBar({ weeks, assignments, los, loTags, activeCourse }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${CA_COLORS.border}`, borderRadius: 14, padding: "1.5rem", marginTop: "2.5rem" }}>
       <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 18, color: CA_COLORS.navy, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
         📤 Take it with you
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <ExportButton label="⬇ PDF" />
-        <ExportButton label="⬇ Word" />
-        <ExportButton label="⬇ CSV" />
-        <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured />
+        <ExportButton label="⬇ CSV" onClick={() => exportCourseCSV(weeks, assignments, los, loTags, activeCourse)} />
+        <ExportButton label="⬇ Word" onClick={() => exportCourseDocx(weeks, assignments, los, loTags, activeCourse)} />
+        <ExportButton label="⬇ PDF" disabled />
+        <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured disabled />
       </div>
     </div>
   );
@@ -855,7 +1035,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         )}
       </div>
 
-      <ExportBar />
+      <ExportBar weeks={weeks} assignments={assignments} los={los} loTags={loTags} activeCourse={activeCourse} />
 
       {showAddModal && (
         <AddCourseModal onClose={() => setShowAddModal(false)} userId={userId}
