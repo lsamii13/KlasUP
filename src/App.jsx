@@ -47,6 +47,7 @@ import {
   keywordSearchArticles, fetchArticlesByDimension, fetchArticleById,
   insertUpload, fetchUploads, uploadDocument,
   insertAssignment, fetchCourseWeeks,
+  fetchLearningOutcomes,
   insertMicroLearning, fetchMicroLearnings,
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
@@ -847,6 +848,7 @@ export default function KlasUp() {
   const [sageInput, setSageInput] = useState("");
   const [sageSending, setSageSending] = useState(false);
   const [sageBuilderOpen, setSageBuilderOpen] = useState(false);
+  const [builderLos, setBuilderLos] = useState([]);
   const [klasOptions, setKlasOptions] = useState({ options: [], multiSelect: false, questionType: null });
   const [klasCore4, setKlasCore4] = useState({ subject: "", level: "", building: "", format: "", goal: "" });
   const klasCore4Ref = useRef({ subject: "", level: "", building: "", format: "", goal: "" });
@@ -859,6 +861,16 @@ export default function KlasUp() {
   const [klasConversationId, setKlasConversationId] = useState(null);
   const sageTextareaRef = useRef(null);
   const klasMode2TextareaRef = useRef(null);
+
+  // Fetch real learning outcomes when Assignment Builder opens or course changes
+  useEffect(() => {
+    if (!sageBuilderOpen) return;
+    const courseObj = dbCourses.find(c => c.course_code === course);
+    if (!courseObj) { setBuilderLos([]); setSelectedOutcomes([]); return; }
+    fetchLearningOutcomes(courseObj.id)
+      .then(los => { setBuilderLos(los || []); setSelectedOutcomes([]); })
+      .catch(() => { setBuilderLos([]); setSelectedOutcomes([]); });
+  }, [sageBuilderOpen, course]);
 
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
@@ -5955,14 +5967,18 @@ export default function KlasUp() {
                   {/* Learning outcome alignment */}
                   <Card style={{ marginBottom: 20 }}>
                     <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>LEARNING OUTCOME ALIGNMENT</div>
-                    {OUTCOMES.map((o, i) => (
-                      <label key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, cursor: "pointer", fontSize: 13, fontFamily: F.body, color: C.text, lineHeight: 1.5 }}>
-                        <input type="checkbox" checked={selectedOutcomes.includes(o)}
-                          onChange={() => setSelectedOutcomes(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])}
+                    {builderLos.length > 0 ? builderLos.map((lo) => (
+                      <label key={lo.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, cursor: "pointer", fontSize: 13, fontFamily: F.body, color: C.text, lineHeight: 1.5 }}>
+                        <input type="checkbox" checked={selectedOutcomes.includes(lo.label)}
+                          onChange={() => setSelectedOutcomes(prev => prev.includes(lo.label) ? prev.filter(x => x !== lo.label) : [...prev, lo.label])}
                           style={{ marginTop: 3, accentColor: C.sage }} />
-                        {o}
+                        {lo.label}
                       </label>
-                    ))}
+                    )) : (
+                      <div style={{ fontSize: 13, fontFamily: F.body, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>
+                        No learning outcomes for this course yet — add them in Course Setup.
+                      </div>
+                    )}
                   </Card>
 
                   {/* Milestones & checkpoints */}
@@ -5997,7 +6013,7 @@ export default function KlasUp() {
                         course,
                         termStart: courseObj?.term_start || null,
                         numWeeks: courseObj?.num_weeks || 16,
-                        outcomes: OUTCOMES,
+                        outcomes: builderLos.map(lo => lo.label),
                       }).then(doc => {
                         setAssignDocResult(doc);
                         setAssignDocLoading(false);
