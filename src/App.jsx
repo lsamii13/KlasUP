@@ -780,7 +780,7 @@ export default function KlasUp() {
   const [slideOutcomes, setSlideOutcomes] = useState([]);
   const [slideFeedback, setSlideFeedback] = useState(null);
   const [replyOpen, setReplyOpen] = useState(null);
-  const [assignType, setAssignType] = useState("");
+  const [assignType, setAssignType] = useState([]);
   const [assignText, setAssignText] = useState("");
   const [selectedOutcomes, setSelectedOutcomes] = useState([]);
   const [milestones, setMilestones] = useState(["Draft submission", "Peer review"]);
@@ -5943,9 +5943,9 @@ export default function KlasUp() {
                   <Card style={{ marginBottom: 20 }}>
                     <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8 }}>ASSIGNMENT TYPE</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {["Case Study", "Team Project", "Group Work", "Socratic Seminar", "Active Learning", "Individual Essay", "Research Paper", "Presentation", "Reflection", "Discussion Post"].map(t => (
-                        <button key={t} onClick={() => setAssignType(assignType === t ? "" : t)}
-                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: assignType === t ? 700 : 400, padding: "5px 12px", borderRadius: 20, border: assignType === t ? `1.5px solid ${C.sage}` : `0.5px solid ${C.border}`, background: assignType === t ? C.sageLight : C.ivory, color: assignType === t ? C.sage : C.muted, cursor: "pointer" }}>
+                      {["Case Study", "Team Project", "Group Work", "Semester-Long Project", "Socratic Seminar", "Active Learning", "Individual Essay", "Research Paper", "Presentation", "Reflection", "Discussion Post", "Lab", "Quiz", "Portfolio"].map(t => (
+                        <button key={t} onClick={() => setAssignType(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: assignType.includes(t) ? 700 : 400, padding: "5px 12px", borderRadius: 20, border: assignType.includes(t) ? `1.5px solid ${C.sage}` : `0.5px solid ${C.border}`, background: assignType.includes(t) ? C.sageLight : C.ivory, color: assignType.includes(t) ? C.sage : C.muted, cursor: "pointer" }}>
                           {t}
                         </button>
                       ))}
@@ -5993,7 +5993,7 @@ export default function KlasUp() {
                       setAssignDocResult(null);
                       setAssignDocSavedId(null);
                       generateAssignmentDoc({
-                        description: assignDocDesc + (assignType ? `\nAssignment type: ${assignType}` : "") + (selectedOutcomes.length ? `\nLearning outcomes to address: ${selectedOutcomes.join("; ")}` : "") + (milestones.filter(Boolean).length ? `\nMilestones/checkpoints: ${milestones.filter(Boolean).join(", ")}` : ""),
+                        description: assignDocDesc + (assignType.length ? `\nAssignment type: ${assignType.join("; ")}` : "") + (selectedOutcomes.length ? `\nLearning outcomes to address: ${selectedOutcomes.join("; ")}` : "") + (milestones.filter(Boolean).length ? `\nMilestones/checkpoints: ${milestones.filter(Boolean).join(", ")}` : ""),
                         course,
                         termStart: courseObj?.term_start || null,
                         numWeeks: courseObj?.num_weeks || 16,
@@ -6186,7 +6186,7 @@ export default function KlasUp() {
                               try {
                                 const row = await insertAssignment(courseObj.id, {
                                   title: assignDocSaveTitle.trim(),
-                                  assignmentType: assignType || "Other",
+                                  assignmentType: assignType.length ? assignType.join(" / ") : "Other",
                                   description: assignDocDesc || null,
                                   weekId: assignDocSaveWeekId || null,
                                   meta: {
