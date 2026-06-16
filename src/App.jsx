@@ -3342,7 +3342,7 @@ export default function KlasUp() {
                   {locked && <LockOverlay onUpgrade={upgrade} />}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <Tag label={m.tag} color={m.color} bg={m.bg} />
-                    <span style={{ fontSize: 11, fontFamily: F.accent, color: C.muted }}>Based on your uploads</span>
+                    <span style={{ fontSize: 11, fontFamily: F.accent, color: C.muted }}>Research-backed recommendation</span>
                   </div>
                   <div style={{ fontFamily: F.display, fontSize: 18, marginBottom: 8 }}>{m.title}</div>
                   <div style={{ fontSize: 14, color: C.text, marginBottom: 10, lineHeight: 1.6 }}>{m.summary}</div>
