@@ -167,7 +167,7 @@ function SemesterListView({ weeks, assignments, uploads = [], filter, getLoCodes
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 17, color: CA_COLORS.navy, letterSpacing: "-0.01em" }}>
-              {row.topic || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Untitled</span>}
+              {row.topic || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Add a topic</span>}
               {row.is_milestone && <span style={{ color: "#D4A574", fontSize: 16, marginLeft: 6 }}>★</span>}
             </div>
             {row.detail && <div style={{ fontFamily: CA_FONTS.body, fontSize: 13, color: CA_COLORS.textSoft }}>{row.detail}</div>}
@@ -652,7 +652,7 @@ function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodes
                   Week {entry.week_number}
                 </div>
                 <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 22, color: CA_COLORS.navy, letterSpacing: "-0.01em" }}>
-                  {entry.topic || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Untitled</span>}
+                  {entry.topic || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Add a topic</span>}
                   {entry.is_milestone && <span style={{ color: "#D4A574", fontSize: 18, marginLeft: 6 }}>★</span>}
                 </div>
               </div>
