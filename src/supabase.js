@@ -684,6 +684,12 @@ export async function uploadDocument(userId, file) {
   return { storagePath: path, fileName: file.name, fileType: ext, fileSize: file.size }
 }
 
+export async function downloadDocument(storagePath) {
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(storagePath, 60)
+  if (error) throw error
+  return data.signedUrl
+}
+
 export async function extractTextFromFile(storagePath, fileType) {
   const { data: { session } } = await supabase.auth.getSession()
   const res = await fetch(`${supabaseUrl}/functions/v1/extract-text`, {
@@ -702,7 +708,7 @@ export async function extractTextFromFile(storagePath, fileType) {
 export async function fetchUploads(userId) {
   const { data, error } = await supabase
     .from('uploads')
-    .select('id, course_id, week, category, content, created_at')
+    .select('id, course_id, week, category, content, created_at, title, material_type, filename, file_type, storage_path')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) throw error

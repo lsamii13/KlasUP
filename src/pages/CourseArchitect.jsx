@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PageHeader from "../components/PageHeader";
-import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback, addLoTag, removeLoTag } from "../supabase";
+import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback, addLoTag, removeLoTag, downloadDocument } from "../supabase";
 import LoTagger from "../components/LoTagger";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from "docx";
 
@@ -419,6 +419,73 @@ function DetailsView({ weeks, filter, getLoCodesFor }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── MaterialsView (uploads for this course) ─────────────
+function MaterialsView({ uploads, courseId }) {
+  const [downloading, setDownloading] = useState(null);
+  const [dlError, setDlError] = useState(null);
+
+  const courseUploads = uploads.filter(u => u.course_id === courseId);
+  const decks = courseUploads.filter(u => u.category === "Slide Deck" || u.material_type === "slide_deck");
+  const docs = courseUploads.filter(u => u.category !== "Slide Deck" && u.material_type !== "slide_deck");
+
+  const handleDownload = async (item) => {
+    if (!item.storage_path) return;
+    setDownloading(item.id); setDlError(null);
+    try {
+      const url = await downloadDocument(item.storage_path);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Download failed:", err);
+      setDlError(item.id);
+      setTimeout(() => setDlError(null), 4000);
+    } finally { setDownloading(null); }
+  };
+
+  const renderItem = (item) => {
+    const label = item.title || item.filename || "Untitled";
+    const weekLabel = item.week ? `Week ${item.week}` : "";
+    const typeLabel = item.file_type ? item.file_type.toUpperCase() : "";
+    const noFile = !item.storage_path;
+    return (
+      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: `1px solid ${CA_COLORS.border}` }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 14, color: CA_COLORS.navy }}>{label}</div>
+          <div style={{ fontFamily: CA_FONTS.body, fontSize: 12, color: CA_COLORS.textSoft, marginTop: 2 }}>
+            {[weekLabel, typeLabel].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+        <button disabled={noFile || downloading === item.id} onClick={() => handleDownload(item)}
+          style={{
+            fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
+            color: noFile ? CA_COLORS.textSoft : "#fff",
+            background: noFile ? CA_COLORS.border : downloading === item.id ? CA_COLORS.textSoft : CA_COLORS.teal,
+            border: "none", borderRadius: 8, padding: "6px 14px",
+            cursor: noFile ? "default" : "pointer", opacity: noFile ? 0.5 : 1,
+          }}>
+          {downloading === item.id ? "Opening..." : noFile ? "No file" : "Download"}
+        </button>
+        {dlError === item.id && <span style={{ fontSize: 11, color: "#C0392B", fontWeight: 600 }}>Failed</span>}
+      </div>
+    );
+  };
+
+  const renderSection = (title, items, emptyMsg) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 13, color: CA_COLORS.teal, textTransform: "uppercase", letterSpacing: "0.5px", padding: "10px 16px" }}>{title}</div>
+      {items.length === 0
+        ? <div style={{ padding: "12px 16px", fontSize: 13, color: CA_COLORS.textSoft, fontStyle: "italic" }}>{emptyMsg}</div>
+        : items.map(renderItem)}
+    </div>
+  );
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}>
+      {renderSection("Slide Decks", decks, "No slide decks yet")}
+      {renderSection("Documents", docs, "No documents yet")}
     </div>
   );
 }
@@ -1025,6 +1092,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
             { id: "list", label: "📋 List" },
             { id: "assignments", label: "📝 Assignments" },
             { id: "details", label: "📖 Details" },
+            { id: "materials", label: "📂 Materials" },
           ].map((v) => (
             <button key={v.id} onClick={() => setSemesterView(v.id)}
               style={{
@@ -1043,6 +1111,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />}
             {semesterView === "details" && <DetailsView weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
+            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} />}
           </>
         )}
       </div>
