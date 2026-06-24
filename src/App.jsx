@@ -844,6 +844,7 @@ export default function KlasUp() {
   const [pptEditing, setPptEditing] = useState(null);
   const [pptUpdateText, setPptUpdateText] = useState("");
   const [pptUpdating, setPptUpdating] = useState(false);
+  const [pptLoadedFromSaved, setPptLoadedFromSaved] = useState(false);
 
   // --- Save deck to course state ---
   const [deckSaveOpen, setDeckSaveOpen] = useState(false);
@@ -1233,6 +1234,18 @@ export default function KlasUp() {
     if (weekNumber) setWeek(`Week ${weekNumber}`);
     setPendingAssignmentId(assignment.id);
     setPage("Pedagogy Studio");
+  }, []);
+
+  const handleOpenInSlideStudio = useCallback((contentJson) => {
+    try {
+      const slides = JSON.parse(contentJson);
+      if (!Array.isArray(slides) || slides.length === 0) throw new Error("empty");
+      setPptSlides(slides);
+      setPptLoadedFromSaved(true);
+      setPage("Slide Studio");
+    } catch (e) {
+      alert("Sorry, this deck couldn't be opened. The saved slides may be corrupted.");
+    }
   }, []);
 
   const handleSignOut = async () => {
@@ -3004,7 +3017,7 @@ export default function KlasUp() {
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => {
                       if (!pptDesc.trim()) return;
-                      setPptLoading(true); setPptError(null); setPptSlides(null);
+                      setPptLoading(true); setPptError(null); setPptSlides(null); setPptLoadedFromSaved(false);
                       generatePptPlan({ description: pptDesc, course, week })
                         .then(slides => { setPptSlides(slides); setPptLoading(false); })
                         .catch(err => { setPptError(err.message); setPptLoading(false); });
@@ -3043,6 +3056,11 @@ export default function KlasUp() {
                 {/* Generated Slide Outline */}
                 {pptSlides && !pptLoading && (
                   <Card style={{ marginBottom: 20 }}>
+                    {pptLoadedFromSaved && (
+                      <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic", marginBottom: 10 }}>
+                        Loaded from a saved deck. Saving will create a new copy, not overwrite the original.
+                      </div>
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                       <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700 }}>SLIDE-BY-SLIDE OUTLINE — {pptSlides.length} SLIDES</div>
                       <div style={{ display: "flex", gap: 8 }}>
@@ -3786,7 +3804,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenAssignmentBuilder={() => setSageBuilderOpen(true)} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenInSlideStudio={handleOpenInSlideStudio} onOpenAssignmentBuilder={() => setSageBuilderOpen(true)} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} />
         )}
 
         {/* ── COURSE SETUP ── */}

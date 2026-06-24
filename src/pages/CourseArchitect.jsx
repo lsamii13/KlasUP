@@ -599,7 +599,7 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
 }
 
 // ── DetailsView (real data — deep layer) ────────────────
-function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodesFor }) {
+function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodesFor, onOpenInSlideStudio }) {
   const [dlLoading, setDlLoading] = useState(null);
   const [dlError, setDlError] = useState(null);
 
@@ -686,6 +686,18 @@ function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodes
                             }}>
                             {dlLoading === m.id ? "Opening..." : noFile ? "No file" : "Download"}
                           </button>
+                          {(m.category === "Slide Deck" || m.material_type === "slide_deck") && onOpenInSlideStudio && (
+                            <button disabled={!m.content} onClick={() => onOpenInSlideStudio(m.content)}
+                              style={{
+                                fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 11,
+                                color: !m.content ? CA_COLORS.textSoft : "#fff",
+                                background: !m.content ? CA_COLORS.border : CA_COLORS.navy,
+                                border: "none", borderRadius: 6, padding: "4px 10px",
+                                cursor: !m.content ? "default" : "pointer", opacity: !m.content ? 0.5 : 1,
+                              }}>
+                              Open in Slide Studio
+                            </button>
+                          )}
                           {dlError === m.id && <span style={{ fontSize: 11, color: "#C0392B", fontWeight: 600 }}>Failed</span>}
                         </div>
                       );
@@ -730,7 +742,7 @@ function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodes
 }
 
 // ── MaterialsView (uploads for this course) ─────────────
-function MaterialsView({ uploads, courseId }) {
+function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
   const [downloading, setDownloading] = useState(null);
   const [dlError, setDlError] = useState(null);
 
@@ -774,6 +786,18 @@ function MaterialsView({ uploads, courseId }) {
           }}>
           {downloading === item.id ? "Opening..." : noFile ? "No file" : "Download"}
         </button>
+        {(item.category === "Slide Deck" || item.material_type === "slide_deck") && onOpenInSlideStudio && (
+          <button disabled={!item.content} onClick={() => onOpenInSlideStudio(item.content)}
+            style={{
+              fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
+              color: !item.content ? CA_COLORS.textSoft : "#fff",
+              background: !item.content ? CA_COLORS.border : CA_COLORS.navy,
+              border: "none", borderRadius: 8, padding: "6px 14px",
+              cursor: !item.content ? "default" : "pointer", opacity: !item.content ? 0.5 : 1,
+            }}>
+            Open in Slide Studio
+          </button>
+        )}
         {dlError === item.id && <span style={{ fontSize: 11, color: "#C0392B", fontWeight: 600 }}>Failed</span>}
       </div>
     );
@@ -1097,7 +1121,7 @@ function AddCourseModal({ onClose, userId, onCreated, profileInstitutions = [], 
 }
 
 // ── Main component ──────────────────────────────────────
-export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, onOpenAssignmentBuilder, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, onOpenInSlideStudio, onOpenAssignmentBuilder, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
   const [los, setLos] = useState([]);
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [activeInstitutionFilter, setActiveInstitutionFilter] = useState(null);
@@ -1416,8 +1440,8 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
           <>
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} onRefresh={() => setFetchKey(k => k + 1)} />}
-            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
-            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} />}
+            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onOpenInSlideStudio={onOpenInSlideStudio} />}
+            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} onOpenInSlideStudio={onOpenInSlideStudio} />}
           </>
         )}
       </div>
