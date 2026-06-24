@@ -216,6 +216,46 @@ const FEEDBACK_TAG_COLORS = {
   "Scaffolding": { color: "#2A9D8F", bg: "#E8F5F3" },
 };
 
+// ── Assignment export helpers ────────────────────────────
+async function exportAssignmentDocx(item, weekLabel) {
+  const children = [];
+  children.push(new Paragraph({ children: [new TextRun({ text: item.title || "Untitled Assignment", bold: true, size: 32, color: "1B2B4B", font: "Calibri" })], heading: HeadingLevel.HEADING_1, spacing: { after: 200 } }));
+  const metaParts = [item.assignment_type, item.due_date ? `Due: ${item.due_date}` : null, weekLabel].filter(Boolean);
+  if (metaParts.length) {
+    children.push(new Paragraph({ children: [new TextRun({ text: metaParts.join(" · "), size: 20, color: "5a6a85", italics: true, font: "Calibri" })], spacing: { after: 300 }, border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "2A9D8F" } } }));
+  }
+  if (item.description) {
+    for (const line of item.description.split("\n")) {
+      children.push(new Paragraph({ children: [new TextRun({ text: line, size: 22, font: "Calibri" })], spacing: { after: 60 } }));
+    }
+  } else {
+    children.push(new Paragraph({ children: [new TextRun({ text: "No description", italics: true, size: 20, color: "5a6a85", font: "Calibri" })], spacing: { after: 60 } }));
+  }
+  const doc = new Document({
+    styles: { default: { document: { run: { font: "Calibri", size: 22 } } } },
+    sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children }],
+  });
+  const blob = await Packer.toBlob(doc);
+  const safeName = (item.title || "assignment").replace(/[^a-zA-Z0-9 _-]/g, "").replace(/\s+/g, "-").slice(0, 60);
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = `${safeName}.docx`;
+  anchor.click();
+}
+
+function exportAssignmentPdf(item, weekLabel) {
+  const metaParts = [item.assignment_type, item.due_date ? `Due: ${item.due_date}` : null, weekLabel].filter(Boolean);
+  const descHtml = item.description
+    ? item.description.split("\n").map(l => `<p style="margin:0 0 6px 0">${l || "&nbsp;"}</p>`).join("")
+    : `<p style="color:#5a6a85;font-style:italic">No description</p>`;
+  const html = `<html><head><title>${item.title || "Assignment"}</title><style>body{font-family:'Manrope','Segoe UI',sans-serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;color:#1B2B4B}h1{font-family:'Bricolage Grotesque','Segoe UI',sans-serif;font-size:28px;margin:0 0 8px 0}.meta{font-size:14px;color:#5a6a85;font-style:italic;padding-bottom:12px;margin-bottom:16px;border-bottom:2px solid #2A9D8F}.desc{font-size:16px;line-height:1.7}</style></head><body>`;
+  const body = `<h1>${item.title || "Untitled Assignment"}</h1>${metaParts.length ? `<div class="meta">${metaParts.join(" &middot; ")}</div>` : ""}<div class="desc">${descHtml}</div>`;
+  const w = window.open("", "_blank");
+  w.document.write(html + body + "</body></html>");
+  w.document.close();
+  w.print();
+}
+
 // ── AssignmentsView (real data) ─────────────────────────
 function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPedagogy, feedbackByAssignment = {}, los, loTags, onTagAdd, onTagRemove, onRefresh }) {
   const [hoveredKey, setHoveredKey] = useState(null);
@@ -226,6 +266,7 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
   const [editForm, setEditForm] = useState({});
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState(null);
+  const [exportOpenId, setExportOpenId] = useState(null);
 
   if (assignments.length === 0) return <EmptyDataState text="No assignments yet — open Course Setup to add them." />;
 
@@ -344,15 +385,38 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                     }}>
                     ✏️ Edit
                   </button>
-                  <button disabled title="Coming soon"
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setExportOpenId(exportOpenId === item.id ? null : item.id); }}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
-                      background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                      background: exportOpenId === item.id ? CA_COLORS.tealSoft : "none",
+                      border: `1px solid ${exportOpenId === item.id ? CA_COLORS.teal : CA_COLORS.border}`, borderRadius: 8,
                       padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
-                      color: CA_COLORS.textSoft, cursor: "default", whiteSpace: "nowrap", opacity: 0.5,
+                      color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap",
+                      transition: "all 0.15s",
                     }}>
                     📥 Export
                   </button>
+                  {exportOpenId === item.id && (
+                    <>
+                      <button onClick={(e) => { e.stopPropagation(); exportAssignmentDocx(item, item.weekLabel); setExportOpenId(null); }}
+                        style={{
+                          background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                          color: CA_COLORS.navy, cursor: "pointer", whiteSpace: "nowrap",
+                        }}>
+                        Word (.docx)
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); exportAssignmentPdf(item, item.weekLabel); setExportOpenId(null); }}
+                        style={{
+                          background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                          color: CA_COLORS.navy, cursor: "pointer", whiteSpace: "nowrap",
+                        }}>
+                        PDF
+                      </button>
+                    </>
+                  )}
                 </div>
                 {/* View expand panel */}
                 {expandedView[item.id] && (
