@@ -599,7 +599,7 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
 }
 
 // ── DetailsView (real data — deep layer) ────────────────
-function DetailsView({ weeks, uploads = [], filter, getLoCodesFor }) {
+function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodesFor }) {
   const [dlLoading, setDlLoading] = useState(null);
   const [dlError, setDlError] = useState(null);
 
@@ -627,6 +627,8 @@ function DetailsView({ weeks, uploads = [], filter, getLoCodesFor }) {
     if (w.activities?.length) sections.push({ label: "✋ In-class activities", items: w.activities });
     if (w.discussion_board) sections.push({ label: "💬 Discussion board", text: w.discussion_board });
     if (w.wellness_note) sections.push({ label: "🌿 Wellness note", text: w.wellness_note });
+    const weekAssignments = assignments.filter(a => a.week_id === w.id);
+    if (weekAssignments.length) sections.push({ label: "📝 Assignments", assignmentsList: weekAssignments });
     const weekMaterials = uploads.filter(u => u.week === w.week_number);
     if (weekMaterials.length) sections.push({ label: "📂 Materials", materials: weekMaterials });
     return { ...w, loCodes, sections };
@@ -689,6 +691,18 @@ function DetailsView({ weeks, uploads = [], filter, getLoCodesFor }) {
                       );
                     })}
                   </div>
+                ) : sec.assignmentsList ? (
+                  <ul style={{ margin: 0, paddingLeft: 8, listStyle: "none" }}>
+                    {sec.assignmentsList.map(a => {
+                      const meta = [a.assignment_type, a.due_date ? `Due: ${a.due_date}` : null].filter(Boolean).join(" · ");
+                      return (
+                        <li key={a.id} style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.navy, lineHeight: 1.6, marginBottom: 4 }}>
+                          <span style={{ fontWeight: 700 }}>{a.title || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Untitled</span>}</span>
+                          {meta && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, marginLeft: 8 }}>{meta}</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 ) : sec.items ? (
                   <ul style={{ margin: 0, paddingLeft: 8, listStyle: "none" }}>
                     {sec.items.map((item, ii) => (
@@ -1402,7 +1416,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
           <>
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} onRefresh={() => setFetchKey(k => k + 1)} />}
-            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
+            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} />}
           </>
         )}
