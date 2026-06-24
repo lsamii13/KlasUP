@@ -659,11 +659,13 @@ export async function insertUpload(userId, courseId, week, category, content, me
   const weekInt = parseWeek(week)
   if (weekInt == null) { console.warn('insertUpload: skipping DB insert — invalid week'); return null }
   const row = { user_id: userId, course_id: courseId, week: weekInt, category: sanitize(category), content: sanitize(content) }
-  if (metadata.filename)    row.filename     = metadata.filename
+  if (metadata.filename || metadata.fileName) row.filename = metadata.filename || metadata.fileName
   if (metadata.fileType)    row.file_type    = metadata.fileType
   if (metadata.fileSize)    row.file_size    = metadata.fileSize
-  if (metadata.storagePath) row.storage_path = metadata.storagePath
-  if (assignmentId)         row.assignment_id = assignmentId
+  if (metadata.storagePath)  row.storage_path  = metadata.storagePath
+  if (metadata.title)        row.title         = metadata.title
+  if (metadata.materialType) row.material_type = metadata.materialType
+  if (assignmentId)          row.assignment_id = assignmentId
   const { data, error } = await supabase
     .from('uploads')
     .insert(row)

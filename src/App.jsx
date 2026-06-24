@@ -415,11 +415,10 @@ function buildRubricTable(rows) {
   });
 }
 
-function exportSlidePptx(slides, courseName, weekLabel) {
-  if (typeof gtag === "function") gtag("event", "export_clicked", { export_type: "pptx" });
+function buildSlidePptx(slides, courseName, weekLabel) {
   const pptx = new PptxGenJS();
   pptx.author = "KlasUp";
-  pptx.title = `${courseName} — ${weekLabel} Slides`;
+  pptx.title = `${courseName} - ${weekLabel} Slides`;
   pptx.layout = "LAYOUT_WIDE";
 
   // Title slide
@@ -488,6 +487,12 @@ function exportSlidePptx(slides, courseName, weekLabel) {
     }
   });
 
+  return pptx;
+}
+
+function exportSlidePptx(slides, courseName, weekLabel) {
+  if (typeof gtag === "function") gtag("event", "export_clicked", { export_type: "pptx" });
+  const pptx = buildSlidePptx(slides, courseName, weekLabel);
   pptx.writeFile({ fileName: `${(courseName || "slides").replace(/\s+/g, "-")}-${(weekLabel || "deck").replace(/\s+/g, "-")}.pptx` });
 }
 
@@ -839,6 +844,13 @@ export default function KlasUp() {
   const [pptEditing, setPptEditing] = useState(null);
   const [pptUpdateText, setPptUpdateText] = useState("");
   const [pptUpdating, setPptUpdating] = useState(false);
+
+  // --- Save deck to course state ---
+  const [deckSaveOpen, setDeckSaveOpen] = useState(false);
+  const [deckSaveCourse, setDeckSaveCourse] = useState("");
+  const [deckSaveWeek, setDeckSaveWeek] = useState("");
+  const [deckSaving, setDeckSaving] = useState(false);
+  const [deckSaveMsg, setDeckSaveMsg] = useState(null);
 
   // --- Sage AI Coach state ---
   const [sageOpen, setSageOpen] = useState(false);
@@ -3075,8 +3087,62 @@ export default function KlasUp() {
                           style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
                           Export as Text
                         </button>
+                        <button onClick={() => { setDeckSaveCourse(course); setDeckSaveWeek(week); setDeckSaveMsg(null); setDeckSaveOpen(true); }}
+                          style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.sage, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                          Save to Course
+                        </button>
                       </div>
                     </div>
+
+                    {/* Save to Course confirm panel */}
+                    {deckSaveOpen && (
+                      <div style={{ background: C.ivoryDark, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                        <div style={{ fontFamily: F.accent, fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 12 }}>Save to course</div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                          <select value={deckSaveCourse} onChange={e => setDeckSaveCourse(e.target.value)}
+                            style={{ fontFamily: F.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.white }}>
+                            <option value="">Select course</option>
+                            {dbCourses.map(c => <option key={c.course_code} value={c.course_code}>{c.course_code}{c.course_name ? ` - ${c.course_name}` : ""}</option>)}
+                          </select>
+                          <select value={deckSaveWeek} onChange={e => setDeckSaveWeek(e.target.value)}
+                            style={{ fontFamily: F.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.white }}>
+                            {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
+                          </select>
+                          <button disabled={deckSaving || !deckSaveCourse} onClick={async () => {
+                            setDeckSaving(true); setDeckSaveMsg(null);
+                            try {
+                              const courseObj = dbCourses.find(c => c.course_code === deckSaveCourse);
+                              if (!courseObj) throw new Error("Course not found. Please select a valid course.");
+                              const pptx = buildSlidePptx(pptSlides, deckSaveCourse, deckSaveWeek);
+                              const blob = await pptx.write({ outputType: "blob" });
+                              const safeName = `${(deckSaveCourse || "slides").replace(/[^a-zA-Z0-9._-]/g, "_")}-${(deckSaveWeek || "deck").replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+                              const file = new File([blob], `${safeName}.pptx`, { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+                              const meta = await uploadDocument(session.user.id, file);
+                              const title = `${deckSaveWeek} Slide Deck`;
+                              await insertUpload(session.user.id, courseObj.id, deckSaveWeek, "Slide Deck", JSON.stringify(pptSlides), { ...meta, title, materialType: "slide_deck" }, null);
+                              if (typeof gtag === "function") gtag("event", "deck_saved_to_course", { course: deckSaveCourse, week: deckSaveWeek });
+                              setDeckSaveMsg({ ok: true, text: `Saved to ${deckSaveCourse}` });
+                              setTimeout(() => setDeckSaveOpen(false), 1800);
+                            } catch (err) {
+                              console.error("Save deck error:", err);
+                              setDeckSaveMsg({ ok: false, text: err.message || "Save failed. Please try again." });
+                            } finally { setDeckSaving(false); }
+                          }}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.white, background: deckSaving || !deckSaveCourse ? C.muted : C.tealBright, border: "none", borderRadius: 8, padding: "6px 16px", cursor: deckSaving || !deckSaveCourse ? "default" : "pointer", opacity: deckSaving || !deckSaveCourse ? 0.6 : 1 }}>
+                            {deckSaving ? "Saving..." : "Save"}
+                          </button>
+                          <button onClick={() => setDeckSaveOpen(false)}
+                            style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
+                            Cancel
+                          </button>
+                        </div>
+                        {deckSaveMsg && (
+                          <div style={{ fontSize: 12, fontWeight: 600, color: deckSaveMsg.ok ? C.sage : "#C0392B", marginTop: 4 }}>
+                            {deckSaveMsg.ok ? "✓" : "✗"} {deckSaveMsg.text}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {pptSlides.map((s, i) => {
                       const isEditing = pptEditing === i;
