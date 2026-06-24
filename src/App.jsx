@@ -4819,14 +4819,14 @@ export default function KlasUp() {
               {[
                 {
                   key: "free", name: "Free", sub: "The Signal", price: "$0", period: "forever", color: C.muted,
-                  features: ["1 course", "Health scores (coming soon)", "2 micro-learnings/month", "Post-class notes & announcements", "Think Tank (read only)", "Career Connections (1 role preview)"],
-                  locked: ["Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite", "Accreditation reports ⸱ Coming Soon"],
+                  features: ["1 course", "Health scores (coming soon)", "2 micro-learnings/month", "Post-class notes & announcements", "Career Connections (1 role preview)"],
+                  locked: ["Think Tank (read only)", "Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite", "Accreditation reports ⸱ Coming Soon"],
                   cta: "Get Started Free",
                 },
                 {
                   key: "pro", name: "Pro", sub: "The Practice", price: "$15", period: "/month per faculty", color: C.tealBright, featured: true,
-                  features: ["All courses", "Full trending — week, class & term", "All 10 health dimensions", "Assignment Builder with AI feedback", "Slide Studio with UDL analysis", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Metacognitive & UDL tracking", "Wellbeing & Student Voice signals", "Think Tank — full participation", "Self-generated reports"],
-                  locked: ["Institutional dashboard", "Aggregated analytics", "NECHE/HLC/SACSCOC export templates"],
+                  features: ["All courses", "Assignment Builder with AI feedback", "Slide Studio with UDL analysis", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Wellbeing & Student Voice signals"],
+                  locked: ["Think Tank — full participation", "Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics", "NECHE/HLC/SACSCOC export templates"],
                   cta: "Start Free Trial",
                 },
                 {
