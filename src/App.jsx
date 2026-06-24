@@ -3160,102 +3160,15 @@ export default function KlasUp() {
                   </Card>
                 )}
 
-                {/* ── EXISTING DECK UPLOAD + ANALYSIS ── */}
+                {/* ── DECK UPLOAD & ANALYSIS — coming soon ── */}
                 <Card style={{ marginTop: 8, borderTop: `3px solid ${C.ivoryDark}` }}>
                   <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 4 }}>Deck Upload & Analysis</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Upload an existing deck for UDL scoring, text density, and active learning analysis.</div>
-
-                  {!deckUploaded ? (
-                    <div style={{ textAlign: "center", padding: "2rem", border: `1.5px dashed ${C.tealBright}`, borderRadius: 14, background: C.ivory }}>
-                      <div style={{ fontSize: 28, marginBottom: 6 }}>◫</div>
-                      <div style={{ fontFamily: F.accent, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Upload your deck for {course} · {week}</div>
-                      <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>Accepts .pptx, .ppt, .pdf, and .key files</div>
-                      <label style={{ display: "inline-block", background: C.tealBright, color: C.white, borderRadius: 10, padding: "9px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                        Choose File
-                        <input type="file" accept=".pptx,.ppt,.pdf,.key" style={{ display: "none" }} onChange={(e) => { if (e.target.files.length > 0) setDeckUploaded(true); }} />
-                      </label>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                        <div>
-                          <div style={{ fontFamily: F.display, fontSize: 16 }}>{course} — {week} Deck</div>
-                          <div style={{ fontSize: 12, color: C.muted }}>7 slides · analysed today</div>
-                        </div>
-                        <button onClick={() => setDeckUploaded(false)} style={{ fontSize: 12, color: C.rose, background: "none", border: `0.5px solid ${C.rose}44`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>Replace deck</button>
-                      </div>
-                      {/* Slide-by-slide breakdown */}
-                      <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 10 }}>SLIDE-BY-SLIDE BREAKDOWN</div>
-                      {SLIDES.map((s, i) => (
-                        <div key={i} style={{ borderBottom: i < SLIDES.length - 1 ? `0.5px solid ${C.border}` : "none" }}>
-                          <div onClick={() => setSlideOpen(slideOpen === i ? null : i)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "0.7rem 0", cursor: "pointer" }}>
-                            <div style={{ width: 28, height: 20, background: s.flags.length === 0 ? C.sageLight : C.roseLight, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: s.flags.length === 0 ? C.sage : C.rose, flexShrink: 0 }}>{i + 1}</div>
-                            <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{s.title}</div>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              {s.active && <Tag label="Active" color={C.teal} bg={C.tealLight} />}
-                              {s.reused && <Tag label="Reused" color={C.rose} bg={C.roseLight} />}
-                              {s.flags.length === 0 && <Tag label="Clean" color={C.sage} bg={C.sageLight} />}
-                              <span style={{ fontSize: 12, color: C.muted }}>{slideOpen === i ? "▲" : "▼"}</span>
-                            </div>
-                          </div>
-                          {slideOpen === i && (
-                            <div style={{ paddingBottom: "0.75rem", paddingLeft: 38 }}>
-                              <div style={{ display: "flex", gap: 16, marginBottom: 6 }}>
-                                <div style={{ fontSize: 12 }}><span style={{ color: C.muted }}>UDL: </span><span style={{ fontWeight: 700, color: s.udl > 75 ? C.sage : C.rose }}>{s.udl}</span></div>
-                                <div style={{ fontSize: 12 }}><span style={{ color: C.muted }}>Density: </span><span style={{ fontWeight: 700, color: s.text === "heavy" ? C.rose : C.sage }}>{s.text}</span></div>
-                              </div>
-                              {s.flags.length === 0 ? <div style={{ fontSize: 12, color: C.sage }}>✓ No issues detected.</div> : s.flags.map((f, j) => (
-                                <div key={j} style={{ fontSize: 12, color: C.rose, display: "flex", gap: 6, marginBottom: 4 }}><span>⚑</span><span>{f}</span></div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      {/* AI Deck Analysis */}
-                      <div style={{ marginTop: 14, background: C.navy, borderRadius: 14, padding: "1rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                          <div style={{ fontFamily: F.accent, fontSize: 11, color: C.tealMid, fontWeight: 700 }}>AI DECK ANALYSIS</div>
-                          <button onClick={() => setSlideFeedback({
-                            engagement: 68, cognitiveLoad: "Moderate-High", pacing: 74, outcomesCovered: slideOutcomes.length,
-                            suggestions: [
-                              "Slides 2 and 6 have high text density — consider breaking into two slides or adding a visual.",
-                              "Slide 4 is reused from Week 3 — review for currency and relevance.",
-                              slideOutcomes.length === 0 ? "No learning outcomes mapped — align slides to at least 2 outcomes." : `${slideOutcomes.length} outcome${slideOutcomes.length > 1 ? "s" : ""} mapped — strong alignment.`,
-                              "Consider adding a retrieval moment after Slide 3.",
-                              "Exit ticket on Slide 7 is excellent — anchors metacognition.",
-                            ],
-                          })} style={{ fontSize: 11, fontFamily: F.accent, fontWeight: 700, background: C.tealBright, color: C.navy, border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer" }}>
-                            Analyse Deck
-                          </button>
-                        </div>
-                        {!slideFeedback ? (
-                          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontStyle: "italic", padding: "1.5rem 0", textAlign: "center" }}>Click "Analyse Deck" to get AI feedback.</div>
-                        ) : (
-                          <div>
-                            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                              {[
-                                { label: "Engagement", val: `${slideFeedback.engagement}/100`, color: slideFeedback.engagement > 70 ? C.tealMid : "#F4C0D1" },
-                                { label: "Cognitive Load", val: slideFeedback.cognitiveLoad, color: slideFeedback.cognitiveLoad === "Moderate-High" ? "#F4C0D1" : C.tealMid },
-                                { label: "Pacing", val: `${slideFeedback.pacing}/100`, color: slideFeedback.pacing > 70 ? C.tealMid : "#F4C0D1" },
-                                { label: "Outcomes", val: `${slideFeedback.outcomesCovered}/${OUTCOMES.length}`, color: slideFeedback.outcomesCovered > 0 ? C.tealMid : "#F4C0D1" },
-                              ].map((s, i) => (
-                                <div key={i} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "0.7rem" }}>
-                                  <div style={{ fontSize: 10, fontFamily: F.accent, color: "rgba(255,255,255,0.4)", fontWeight: 700, marginBottom: 3 }}>{s.label}</div>
-                                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: F.accent, color: s.color }}>{s.val}</div>
-                                </div>
-                              ))}
-                            </div>
-                            {slideFeedback.suggestions.map((s, i) => (
-                              <div key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 8, lineHeight: 1.5 }}>
-                                <span style={{ color: C.tealBright, flexShrink: 0 }}>→</span><span>{s}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <div style={{ marginTop: 10, padding: "10px 14px", background: C.tealLight, borderRadius: 10, fontSize: 12, color: C.teal, textAlign: "center" }}>
+                    Coming soon
+                  </div>
+                  <div style={{ fontSize: 13, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
+                    Upload an existing deck for UDL scoring, text density, and active learning analysis — coming soon. For now, try Slide Generation above to build a new deck.
+                  </div>
                 </Card>
               </div>
             )}
