@@ -220,6 +220,8 @@ const FEEDBACK_TAG_COLORS = {
 function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPedagogy, feedbackByAssignment = {}, los, loTags, onTagAdd, onTagRemove }) {
   const [hoveredKey, setHoveredKey] = useState(null);
   const [expandedFeedback, setExpandedFeedback] = useState({});
+  const [expandedView, setExpandedView] = useState({});
+  const [copiedId, setCopiedId] = useState(null);
 
   if (assignments.length === 0) return <EmptyDataState text="No assignments yet — open Course Setup to add them." />;
 
@@ -303,6 +305,92 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                     )}
                   </div>
                 </div>
+                {/* Action buttons row */}
+                <div style={{ display: "flex", gap: 6, padding: "0 1.5rem 0.75rem 1.5rem", borderTop: `0.5px solid ${CA_COLORS.border}`, marginTop: 0, paddingTop: 10 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setExpandedView(prev => ({ ...prev, [item.id]: !prev[item.id] })); }}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      background: expandedView[item.id] ? CA_COLORS.tealSoft : "none",
+                      border: `1px solid ${expandedView[item.id] ? CA_COLORS.teal : CA_COLORS.border}`, borderRadius: 8,
+                      padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                      color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap",
+                      transition: "all 0.15s",
+                    }}>
+                    👁 View
+                  </button>
+                  <button disabled title="Coming soon"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                      padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                      color: CA_COLORS.textSoft, cursor: "default", whiteSpace: "nowrap", opacity: 0.5,
+                    }}>
+                    ✏️ Edit
+                  </button>
+                  <button disabled title="Coming soon"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                      padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                      color: CA_COLORS.textSoft, cursor: "default", whiteSpace: "nowrap", opacity: 0.5,
+                    }}>
+                    📥 Export
+                  </button>
+                </div>
+                {/* View expand panel */}
+                {expandedView[item.id] && (
+                  <div style={{
+                    padding: "0.75rem 1.5rem 1rem 1.5rem",
+                    background: CA_COLORS.ivory,
+                    borderBottom: j < group.items.length - 1 ? "1px solid #f5f1ea" : "none",
+                  }}>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                      {item.assignment_type && (
+                        <div>
+                          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 2 }}>TYPE</div>
+                          <div style={{ fontSize: 13, fontFamily: CA_FONTS.body, color: CA_COLORS.navy }}>{item.assignment_type}</div>
+                        </div>
+                      )}
+                      {item.weekLabel && (
+                        <div>
+                          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 2 }}>WEEK</div>
+                          <div style={{ fontSize: 13, fontFamily: CA_FONTS.body, color: CA_COLORS.navy }}>{item.weekLabel}</div>
+                        </div>
+                      )}
+                      {item.due_date && (
+                        <div>
+                          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 2 }}>DUE DATE</div>
+                          <div style={{ fontSize: 13, fontFamily: CA_FONTS.body, color: CA_COLORS.navy }}>{item.due_date}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 4 }}>DESCRIPTION</div>
+                    {item.description ? (
+                      <div style={{ fontSize: 14, fontFamily: CA_FONTS.body, color: CA_COLORS.navy, lineHeight: 1.7, whiteSpace: "pre-wrap", marginBottom: 10 }}>{item.description}</div>
+                    ) : (
+                      <div style={{ fontSize: 13, fontFamily: CA_FONTS.body, color: CA_COLORS.textSoft, fontStyle: "italic", marginBottom: 10 }}>No description</div>
+                    )}
+                    {item.description && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(item.description).then(() => {
+                            setCopiedId(item.id);
+                            setTimeout(() => setCopiedId(null), 1500);
+                          });
+                        }}
+                        style={{
+                          background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                          color: copiedId === item.id ? CA_COLORS.teal : CA_COLORS.textSoft,
+                          cursor: "pointer", whiteSpace: "nowrap", transition: "color 0.15s",
+                        }}>
+                        {copiedId === item.id ? "✓ Copied" : "📋 Copy description"}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {isExpanded && recs.length > 0 && (
                   <div style={{
                     padding: "0.75rem 1.5rem 1rem 1.5rem",
