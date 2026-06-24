@@ -78,12 +78,12 @@ const NAV = [
   // Top-level
   { id: "Dashboard", icon: "⊞" },
   { id: "Course Architect", icon: "🏛️" },
-  { id: "Wellness", icon: "🌿" },
   { id: "Student Voice", icon: "🎤" },
   // Learning Hub
   { id: "Micro-Learning", icon: "◉", cluster: "LEARNING HUB" },
   { id: "Pedagogical Resources", icon: "⊡" },
   { id: "Think Tank", icon: "◈" },
+  { id: "Wellness", icon: "🌿" },
   // The Vault
   { id: "Course Portfolio", icon: "◆", cluster: "THE VAULT" },
   { id: "Reports", icon: "☑" },
