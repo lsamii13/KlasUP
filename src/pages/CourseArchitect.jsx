@@ -131,7 +131,7 @@ function EmptyDataState({ text }) {
 }
 
 // ── SemesterListView (real data) ────────────────────────
-function SemesterListView({ weeks, assignments, filter, getLoCodesFor }) {
+function SemesterListView({ weeks, assignments, uploads = [], filter, getLoCodesFor }) {
   const [hoveredIdx, setHoveredIdx] = useState(-1);
   const STATUS_ICONS = [
     { key: "lesson", emoji: "📋", label: "Lesson plan" },
@@ -142,12 +142,13 @@ function SemesterListView({ weeks, assignments, filter, getLoCodesFor }) {
   if (weeks.length === 0) return <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}><EmptyDataState text="No weeks yet — open Course Setup to add them." /></div>;
 
   const weekAssignmentIds = new Set(assignments.map(a => a.week_id).filter(Boolean));
+  const weekDeckNumbers = new Set(uploads.filter(u => u.category === "Slide Deck" || u.material_type === "slide_deck").map(u => u.week));
   const rows = weeks.map(w => ({
     ...w,
     loCodes: getLoCodesFor("week", w.id),
     status: {
       lesson: !!(w.topic || w.detail),
-      slides: false,
+      slides: weekDeckNumbers.has(w.week_number),
       assignment: weekAssignmentIds.has(w.id),
     },
   }));
@@ -351,7 +352,23 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
 }
 
 // ── DetailsView (real data — deep layer) ────────────────
-function DetailsView({ weeks, filter, getLoCodesFor }) {
+function DetailsView({ weeks, uploads = [], filter, getLoCodesFor }) {
+  const [dlLoading, setDlLoading] = useState(null);
+  const [dlError, setDlError] = useState(null);
+
+  const handleDownload = async (item) => {
+    if (!item.storage_path) return;
+    setDlLoading(item.id); setDlError(null);
+    try {
+      const url = await downloadDocument(item.storage_path);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Download failed:", err);
+      setDlError(item.id);
+      setTimeout(() => setDlError(null), 4000);
+    } finally { setDlLoading(null); }
+  };
+
   if (weeks.length === 0) return <EmptyDataState text="No weeks yet — open Course Setup to add them." />;
 
   const entries = weeks.map(w => {
@@ -363,6 +380,8 @@ function DetailsView({ weeks, filter, getLoCodesFor }) {
     if (w.activities?.length) sections.push({ label: "✋ In-class activities", items: w.activities });
     if (w.discussion_board) sections.push({ label: "💬 Discussion board", text: w.discussion_board });
     if (w.wellness_note) sections.push({ label: "🌿 Wellness note", text: w.wellness_note });
+    const weekMaterials = uploads.filter(u => u.week === w.week_number);
+    if (weekMaterials.length) sections.push({ label: "📂 Materials", materials: weekMaterials });
     return { ...w, loCodes, sections };
   });
 
@@ -397,7 +416,33 @@ function DetailsView({ weeks, filter, getLoCodesFor }) {
                 <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 11, color: CA_COLORS.teal, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 5 }}>
                   {sec.label}
                 </div>
-                {sec.items ? (
+                {sec.materials ? (
+                  <div style={{ paddingLeft: 8 }}>
+                    {sec.materials.map(m => {
+                      const label = m.title || m.filename || "Untitled";
+                      const typeLabel = m.file_type ? m.file_type.toUpperCase() : "";
+                      const noFile = !m.storage_path;
+                      return (
+                        <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                          <span style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.navy, flex: 1 }}>
+                            {label}{typeLabel ? ` · ${typeLabel}` : ""}
+                          </span>
+                          <button disabled={noFile || dlLoading === m.id} onClick={() => handleDownload(m)}
+                            style={{
+                              fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 11,
+                              color: noFile ? CA_COLORS.textSoft : "#fff",
+                              background: noFile ? CA_COLORS.border : dlLoading === m.id ? CA_COLORS.textSoft : CA_COLORS.teal,
+                              border: "none", borderRadius: 6, padding: "4px 10px",
+                              cursor: noFile ? "default" : "pointer", opacity: noFile ? 0.5 : 1,
+                            }}>
+                            {dlLoading === m.id ? "Opening..." : noFile ? "No file" : "Download"}
+                          </button>
+                          {dlError === m.id && <span style={{ fontSize: 11, color: "#C0392B", fontWeight: 600 }}>Failed</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : sec.items ? (
                   <ul style={{ margin: 0, paddingLeft: 8, listStyle: "none" }}>
                     {sec.items.map((item, ii) => (
                       <li key={ii} style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.navy, lineHeight: 1.6, marginBottom: 2 }}>
@@ -1108,9 +1153,9 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
           <div style={{ textAlign: "center", padding: "2rem", color: CA_COLORS.textSoft, fontSize: 14 }}>Loading…</div>
         ) : (
           <>
-            {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
+            {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} />}
-            {semesterView === "details" && <DetailsView weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
+            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} />}
           </>
         )}
