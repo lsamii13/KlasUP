@@ -48,7 +48,7 @@ import {
   insertUpload, fetchUploads, uploadDocument,
   insertAssignment, fetchCourseWeeks,
   fetchLearningOutcomes,
-  insertMicroLearning, fetchMicroLearnings,
+  insertMicroLearning, fetchMicroLearnings, insertRevision,
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
   upsertKlasOtherResponse, getPromotedKlasOptions,
@@ -819,6 +819,12 @@ export default function KlasUp() {
   const [myCourseFeedbackLoading, setMyCourseFeedbackLoading] = useState(false);
   const [promptHelperOpen, setPromptHelperOpen] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState({});
+  const [lastSubmittedText, setLastSubmittedText] = useState(null);
+  const [lastUploadId, setLastUploadId] = useState(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyPreview, setApplyPreview] = useState(null);
+  const [applyError, setApplyError] = useState(null);
+  const [applySaved, setApplySaved] = useState(false);
 
   // --- Assignment Document Generator state ---
   const [assignDocDesc, setAssignDocDesc] = useState("");
@@ -2660,6 +2666,10 @@ export default function KlasUp() {
             const fileMeta = uploadFileMeta;
             setUploadText("");
             setUploadFileMeta(null);
+            setLastSubmittedText(text);
+            setApplyPreview(null);
+            setApplyError(null);
+            setApplySaved(false);
 
             // Persist upload to DB (with file metadata when a file was uploaded)
             const courseObj = dbCourses.find(c => c.course_code === course);
@@ -2668,6 +2678,7 @@ export default function KlasUp() {
               try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}, pendingAssignmentId); }
               catch (e) { console.warn("Upload DB insert failed:", e); }
             }
+            setLastUploadId(uploadRow?.id || null);
             setPendingAssignmentId(null);
 
             setMyCourseFeedbackLoading(true);
@@ -2885,9 +2896,71 @@ export default function KlasUp() {
                       <span style={{ color: C.text }}>{m.action}</span>
                     </div>
                     <CopyBtn text={m.action} label="Copy" />
+                    {lastSubmittedText && !applySaved && (
+                      <button onClick={async () => {
+                        setApplyLoading(true);
+                        setApplyError(null);
+                        try {
+                          const revised = await updateAssignmentDoc({ currentDoc: lastSubmittedText, instruction: m.action });
+                          setApplyPreview({ revisedContent: revised, rec: m });
+                        } catch (err) {
+                          setApplyError("Couldn't generate the revision — try again or apply manually.");
+                        }
+                        setApplyLoading(false);
+                      }}
+                        disabled={applyLoading}
+                        style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 12, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "6px 14px", cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.6 : 1 }}>
+                        {applyLoading ? "Applying..." : "Apply"}
+                      </button>
+                    )}
+                    {applySaved && (
+                      <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>Applied</span>
+                    )}
                   </div>
+                  {applyError && (
+                    <div style={{ fontSize: 12, color: C.rose, marginTop: 8 }}>{applyError}</div>
+                  )}
                   <StarRating ratingKey={`feedback-${Date.now()}`} />
                 </Card>
+              );
+            })()}
+
+            {/* ── Apply Recommendation Preview Modal ── */}
+            {applyPreview && (() => {
+              const { revisedContent, rec } = applyPreview;
+              return (
+                <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,31,61,0.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ background: C.white, borderRadius: 16, padding: "2rem", maxWidth: 640, width: "90%", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(15,31,61,0.2)" }}>
+                    <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy, marginBottom: 4 }}>Preview Revised Assignment</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Applied: {rec.title}</div>
+                    <div style={{ flex: 1, overflow: "auto", background: C.ivory, borderRadius: 12, padding: "1rem 1.25rem", marginBottom: 16, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{revisedContent}</div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={async () => {
+                        try {
+                          await insertRevision({
+                            uploadId: lastUploadId,
+                            userId: session.user.id,
+                            originalContent: lastSubmittedText,
+                            revisedContent,
+                            appliedRecommendationIds: rec.id ? [rec.id] : [],
+                            changeSummary: rec.title,
+                          });
+                          setApplyPreview(null);
+                          setApplySaved(true);
+                        } catch (err) {
+                          alert("Save failed: " + err.message);
+                        }
+                      }}
+                        style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        Approve &amp; Save
+                      </button>
+                      <button onClick={() => setApplyPreview(null)}
+                        style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        Discard
+                      </button>
+                    </div>
+                  </div>
+                </div>
               );
             })()}
 
