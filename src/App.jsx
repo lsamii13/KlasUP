@@ -2520,38 +2520,54 @@ export default function KlasUp() {
                       <button onClick={() => setPage("Micro-Learning")}
                         style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.teal, background: "none", border: "none", cursor: "pointer" }}>See all →</button>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
-                      {(() => {
-                        const dbMicros = Object.values(microHistory).flat().sort((a, b) => b.timestamp - a.timestamp).flatMap(g => g.recs).slice(0, 3);
-                        return dbMicros.length > 0 ? dbMicros : aiMicro.length > 0 ? aiMicro.slice(0, 3) : MICRO.filter(m => can(m.tier)).slice(0, 3);
-                      })().map((m, i) => {
-                        const TAG_COLORS = {
-                          "Active Learning": { color: C.sage, bg: C.sageLight },
-                          "Socratic Seminar": { color: C.teal, bg: C.tealLight },
-                          "UDL": { color: C.rose, bg: C.roseLight },
-                          "Reflection": { color: C.rose, bg: C.roseLight },
-                          "Flipped Classroom": { color: C.sage, bg: C.sageLight },
-                          "Student Voice": { color: C.gold, bg: C.goldLight },
-                          "Assessment Design": { color: C.purple, bg: C.purpleLight },
-                          "Scaffolding": { color: C.teal, bg: C.tealLight },
-                          "Metacognition": { color: C.purple, bg: C.purpleLight },
-                          "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
-                        };
-                        const tc = TAG_COLORS[m.tag] || m.color ? { color: m.color, bg: m.bg } : { color: C.teal, bg: C.tealLight };
+                    {(() => {
+                      const dbMicros = Object.values(microHistory).flat().sort((a, b) => b.timestamp - a.timestamp).flatMap(g => g.recs).slice(0, 3);
+                      const micros = dbMicros.length > 0 ? dbMicros : aiMicro.length > 0 ? aiMicro.slice(0, 3) : [];
+                      if (micros.length === 0) {
                         return (
-                          <Card key={i}>
-                            <Tag label={m.tag} color={tc.color} bg={tc.bg} />
-                            <div style={{ fontFamily: F.display, fontSize: 15, color: C.navy, margin: "8px 0 6px", lineHeight: 1.3 }}>{m.title}</div>
-                            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 8 }}>{m.summary.length > 120 ? m.summary.slice(0, 120) + "…" : m.summary}</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <div style={{ width: 3, height: 20, background: tc.color, borderRadius: 2 }} />
-                              <div style={{ fontSize: 11, color: C.navy, fontWeight: 600 }}>→ {m.action.length > 60 ? m.action.slice(0, 60) + "…" : m.action}</div>
-                            </div>
-                            <StarRating ratingKey={`dash-${i}`} />
+                          <Card style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
+                            <div style={{ fontSize: 28, marginBottom: 8 }}>📚</div>
+                            <div style={{ fontFamily: F.display, fontSize: 15, color: C.navy, marginBottom: 6 }}>Your recommendations will appear here</div>
+                            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>Submit your first assignment to get personalized, research-backed micro-learnings.</div>
+                            <button onClick={() => setPage("Pedagogy Studio")}
+                              style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 13, color: C.white, background: C.tealBright, border: "none", borderRadius: 10, padding: "8px 20px", cursor: "pointer" }}>
+                              Go to Pedagogy Studio →
+                            </button>
                           </Card>
                         );
-                      })}
-                    </div>
+                      }
+                      return (
+                        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
+                          {micros.map((m, i) => {
+                            const TAG_COLORS = {
+                              "Active Learning": { color: C.sage, bg: C.sageLight },
+                              "Socratic Seminar": { color: C.teal, bg: C.tealLight },
+                              "UDL": { color: C.rose, bg: C.roseLight },
+                              "Reflection": { color: C.rose, bg: C.roseLight },
+                              "Flipped Classroom": { color: C.sage, bg: C.sageLight },
+                              "Student Voice": { color: C.gold, bg: C.goldLight },
+                              "Assessment Design": { color: C.purple, bg: C.purpleLight },
+                              "Scaffolding": { color: C.teal, bg: C.tealLight },
+                              "Metacognition": { color: C.purple, bg: C.purpleLight },
+                              "Inclusive Pedagogy": { color: C.gold, bg: C.goldLight },
+                            };
+                            const tc = TAG_COLORS[m.tag] || m.color ? { color: m.color, bg: m.bg } : { color: C.teal, bg: C.tealLight };
+                            return (
+                              <Card key={i}>
+                                <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                                <div style={{ fontFamily: F.display, fontSize: 15, color: C.navy, margin: "8px 0 6px", lineHeight: 1.3 }}>{m.title}</div>
+                                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 8 }}>{m.summary.length > 120 ? m.summary.slice(0, 120) + "…" : m.summary}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <div style={{ width: 3, height: 20, background: tc.color, borderRadius: 2 }} />
+                                  <div style={{ fontSize: 11, color: C.navy, fontWeight: 600 }}>→ {m.action.length > 60 ? m.action.slice(0, 60) + "…" : m.action}</div>
+                                </div>
+                                <StarRating ratingKey={`dash-${i}`} />
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
 
           </div>
