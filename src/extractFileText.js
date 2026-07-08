@@ -10,6 +10,9 @@ export default async function extractFileText(file) {
   if (ext === "docx") {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
+    if (!result.value || result.value.trim().length < 20) {
+      throw new Error("Could not extract text from this document.");
+    }
     return result.value;
   }
 
@@ -31,10 +34,11 @@ export default async function extractFileText(file) {
           }
           result += t + " ";
         });
-        return result.trim();
+        const cleaned = result.trim();
+        if (cleaned.length > 20) return cleaned;
       }
     } catch (e) { /* fall through */ }
-    return `[PowerPoint uploaded: ${file.name}]\n\nSlide content was extracted — review above and add any missing details.`;
+    throw new Error("Could not extract text from this PowerPoint.");
   }
 
   return `[File uploaded: ${file.name}] — Unsupported format. Please use .docx, .txt, or .pptx.`;
