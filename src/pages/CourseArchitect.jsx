@@ -1128,7 +1128,7 @@ function AddCourseModal({ onClose, userId, onCreated, profileInstitutions = [], 
 }
 
 // ── Main component ──────────────────────────────────────
-export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, onOpenInSlideStudio, onOpenAssignmentBuilder, featureInfo, profileInstitutions = [], homeInstitution = "" }) {
+export default function CourseArchitect({ setPage, courses = [], activeCourseId, onSetActiveCourse, userId, onCourseCreated, onSendToPedagogy, onOpenInSlideStudio, onOpenAssignmentBuilder, featureInfo, profileInstitutions = [], homeInstitution = "", refreshKey = 0 }) {
   const [los, setLos] = useState([]);
   const [activeLOFilter, setActiveLOFilter] = useState(null);
   const [activeInstitutionFilter, setActiveInstitutionFilter] = useState(null);
@@ -1166,6 +1166,9 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
 
   // Re-fetch on mount (handles returning from Course Setup)
   useEffect(() => { setFetchKey(k => k + 1); }, []);
+
+  // Re-fetch when parent signals new data (e.g. assignment saved from Assignment Builder)
+  useEffect(() => { if (refreshKey > 0) setFetchKey(k => k + 1); }, [refreshKey]);
 
   useEffect(() => {
     if (!activeCourse?.id) {

@@ -48,7 +48,7 @@ import {
   insertUpload, fetchUploads, uploadDocument,
   insertAssignment, fetchCourseWeeks,
   fetchLearningOutcomes,
-  insertMicroLearning, fetchMicroLearnings, insertRevision,
+  insertMicroLearning, fetchMicroLearnings, insertRevision, getRevisions,
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
   upsertKlasOtherResponse, getPromotedKlasOptions,
@@ -825,6 +825,10 @@ export default function KlasUp() {
   const [applyPreview, setApplyPreview] = useState(null);
   const [applyError, setApplyError] = useState(null);
   const [applySaved, setApplySaved] = useState(false);
+  const [applySavedRevision, setApplySavedRevision] = useState(null);
+  const [revisionCache, setRevisionCache] = useState({});
+  const [revisionExpanded, setRevisionExpanded] = useState({});
+  const [revisionViewOpen, setRevisionViewOpen] = useState({});
 
   // --- Assignment Document Generator state ---
   const [assignDocDesc, setAssignDocDesc] = useState("");
@@ -840,6 +844,7 @@ export default function KlasUp() {
   const [assignDocSaveWeekId, setAssignDocSaveWeekId] = useState(null);
   const [assignDocSaveWeeks, setAssignDocSaveWeeks] = useState([]);
   const [assignDocSaving, setAssignDocSaving] = useState(false);
+  const [architectRefreshKey, setArchitectRefreshKey] = useState(0);
   const [assignDocSaveError, setAssignDocSaveError] = useState(null);
 
   // --- PowerPoint Planner state ---
@@ -2902,7 +2907,7 @@ export default function KlasUp() {
                         setApplyError(null);
                         try {
                           const revised = await updateAssignmentDoc({ currentDoc: lastSubmittedText, instruction: m.action });
-                          setApplyPreview({ revisedContent: revised, rec: m });
+                          setApplyPreview({ revisedContent: revised, changeSummary: m.title, uploadId: lastUploadId, originalContent: lastSubmittedText, appliedRecIds: m.id ? [m.id] : [] });
                         } catch (err) {
                           setApplyError("Couldn't generate the revision — try again or apply manually.");
                         }
@@ -2914,7 +2919,19 @@ export default function KlasUp() {
                       </button>
                     )}
                     {applySaved && (
-                      <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>Applied</span>
+                      <>
+                        <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>Saved</span>
+                        {applySavedRevision && (
+                          <button onClick={() => {
+                            setAssignDocResult(applySavedRevision.revisedContent);
+                            setAssignDocDesc(applySavedRevision.changeSummary || "Revised assignment");
+                            setSageBuilderOpen(true);
+                          }}
+                            style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 11, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+                            Open in Assignment Builder
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                   {applyError && (
@@ -2927,24 +2944,25 @@ export default function KlasUp() {
 
             {/* ── Apply Recommendation Preview Modal ── */}
             {applyPreview && (() => {
-              const { revisedContent, rec } = applyPreview;
+              const { revisedContent, changeSummary, uploadId, originalContent, appliedRecIds } = applyPreview;
               return (
                 <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,31,61,0.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{ background: C.white, borderRadius: 16, padding: "2rem", maxWidth: 640, width: "90%", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(15,31,61,0.2)" }}>
                     <div style={{ fontFamily: F.display, fontSize: 20, color: C.navy, marginBottom: 4 }}>Preview Revised Assignment</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Applied: {rec.title}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Applied: {changeSummary}</div>
                     <div style={{ flex: 1, overflow: "auto", background: C.ivory, borderRadius: 12, padding: "1rem 1.25rem", marginBottom: 16, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{revisedContent}</div>
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <button onClick={async () => {
                         try {
                           await insertRevision({
-                            uploadId: lastUploadId,
+                            uploadId,
                             userId: session.user.id,
-                            originalContent: lastSubmittedText,
+                            originalContent,
                             revisedContent,
-                            appliedRecommendationIds: rec.id ? [rec.id] : [],
-                            changeSummary: rec.title,
+                            appliedRecommendationIds: appliedRecIds,
+                            changeSummary,
                           });
+                          setApplySavedRevision({ revisedContent, changeSummary });
                           setApplyPreview(null);
                           setApplySaved(true);
                         } catch (err) {
@@ -2953,6 +2971,15 @@ export default function KlasUp() {
                       }}
                         style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                         Approve &amp; Save
+                      </button>
+                      <button onClick={() => {
+                        setAssignDocResult(revisedContent);
+                        setAssignDocDesc(changeSummary || "Revised assignment");
+                        setApplyPreview(null);
+                        setSageBuilderOpen(true);
+                      }}
+                        style={{ background: C.navy, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        Open in Assignment Builder
                       </button>
                       <button onClick={() => setApplyPreview(null)}
                         style={{ background: C.ivoryDark, color: C.navy, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -3000,7 +3027,68 @@ export default function KlasUp() {
                               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                                 <CopyBtn text={entry.content} />
                                 <EmailBtn subject={`${entry.category} — ${course} ${wk}`} body={entry.content} />
+                                {entry._dbId && (
+                                  <button onClick={async () => {
+                                    const rKey = entry._dbId;
+                                    if (revisionExpanded[rKey]) {
+                                      setRevisionExpanded(p => ({ ...p, [rKey]: false }));
+                                      return;
+                                    }
+                                    if (!revisionCache[rKey]) {
+                                      try {
+                                        const revs = await getRevisions(rKey);
+                                        setRevisionCache(p => ({ ...p, [rKey]: revs }));
+                                      } catch (err) {
+                                        console.warn("Failed to load revisions:", err);
+                                        setRevisionCache(p => ({ ...p, [rKey]: [] }));
+                                      }
+                                    }
+                                    setRevisionExpanded(p => ({ ...p, [rKey]: true }));
+                                  }}
+                                    style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 11, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+                                    {revisionExpanded[entry._dbId] ? "Hide Revisions" : "View Revisions"}
+                                  </button>
+                                )}
                               </div>
+                              {/* Revision History Panel */}
+                              {revisionExpanded[entry._dbId] && (() => {
+                                const revs = revisionCache[entry._dbId];
+                                if (!revs) return <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>Loading...</div>;
+                                if (revs.length === 0) return <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>No revisions saved yet for this submission.</div>;
+                                return (
+                                  <div style={{ marginBottom: 12 }}>
+                                    <div style={{ fontFamily: F.accent, fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>SAVED REVISIONS</div>
+                                    {revs.map((rev, ri) => (
+                                      <div key={rev.id || ri} style={{ background: C.ivory, borderRadius: 10, padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${C.sage}` }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                          <div style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.navy }}>{rev.change_summary || "Revision"}</div>
+                                          <div style={{ fontSize: 10, color: C.muted }}>{new Date(rev.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                          <button onClick={() => setRevisionViewOpen(p => ({ ...p, [rev.id]: !p[rev.id] }))}
+                                            style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 10, color: C.teal, background: C.tealLight, border: "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
+                                            {revisionViewOpen[rev.id] ? "Hide" : "View"}
+                                          </button>
+                                          <CopyBtn text={rev.revised_content} label="Copy" />
+                                          <button onClick={() => {
+                                            setAssignDocResult(rev.revised_content);
+                                            setAssignDocDesc(rev.change_summary || "Revised assignment");
+                                            setSageBuilderOpen(true);
+                                          }}
+                                            style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 10, color: C.white, background: C.navy, border: "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
+                                            Open in Assignment Builder
+                                          </button>
+                                        </div>
+                                        {revisionViewOpen[rev.id] && (
+                                          <div style={{ marginTop: 8, fontSize: 12, color: C.text, lineHeight: 1.6, whiteSpace: "pre-wrap", background: C.white, borderRadius: 8, padding: "10px 12px", maxHeight: 300, overflow: "auto" }}>
+                                            {rev.revised_content}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                               {matchEntry && matchEntry.recs.map((m, mi) => {
                                 const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
                                 return (
@@ -3415,6 +3503,9 @@ export default function KlasUp() {
                     </div>
                   );
                 })}
+                {applyError && (
+                  <div style={{ fontSize: 12, color: C.rose, marginBottom: 10 }}>{applyError}</div>
+                )}
                 <div style={{ borderTop: `0.5px solid ${C.border}`, marginTop: 10, paddingTop: 18, marginBottom: 8 }}>
                   <div style={{ fontFamily: F.accent, fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>DEFAULT RECOMMENDATIONS</div>
                 </div>
@@ -3893,7 +3984,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenInSlideStudio={handleOpenInSlideStudio} onOpenAssignmentBuilder={() => setSageBuilderOpen(true)} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenInSlideStudio={handleOpenInSlideStudio} onOpenAssignmentBuilder={() => setSageBuilderOpen(true)} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} refreshKey={architectRefreshKey} />
         )}
 
         {/* ── COURSE SETUP ── */}
@@ -6300,6 +6391,7 @@ export default function KlasUp() {
                                 });
                                 setAssignDocSavedId(row.id);
                                 setAssignDocSaveOpen(false);
+                                setArchitectRefreshKey(k => k + 1);
                               } catch (err) {
                                 setAssignDocSaveError(err?.message || "Save failed. Please try again.");
                               } finally {
