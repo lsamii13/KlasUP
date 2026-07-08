@@ -67,36 +67,47 @@ function LaunchpadCard({ card, onNavigate }) {
         background: "#fff",
         borderRadius: 16,
         border: `1px solid ${hovered ? card.accent : CA_COLORS.border}`,
-        borderTop: `4px solid ${card.accent}`,
-        padding: "1.25rem",
+        overflow: "hidden",
         cursor: "pointer",
         transition: "all 0.2s ease",
         transform: hovered ? "translateY(-3px)" : "none",
         boxShadow: hovered ? "0 12px 24px rgba(27, 43, 75, 0.1)" : "none",
       }}
     >
-      <div style={{ fontSize: 30, marginBottom: "0.5rem" }}>{card.emoji}</div>
-      <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 21, color: CA_COLORS.navy, letterSpacing: "-0.01em", marginBottom: 4 }}>
-        {card.title}
-      </div>
-      <div style={{ fontFamily: CA_FONTS.body, fontSize: 11, fontWeight: 700, color: card.accent, letterSpacing: "1.2px", textTransform: "uppercase", marginBottom: 10 }}>
-        {card.tag}
-      </div>
-      <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, lineHeight: 1.6, margin: "0 0 0.75rem 0" }}>
-        {card.description}
-      </p>
-      {card.stats && card.stats.length > 0 && (
-        <div style={{ display: "flex", gap: "1.5rem", borderTop: "1px solid #f0f0f0", paddingTop: "0.75rem" }}>
-          {card.stats.map((s) => (
-            <div key={s.label}>
-              <div style={{ fontFamily: CA_FONTS.heading, fontSize: 19, fontWeight: 700, color: CA_COLORS.navy }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: CA_COLORS.textSoft }}>{s.label}</div>
-            </div>
-          ))}
+      {/* Gradient header band */}
+      <div style={{
+        background: "linear-gradient(135deg, #1B2B4B 0%, #2A9D8F 100%)",
+        padding: "16px 20px",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+      }}>
+        <div style={{ fontSize: 30 }}>{card.emoji}</div>
+        <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 21, color: "#FAF7F2", letterSpacing: "-0.01em" }}>
+          {card.title}
         </div>
-      )}
-      <div style={{ fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 14, color: card.accent, marginTop: "0.75rem" }}>
-        {card.cta}
+      </div>
+      {/* Card body */}
+      <div style={{ padding: "1.25rem" }}>
+        <div style={{ fontFamily: CA_FONTS.body, fontSize: 11, fontWeight: 700, color: card.accent, letterSpacing: "1.2px", textTransform: "uppercase", marginBottom: 10 }}>
+          {card.tag}
+        </div>
+        <p style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.textSoft, lineHeight: 1.6, margin: "0 0 0.75rem 0" }}>
+          {card.description}
+        </p>
+        {card.stats && card.stats.length > 0 && (
+          <div style={{ display: "flex", gap: "1.5rem", borderTop: "1px solid #f0f0f0", paddingTop: "0.75rem" }}>
+            {card.stats.map((s) => (
+              <div key={s.label}>
+                <div style={{ fontFamily: CA_FONTS.heading, fontSize: 19, fontWeight: 700, color: CA_COLORS.navy }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: CA_COLORS.textSoft }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 14, color: card.accent, marginTop: "0.75rem" }}>
+          {card.cta}
+        </div>
       </div>
     </div>
   );
