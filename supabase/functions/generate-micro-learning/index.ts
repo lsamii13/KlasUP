@@ -27,16 +27,47 @@ interface RagArticle {
 async function fetchRagArticles(content: string, category: string): Promise<RagArticle[]> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseServiceKey = Deno.env.get('KLASUP_SECRET_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Build an OR-separated keyword query — websearch_to_tsquery treats
-    // unquoted words as AND, so we explicitly OR them for partial matching
-    const queryText = `${category} ${content}`
+    // Common English stopwords + assignment/syllabus boilerplate to skip
+    const STOP = new Set([
+      'the','and','that','this','with','from','your','have','will','been','were',
+      'they','their','them','than','then','what','when','where','which','while',
+      'would','could','should','about','after','before','between','does','each',
+      'into','just','more','most','must','only','other','over','such','these',
+      'those','through','under','very','also','both','come','some','made','make',
+      'like','many','much','well','here','there','being','doing','during','every',
+      'first','last','same','next','once','back','down','even','find','give',
+      'good','great','help','keep','know','long','look','need','part','take',
+      'time','turn','upon','used','work',
+      'student','students','complete','following','assignment','submit',
+      'submitted','submission','course','class','instructor','professor','faculty',
+      'grade','grading','graded','points','percent','rubric','criteria','required',
+      'requirements','expected','expectations','learning','objective',
+      'objectives','outcome','outcomes','demonstrate','understanding','ability',
+      'describe','explain','identify','analyze','apply','evaluate','create',
+      'develop','provide','include','including','based','using','ensure',
+      'page','pages','word','words','format','late','due','date','week',
+      'semester','term','syllabus','section','discussion','board','canvas',
+      'upload','posted','post','response','responses','write','written',
+    ])
+
+    // Extract meaningful terms from the ENTIRE content, not just the first 15 words
+    const words = `${category} ${content}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter(w => w.length > 3)
-      .slice(0, 15)
-      .join(' OR ')
+      .filter(w => w.length > 3 && !STOP.has(w))
+
+    // Deduplicate, preserving first-occurrence order
+    const seen = new Set<string>()
+    const unique: string[] = []
+    for (const w of words) {
+      if (!seen.has(w)) { seen.add(w); unique.push(w) }
+    }
+
+    const queryText = unique.slice(0, 20).join(' OR ')
 
     const { data: articles, error } = await supabase
       .rpc('keyword_search_articles', {
@@ -46,7 +77,6 @@ async function fetchRagArticles(content: string, category: string): Promise<RagA
       })
 
     if (error || !articles?.length) return []
-
     return articles as RagArticle[]
   } catch (e) {
     console.error('[RAG] Context fetch failed:', e.message)
@@ -98,21 +128,22 @@ function parseClaudeJSON(text: string): unknown {
 
 const MICRO_LEARNING_PROMPT = `You are KlasUp's Micro-Learning Engine — an AI pedagogical advisor for higher-education faculty.
 
-When a faculty member submits course content (announcements, assignments, discussion prompts, learning outcomes, post-class notes, or student voice data), analyze it and generate exactly 4 personalized micro-learning recommendations.
+When a faculty member submits course content, analyze the SPECIFIC text they submitted and generate exactly 4 personalized micro-learning recommendations.
 
-You will be provided with a RESEARCH CONTEXT section containing relevant resources from KlasUp's knowledge base. Each resource is prefixed with an [ID: ...] tag. Ground your recommendations in these sources when relevant. Use the exact citation information provided — do not fabricate or modify author names, years, or titles. Never invent a citation. You must ONLY cite sources from the provided RESEARCH CONTEXT — do not cite any studies from outside this context.
+GROUNDING REQUIREMENT — every recommendation MUST:
+1. Name or quote a specific element from the submitted content (an activity, instruction, prompt, rubric criterion, stated goal, or notable absence). Use phrases like "Your [specific element]..." or "The [quoted/paraphrased detail] in your submission..."
+2. Explain what pedagogical gap or opportunity that specific element reveals
+3. If a source from the RESEARCH CONTEXT is relevant, include its ID. If no provided source is relevant, set research_article_id to null — never fabricate a citation. You must ONLY cite sources from the provided RESEARCH CONTEXT.
+4. Include a concrete, actionable next step the faculty member can take in their next class session, worded specifically for THIS content (not generic advice)
 
-Each recommendation MUST:
-1. Be directly tied to a gap or opportunity you detect in the submitted content
-2. If a source from the RESEARCH CONTEXT is relevant, include its ID. If no provided source is relevant to a recommendation, set research_article_id to null — never guess or fabricate a citation.
-3. Include a concrete, actionable next step the faculty member can take in their next class session
+A recommendation that could apply to any course without reading the submission is a FAILURE. Each recommendation must be obviously specific to what this faculty member wrote.
 
-Respond with a JSON array of exactly 4 objects. Each object must have these fields:
+Respond with a JSON array of exactly 4 objects:
 - "tag": one of "Active Learning", "Socratic Seminar", "UDL", "Reflection", "Flipped Classroom", "Student Voice", "Assessment Design", "Scaffolding", "Metacognition", "Inclusive Pedagogy", "Trauma-Informed Teaching"
-- "title": a concise, compelling finding (max 12 words)
-- "summary": 1-2 sentence explanation of the research finding and why it matters for this faculty member's content
-- "research_article_id": the exact ID string from the [ID: ...] tag of the cited RESEARCH CONTEXT source, or null if no provided source is relevant
-- "action": a specific, concrete next step (start with a verb)
+- "title": a concise finding referencing this content (max 12 words)
+- "summary": 1-2 sentences connecting a specific element of their submission to the research finding and why it matters
+- "research_article_id": the exact ID string from the [ID: ...] tag of the cited source, or null
+- "action": a specific next step for THIS assignment/content (start with a verb, reference the actual material)
 
 Only output the JSON array — no markdown, no commentary.`
 
@@ -586,12 +617,13 @@ Apply this change and return the complete updated slide array.`
 
       userMessage = `Faculty member teaching ${course}, ${week}.
 Content category: ${category}
-Submitted content:
+
+ASSIGNMENT TEXT — read this carefully and ground every recommendation in specific details from it:
 ---
 ${content}
 ---${ragSection}
 
-Based on this content, identify pedagogical gaps and opportunities, then generate 4 personalized micro-learning recommendations. Only cite sources from the RESEARCH CONTEXT above — if none are relevant, use null for research_article_id.`
+Analyze the assignment text above. For each of your 4 recommendations, identify a specific element (activity, instruction, rubric criterion, prompt wording, or notable gap) in THIS submission and explain what pedagogical opportunity or gap it reveals. Do not give generic teaching advice — every recommendation must reference something concrete from the text above.`
     }
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
