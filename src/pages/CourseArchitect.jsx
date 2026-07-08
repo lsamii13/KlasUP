@@ -78,11 +78,7 @@ function LaunchpadCard({ card, onNavigate }) {
       <div style={{
         background: "linear-gradient(135deg, #1B2B4B 0%, #2A9D8F 100%)",
         padding: "16px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: "0.5rem",
       }}>
-        <div style={{ fontSize: 30 }}>{card.emoji}</div>
         <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 21, color: "#FAF7F2", letterSpacing: "-0.01em" }}>
           {card.title}
         </div>
