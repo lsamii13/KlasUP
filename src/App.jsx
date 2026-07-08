@@ -1089,7 +1089,7 @@ export default function KlasUp() {
             const parent = uploadById[uid];
             if (!parent) return;
             if (!hist[parent.category]) hist[parent.category] = [];
-            hist[parent.category].push({ recs, week: parent.week, course: parent.course, timestamp: parent.timestamp });
+            hist[parent.category].push({ recs, week: parent.week, course: parent.course, timestamp: parent.timestamp, upload_id: uid });
           });
           setMicroHistory(hist);
         }).catch(e => console.warn("Upload/micro-learning load:", e));
@@ -2689,7 +2689,7 @@ export default function KlasUp() {
                 setMicroHistory(prev => ({
                   ...prev,
                   [myCourseCategory]: [
-                    { recs: enriched, week, course, timestamp: Date.now() },
+                    { recs: enriched, week, course, timestamp: Date.now(), upload_id: uploadRow?.id || null },
                     ...(prev[myCourseCategory] || []),
                   ],
                 }));

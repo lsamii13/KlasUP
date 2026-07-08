@@ -759,6 +759,35 @@ export async function fetchMicroLearnings(userId) {
   return data || []
 }
 
+// ── Revisions ─────────────────────────────────────────────────
+
+export async function insertRevision({ uploadId, userId, originalContent, revisedContent, appliedRecommendationIds, changeSummary }) {
+  const { data, error } = await supabase
+    .from('revisions')
+    .insert({
+      upload_id: uploadId,
+      user_id: userId,
+      original_content: sanitize(originalContent),
+      revised_content: sanitize(revisedContent),
+      applied_recommendation_ids: appliedRecommendationIds || [],
+      change_summary: changeSummary ? sanitize(changeSummary) : null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getRevisions(uploadId) {
+  const { data, error } = await supabase
+    .from('revisions')
+    .select('*')
+    .eq('upload_id', uploadId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
 // ── Reflections ──────────────────────────────────────────────
 
 export async function upsertReflection(userId, courseId, semesterCode, content, editedContent = null) {
