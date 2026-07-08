@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
   // Service-role client bypasses RLS for profile updates
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    Deno.env.get('KLASUP_SECRET_KEY')!,
   )
 
   try {

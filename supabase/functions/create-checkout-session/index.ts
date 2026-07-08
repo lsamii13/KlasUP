@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import Stripe from "npm:stripe@17"
+import { createClient } from "jsr:@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +20,8 @@ const VALID_PRICE_IDS = [
  *   STRIPE_SECRET_KEY
  *   SITE_URL — base URL of the frontend (e.g. https://klasup.com)
  *
- * Body: { priceId: string, userId: string }
+ * Body: { priceId: string }
+ * Auth: JWT required — user ID extracted from token
  */
 
 Deno.serve(async (req: Request) => {
@@ -43,10 +45,33 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { priceId, userId } = await req.json()
+    // ── Verify caller identity via JWT ──
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    if (!priceId || !userId) {
-      return new Response(JSON.stringify({ error: 'Missing priceId or userId' }), {
+    const token = authHeader.replace('Bearer ', '')
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('KLASUP_SECRET_KEY')!,
+    )
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const userId = user.id
+
+    const { priceId } = await req.json()
+
+    if (!priceId) {
+      return new Response(JSON.stringify({ error: 'Missing priceId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

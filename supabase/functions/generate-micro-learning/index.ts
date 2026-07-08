@@ -84,6 +84,22 @@ async function fetchRagArticles(content: string, category: string): Promise<RagA
   }
 }
 
+// ── Retrieval entry point — swappable by RETRIEVAL_MODE env var ──
+// Defaults to "keyword" (current behavior). Set RETRIEVAL_MODE=vector
+// when a vector/embedding implementation is ready.
+async function retrieveArticles(content: string, category: string): Promise<RagArticle[]> {
+  const mode = (Deno.env.get('RETRIEVAL_MODE') || 'keyword').toLowerCase()
+
+  if (mode === 'vector') {
+    // STUB: vector/semantic search not yet implemented.
+    // When ready, call an embedding + match_articles RPC here.
+    console.warn('[RAG] vector mode not implemented, using keyword')
+    return fetchRagArticles(content, category)
+  }
+
+  return fetchRagArticles(content, category)
+}
+
 function formatRagContext(articles: RagArticle[]): string {
   if (!articles.length) return ''
   return articles.map((a) => {
@@ -608,7 +624,7 @@ Apply this change and return the complete updated slide array.`
       maxTokens = 2000
 
       // Fetch relevant research articles from the knowledge base
-      ragArticles = await fetchRagArticles(content, category || '')
+      ragArticles = await retrieveArticles(content, category || '')
       const ragContext = formatRagContext(ragArticles)
 
       const ragSection = ragContext
