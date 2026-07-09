@@ -941,6 +941,7 @@ export default function KlasUp() {
   const [audioDurations, setAudioDurations] = useState({});
 
   // Load real audio durations from Supabase meditation files
+  // Deferred until the Wellness page is viewed to avoid keeping the tab spinner active
   const MEDITATION_AUDIO_BASE = "https://thbfibtknxivegybhupw.supabase.co/storage/v1/object/public/meditations/";
   const MEDITATION_AUDIO_URLS = [
     MEDITATION_AUDIO_BASE + "before-tough-class.mp3",
@@ -952,6 +953,8 @@ export default function KlasUp() {
     MEDITATION_AUDIO_BASE + "burnout.mp3",
   ];
   useEffect(() => {
+    if (page !== "Wellness") return;
+    const audioElements = [];
     MEDITATION_AUDIO_URLS.forEach(url => {
       if (audioDurations[url]) return;
       const a = new Audio();
@@ -965,8 +968,17 @@ export default function KlasUp() {
       });
       a.addEventListener("error", () => { a.src = ""; });
       a.src = url;
+      audioElements.push(a);
     });
-  }, []);
+    // Safety: abort any still-loading audio after 10s to prevent tab spinner
+    const timeout = setTimeout(() => {
+      audioElements.forEach(a => { if (!a.duration) { a.src = ""; } });
+    }, 10000);
+    return () => {
+      clearTimeout(timeout);
+      audioElements.forEach(a => { a.src = ""; });
+    };
+  }, [page]);
 
   const courseLabel = (code) => { const c = dbCourses.find(x => x.course_code === code); return c ? formatCourseLabel(c) : code || "—"; };
 

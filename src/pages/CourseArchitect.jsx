@@ -829,8 +829,9 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
   );
 }
 
-function ExportButton({ label, featured = false, onClick, disabled = false }) {
+function ExportButton({ label, featured = false, onClick, disabled = false, comingSoon = false }) {
   const [hovered, setHovered] = useState(false);
+  const isInactive = disabled || comingSoon;
   const base = featured
     ? { background: CA_COLORS.navy, color: "#fff", borderColor: CA_COLORS.navy }
     : { background: CA_COLORS.ivory, color: CA_COLORS.navy, borderColor: CA_COLORS.border };
@@ -839,19 +840,19 @@ function ExportButton({ label, featured = false, onClick, disabled = false }) {
     : { background: "#fff", borderColor: CA_COLORS.teal };
   return (
     <button
-      onClick={disabled ? undefined : onClick}
+      onClick={isInactive ? undefined : onClick}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      title={disabled ? "Coming soon" : undefined}
+      title={comingSoon ? "Coming soon" : undefined}
       style={{
         display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
-        border: `1px solid ${disabled ? CA_COLORS.border : hovered ? hover.borderColor : base.borderColor}`,
-        background: disabled ? "#f0f0f0" : hovered ? hover.background : base.background,
-        color: disabled ? "#aaa" : base.color,
+        border: `1px solid ${isInactive ? CA_COLORS.border : hovered ? hover.borderColor : base.borderColor}`,
+        background: isInactive ? "#f0f0f0" : hovered ? hover.background : base.background,
+        color: isInactive ? "#aaa" : base.color,
         fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 700,
-        cursor: disabled ? "default" : "pointer", transition: "all 0.15s ease",
-        opacity: disabled ? 0.7 : 1,
+        cursor: isInactive ? "default" : "pointer", transition: "all 0.15s ease",
+        opacity: isInactive ? 0.7 : 1,
       }}>
-      {label}{disabled && <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4, color: "#bbb" }}>(soon)</span>}
+      {label}{comingSoon && <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4, color: "#bbb" }}>(soon)</span>}
     </button>
   );
 }
@@ -1037,8 +1038,8 @@ function ExportBar({ weeks, assignments, los, loTags, activeCourse, onGenerateSy
         <ExportButton label="📝 Generate Syllabus" featured onClick={onGenerateSyllabus} disabled={syllabusLoading} />
         <ExportButton label="⬇ CSV" onClick={() => exportCourseCSV(weeks, assignments, los, loTags, activeCourse)} />
         <ExportButton label="⬇ Word" onClick={() => exportCourseDocx(weeks, assignments, los, loTags, activeCourse)} />
-        <ExportButton label="⬇ PDF" disabled />
-        <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured disabled />
+        <ExportButton label="⬇ PDF" comingSoon />
+        <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured comingSoon />
         {syllabusLoading && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body }}>Generating syllabus…</span>}
         {syllabusError && <span style={{ fontSize: 12, color: "#c53030", fontFamily: CA_FONTS.body }}>{syllabusError}</span>}
       </div>
@@ -1488,6 +1489,38 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         <AddCourseModal onClose={() => setShowAddModal(false)} userId={userId}
           onCreated={(row) => { if (onCourseCreated) onCourseCreated(row); }}
           profileInstitutions={profileInstitutions} homeInstitution={homeInstitution} />
+      )}
+
+      {/* Generate Syllabus overlay */}
+      {syllabusGenLoading && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15,31,61,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 16, padding: "40px 48px",
+            textAlign: "center", maxWidth: 420, boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📝</div>
+            <div style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700,
+              fontSize: 20, color: "#1B2B4B", marginBottom: 8,
+            }}>Generating Your Syllabus</div>
+            <div style={{
+              fontFamily: "'Manrope', sans-serif", fontSize: 14, color: "#5a6a85",
+              lineHeight: 1.6, marginBottom: 20,
+            }}>
+              KlasUp is gathering your course data and writing a warm, research-based syllabus. This usually takes 15–30 seconds.
+            </div>
+            <div style={{
+              width: 48, height: 48, margin: "0 auto",
+              border: "3px solid #e8edf3", borderTopColor: "#2A9D8F",
+              borderRadius: "50%", animation: "syllabusOverlaySpin 1s linear infinite",
+            }} />
+            <style>{`@keyframes syllabusOverlaySpin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        </div>
       )}
     </div>
   );

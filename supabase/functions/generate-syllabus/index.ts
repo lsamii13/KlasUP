@@ -135,7 +135,12 @@ Set "hasPlaceholders" to true if the section contains any [...] placeholders.
 - Labeled placeholders for: disability/accessibility statement, academic integrity statement, Title IX/required institutional language.
 - Note: "Paste your institution's official required statements here."
 
-IMPORTANT: Return ONLY the JSON array. No text before or after it.`
+CRITICAL OUTPUT RULES:
+- Your ENTIRE response must be a single JSON array. Nothing else.
+- Do NOT wrap it in markdown code fences (\`\`\`json ... \`\`\`).
+- Do NOT add any text, commentary, or explanation before or after the JSON.
+- Start your response with [ and end it with ].
+- The JSON must be valid and parseable.`
 
 // ── Helper: truncate long text to stay within token budget ────
 function truncate(text: string, maxChars: number): string {
@@ -355,41 +360,59 @@ Deno.serve(async (req: Request) => {
 
 ${sections.join('\n\n')}`
 
-    // ── Call Anthropic API ────────────────────────────────────
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 6000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-    })
+    // ── Call Anthropic API (with one automatic retry on parse failure) ─
+    const MAX_ATTEMPTS = 2
+    let syllabusSections: Array<{ sectionKey: string; title: string; content: string; hasPlaceholders: boolean }> | null = null
+    let lastParseError = ''
 
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text()
-      console.error('[generate-syllabus] Anthropic API error:', anthropicRes.status, errText)
-      return new Response(JSON.stringify({ error: `AI service error (${anthropicRes.status})` }), {
-        status: anthropicRes.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 6000,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
       })
+
+      if (!anthropicRes.ok) {
+        const errText = await anthropicRes.text()
+        console.error(`[generate-syllabus] Anthropic API error (attempt ${attempt}):`, anthropicRes.status, errText)
+        return new Response(JSON.stringify({ error: `AI service error (${anthropicRes.status})` }), {
+          status: anthropicRes.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const aiData = await anthropicRes.json()
+      const rawText = aiData.content[0].text
+
+      try {
+        const parsed = parseClaudeJSON(rawText) as typeof syllabusSections
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          syllabusSections = parsed
+          break
+        }
+        lastParseError = 'AI returned non-array or empty array'
+        console.error(`[generate-syllabus] Invalid structure (attempt ${attempt}):`, typeof parsed)
+      } catch (parseErr) {
+        lastParseError = (parseErr as Error).message
+        console.error(`[generate-syllabus] JSON parse failed (attempt ${attempt}):`, rawText.slice(0, 500))
+      }
+
+      if (attempt < MAX_ATTEMPTS) {
+        console.log('[generate-syllabus] Retrying after parse failure...')
+      }
     }
 
-    const aiData = await anthropicRes.json()
-    const rawText = aiData.content[0].text
-
-    // ── Parse AI response ────────────────────────────────────
-    let syllabusSections: Array<{ sectionKey: string; title: string; content: string; hasPlaceholders: boolean }>
-    try {
-      syllabusSections = parseClaudeJSON(rawText) as typeof syllabusSections
-    } catch (parseErr) {
-      console.error('[generate-syllabus] JSON parse failed. Raw response:', rawText.slice(0, 500))
-      return new Response(JSON.stringify({ error: 'Failed to parse AI response' }), {
+    if (!syllabusSections) {
+      return new Response(JSON.stringify({ error: `Failed to parse AI response after ${MAX_ATTEMPTS} attempts: ${lastParseError}` }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

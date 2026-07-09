@@ -940,6 +940,38 @@ export default function CourseSetup({ setPage, course, userId }) {
           }}
         />
       )}
+
+      {/* Generate Syllabus overlay */}
+      {syllabusGenLoading && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15,31,61,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 16, padding: "40px 48px",
+            textAlign: "center", maxWidth: 420, boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📝</div>
+            <div style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700,
+              fontSize: 20, color: "#1B2B4B", marginBottom: 8,
+            }}>Generating Your Syllabus</div>
+            <div style={{
+              fontFamily: "'Manrope', sans-serif", fontSize: 14, color: "#5a6a85",
+              lineHeight: 1.6, marginBottom: 20,
+            }}>
+              KlasUp is gathering your course data and writing a warm, research-based syllabus. This usually takes 15–30 seconds.
+            </div>
+            <div style={{
+              width: 48, height: 48, margin: "0 auto",
+              border: "3px solid #e8edf3", borderTopColor: "#2A9D8F",
+              borderRadius: "50%", animation: "syllabusOverlaySpin 1s linear infinite",
+            }} />
+            <style>{`@keyframes syllabusOverlaySpin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
