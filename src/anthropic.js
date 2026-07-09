@@ -57,6 +57,11 @@ export async function updatePptPlan({ currentSlides, instruction }) {
   return data.slides
 }
 
+export async function suggestOutcomes({ category, courseName, courseCode, assignments, existingItems }) {
+  const data = await callEdgeFunction({ type: 'suggest-outcomes', category, courseName, courseCode, assignments, existingItems })
+  return data.suggestions
+}
+
 export async function sendSageChat({ messages, currentPage, courseName }) {
   const data = await callEdgeFunction({ type: 'sage-chat', messages, currentPage, courseName })
   return data.reply

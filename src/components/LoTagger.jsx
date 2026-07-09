@@ -28,8 +28,8 @@ export default function LoTagger({ taggableType, taggableId, los, tags, onAdd, o
   const taggedLoIds = new Set(myTags.map(t => t.learning_outcome_id));
 
   const loCode = (loId) => {
-    const idx = los.findIndex(lo => lo.id === loId);
-    return idx >= 0 ? `LO${idx + 1}` : "LO?";
+    const lo = los.find(l => l.id === loId);
+    return lo?.code || "??";
   };
 
   return (
@@ -68,7 +68,7 @@ export default function LoTagger({ taggableType, taggableId, los, tags, onAdd, o
                   onChange={() => checked ? onRemove(lo.id, taggableType, taggableId) : onAdd(lo.id, taggableType, taggableId)}
                   style={{ accentColor: CA_COLORS.teal }}
                 />
-                <span style={{ fontWeight: 700, color: CA_COLORS.teal, marginRight: 2 }}>LO{i + 1}</span>
+                <span style={{ fontWeight: 700, color: CA_COLORS.teal, marginRight: 2 }}>{lo.code}</span>
                 {lo.label || "(untitled)"}
               </label>
             );

@@ -334,6 +334,8 @@ export async function updateCourseNumWeeks(courseId, numWeeks) {
 
 // ── Learning Outcomes ─────────────────────────────────────
 
+export const CATEGORY_PREFIX = { outcome: 'LO', competency: 'C', skill: 'S' }
+
 export async function fetchLearningOutcomes(courseId) {
   const { data, error } = await supabase
     .from('learning_outcomes')
@@ -344,7 +346,7 @@ export async function fetchLearningOutcomes(courseId) {
   return data || []
 }
 
-export async function insertLearningOutcome(courseId, { code, label, fullText, sortOrder }) {
+export async function insertLearningOutcome(courseId, { code, label, fullText, sortOrder, category }) {
   const { data, error } = await supabase
     .from('learning_outcomes')
     .insert({
@@ -353,6 +355,7 @@ export async function insertLearningOutcome(courseId, { code, label, fullText, s
       label: sanitize(label),
       full_text: fullText ? sanitize(fullText) : null,
       sort_order: sortOrder,
+      category: category || 'outcome',
     })
     .select()
     .single()

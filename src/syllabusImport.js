@@ -37,6 +37,7 @@ export async function writeImportPayload(courseId, payload, existingWeeks, exist
         label: o.label,
         fullText: o.full_text || null,
         sortOrder: sortBase + i,
+        category: 'outcome',
       });
       codeToId[o.code] = row.id;
       nextNum++;

@@ -3,10 +3,11 @@ import {
   fetchCourseWeeks, generateWeekSkeleton, updateCourseWeek,
   addCourseWeek, updateCourseNumWeeks,
   fetchLearningOutcomes, insertLearningOutcome, updateLearningOutcome,
-  deleteLearningOutcome, reorderLearningOutcomes,
+  deleteLearningOutcome, reorderLearningOutcomes, CATEGORY_PREFIX,
   fetchAssignments, insertAssignment, updateAssignment, deleteAssignment,
   fetchLoTags, addLoTag, removeLoTag, uploadDocument,
 } from "../supabase";
+import { suggestOutcomes } from "../anthropic";
 import SyllabusImportWizard from "../SyllabusImportWizard";
 import extractFileText from "../extractFileText";
 import { supabase } from "../supabase";
@@ -26,6 +27,12 @@ const CA_FONTS = {
   heading: "'Bricolage Grotesque', sans-serif",
   body: "'Manrope', sans-serif",
 };
+
+const CATEGORIES = [
+  { key: 'outcome',    label: 'Learning Outcomes', prefix: 'LO', addLabel: '+ Add outcome',    suggestLabel: 'Suggest outcomes',      placeholder: 'Outcome label (e.g. Marketing principles)' },
+  { key: 'competency', label: 'Competencies',      prefix: 'C',  addLabel: '+ Add competency', suggestLabel: 'Suggest competencies',  placeholder: 'Competency label (e.g. Critical Thinking)' },
+  { key: 'skill',      label: 'Skills',             prefix: 'S',  addLabel: '+ Add skill',      suggestLabel: 'Suggest skills',        placeholder: 'Skill label (e.g. Build a pivot table)' },
+];
 
 const ASSIGNMENT_TYPES = [
   "Discussion Board", "Paper", "Project", "Quiz",
@@ -135,7 +142,7 @@ function WeekRow({ week, onSave, los, tags, onTagAdd, onTagRemove }) {
 }
 
 // ── Single LO row ───────────────────────────────────────
-function LORow({ lo, index, total, onSave, onMove, onDelete }) {
+function LORow({ lo, index, total, onSave, onMove, onDelete, placeholder }) {
   const [label, setLabel] = useState(lo.label || "");
   const [fullText, setFullText] = useState(lo.full_text || "");
   const [expanded, setExpanded] = useState(false);
@@ -181,13 +188,11 @@ function LORow({ lo, index, total, onSave, onMove, onDelete }) {
     if (Object.keys(pending).length) onSave(lo.id, pending);
   }, [lo.id, onSave]);
 
-  const code = `LO${index + 1}`;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px", background: "#fff", borderRadius: 10, border: `1px solid ${CA_COLORS.border}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ background: CA_COLORS.tealSoft, color: CA_COLORS.teal, fontFamily: CA_FONTS.heading, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10, letterSpacing: "0.3px", flexShrink: 0 }}>{code}</span>
-        <input ref={labelRef} value={label} onChange={e => setLabel(e.target.value)} onBlur={handleLabelBlur} onKeyDown={enterToSave} placeholder="Outcome label (e.g. Marketing principles)"
+        <span style={{ background: CA_COLORS.tealSoft, color: CA_COLORS.teal, fontFamily: CA_FONTS.heading, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10, letterSpacing: "0.3px", flexShrink: 0 }}>{lo.code}</span>
+        <input ref={labelRef} value={label} onChange={e => setLabel(e.target.value)} onBlur={handleLabelBlur} onKeyDown={enterToSave} placeholder={placeholder || "Label"}
           style={{ flex: 1, fontFamily: CA_FONTS.body, fontSize: 14, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, outline: "none", color: CA_COLORS.navy, background: CA_COLORS.ivory, minWidth: 0 }} />
         <SavedCheck show={savedField === "label"} />
         <button onClick={() => onMove(index, -1)} disabled={index === 0} title="Move up" style={{ background: "none", border: "none", cursor: index === 0 ? "default" : "pointer", fontSize: 14, opacity: index === 0 ? 0.25 : 0.6, padding: "2px 4px" }}>↑</button>
@@ -334,6 +339,11 @@ export default function CourseSetup({ setPage, course, userId }) {
   const [syllabusFileMsg, setSyllabusFileMsg] = useState(null);
   const syllabusFileRef = useRef(null);
 
+  // ── AI Suggest state ────────────────────────────────
+  const [suggestCategory, setSuggestCategory] = useState(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+
   // ── Load all data on mount ────────────────────────────
   useEffect(() => {
     if (!course?.id) { setLosLoading(false); setWeeksLoading(false); setAssignmentsLoading(false); return; }
@@ -367,9 +377,9 @@ export default function CourseSetup({ setPage, course, userId }) {
     return () => { cancelled = true; };
   }, [course?.id, course?.num_weeks]);
 
-  // ── LO handlers (unchanged from Stage 3) ──────────────
-  const persistOrder = useCallback(async (items) => {
-    const updates = items.map((lo, i) => ({ id: lo.id, sort_order: i, code: `LO${i + 1}` }));
+  // ── LO / Competency / Skill handlers (category-aware) ──
+  const persistOrder = useCallback(async (items, prefix) => {
+    const updates = items.map((lo, i) => ({ id: lo.id, sort_order: i, code: `${prefix}${i + 1}` }));
     try { await reorderLearningOutcomes(updates); } catch (e) { console.error("[CourseSetup] Reorder failed:", e.message); }
   }, []);
 
@@ -377,37 +387,100 @@ export default function CourseSetup({ setPage, course, userId }) {
     try { const updated = await updateLearningOutcome(loId, fields); setLos(prev => prev.map(lo => lo.id === loId ? updated : lo)); } catch (e) { console.error("[CourseSetup] LO save failed:", e.message); }
   }, []);
 
-  const handleLOMove = useCallback(async (fromIndex, direction) => {
-    const toIndex = fromIndex + direction;
+  const handleLOMove = useCallback(async (fromIndex, direction, category) => {
+    const prefix = CATEGORY_PREFIX[category] || 'LO';
     setLos(prev => {
-      const next = [...prev];
+      const catItems = prev.filter(lo => lo.category === category);
+      const otherItems = prev.filter(lo => lo.category !== category);
+      const toIndex = fromIndex + direction;
+      if (toIndex < 0 || toIndex >= catItems.length) return prev;
+      const next = [...catItems];
       [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
-      const renumbered = next.map((lo, i) => ({ ...lo, sort_order: i, code: `LO${i + 1}` }));
-      persistOrder(renumbered);
-      return renumbered;
+      const renumbered = next.map((lo, i) => ({ ...lo, sort_order: i, code: `${prefix}${i + 1}` }));
+      persistOrder(renumbered, prefix);
+      return [...otherItems, ...renumbered].sort((a, b) => {
+        const catOrder = { outcome: 0, competency: 1, skill: 2 };
+        return (catOrder[a.category] || 0) - (catOrder[b.category] || 0) || a.sort_order - b.sort_order;
+      });
     });
   }, [persistOrder]);
 
   const handleLODelete = useCallback(async (loId) => {
-    if (!window.confirm("Delete this outcome? It will be removed from any weeks or assignments it's tagged to.")) return;
+    if (!window.confirm("Delete this item? It will be removed from any weeks or assignments it's tagged to.")) return;
     try {
       await deleteLearningOutcome(loId);
       setLos(prev => {
+        const deleted = prev.find(lo => lo.id === loId);
+        const category = deleted?.category || 'outcome';
+        const prefix = CATEGORY_PREFIX[category] || 'LO';
         const remaining = prev.filter(lo => lo.id !== loId);
-        const renumbered = remaining.map((lo, i) => ({ ...lo, sort_order: i, code: `LO${i + 1}` }));
-        persistOrder(renumbered);
-        return renumbered;
+        const catItems = remaining.filter(lo => lo.category === category);
+        const otherItems = remaining.filter(lo => lo.category !== category);
+        const renumbered = catItems.map((lo, i) => ({ ...lo, sort_order: i, code: `${prefix}${i + 1}` }));
+        persistOrder(renumbered, prefix);
+        return [...otherItems, ...renumbered].sort((a, b) => {
+          const catOrder = { outcome: 0, competency: 1, skill: 2 };
+          return (catOrder[a.category] || 0) - (catOrder[b.category] || 0) || a.sort_order - b.sort_order;
+        });
       });
       setLoTags(prev => prev.filter(t => t.learning_outcome_id !== loId));
     } catch (e) { console.error("[CourseSetup] LO delete failed:", e.message); }
   }, [persistOrder]);
 
-  const handleAddLO = useCallback(async () => {
+  const handleAddItem = useCallback(async (category) => {
     if (!course?.id) return;
-    const sortOrder = los.length;
-    const code = `LO${sortOrder + 1}`;
-    try { const row = await insertLearningOutcome(course.id, { code, label: "", fullText: null, sortOrder }); setLos(prev => [...prev, row]); } catch (e) { console.error("[CourseSetup] Add LO failed:", e.message); }
-  }, [course?.id, los.length]);
+    const prefix = CATEGORY_PREFIX[category] || 'LO';
+    const catItems = los.filter(lo => lo.category === category);
+    const sortOrder = catItems.length;
+    const code = `${prefix}${sortOrder + 1}`;
+    try {
+      const row = await insertLearningOutcome(course.id, { code, label: "", fullText: null, sortOrder, category });
+      setLos(prev => [...prev, row]);
+    } catch (e) { console.error("[CourseSetup] Add item failed:", e.message); }
+  }, [course?.id, los]);
+
+  const handleSuggest = useCallback(async (category) => {
+    if (!course?.id) return;
+    setSuggestCategory(category);
+    setSuggestLoading(true);
+    setSuggestions([]);
+    try {
+      const catItems = los.filter(lo => lo.category === category);
+      const result = await suggestOutcomes({
+        category,
+        courseName: course.course_name,
+        courseCode: course.course_code,
+        assignments: assignments.map(a => ({ title: a.title, assignment_type: a.assignment_type, description: a.description })),
+        existingItems: catItems.map(lo => ({ code: lo.code, label: lo.label })),
+      });
+      setSuggestions((result || []).map(s => ({ ...s, accepted: true })));
+    } catch (e) {
+      console.error("[CourseSetup] Suggest failed:", e.message);
+      setSuggestions([]);
+    } finally {
+      setSuggestLoading(false);
+    }
+  }, [course?.id, course?.course_name, course?.course_code, los, assignments]);
+
+  const handleAcceptSuggestions = useCallback(async (category) => {
+    if (!course?.id) return;
+    const prefix = CATEGORY_PREFIX[category] || 'LO';
+    const catItems = los.filter(lo => lo.category === category);
+    let offset = catItems.length;
+    const accepted = suggestions.filter(s => s.accepted);
+    const newRows = [];
+    for (const s of accepted) {
+      const code = `${prefix}${offset + 1}`;
+      try {
+        const row = await insertLearningOutcome(course.id, { code, label: s.label, fullText: s.full_text || null, sortOrder: offset, category });
+        newRows.push(row);
+        offset++;
+      } catch (e) { console.error("[CourseSetup] Insert suggestion failed:", e.message); }
+    }
+    if (newRows.length) setLos(prev => [...prev, ...newRows]);
+    setSuggestCategory(null);
+    setSuggestions([]);
+  }, [course?.id, los, suggestions]);
 
   // ── Week handlers ─────────────────────────────────────
   const handleWeekSave = useCallback(async (weekId, fields) => {
@@ -651,17 +724,65 @@ export default function CourseSetup({ setPage, course, userId }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 640 }}>
 
-        {/* ── Learning Outcomes section (live) ── */}
+        {/* ── Outcomes & Skills section (live) ── */}
         <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, padding: "20px 22px" }}>
-          <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 17, color: CA_COLORS.navy, marginBottom: 14 }}>🎯 Learning Outcomes</div>
-          {losLoading && <div style={{ fontSize: 13, color: CA_COLORS.textSoft }}>Loading outcomes…</div>}
-          {!losLoading && los.length === 0 && <div style={{ fontSize: 13, color: CA_COLORS.textSoft, marginBottom: 10 }}>Add your course learning outcomes — these are the backbone everything else maps to.</div>}
-          {!losLoading && los.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {los.map((lo, i) => <LORow key={`${lo.id}-v${importVersion}`} lo={lo} index={i} total={los.length} onSave={handleLOSave} onMove={handleLOMove} onDelete={handleLODelete} />)}
-            </div>
-          )}
-          <button onClick={handleAddLO} style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 600, color: CA_COLORS.teal, background: "none", border: "none", cursor: "pointer", padding: "8px 0", textAlign: "left", marginTop: los.length > 0 ? 4 : 0 }}>+ Add outcome</button>
+          <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 17, color: CA_COLORS.navy, marginBottom: 14 }}>🎯 Outcomes & Skills</div>
+          {losLoading && <div style={{ fontSize: 13, color: CA_COLORS.textSoft }}>Loading…</div>}
+          {!losLoading && CATEGORIES.map(cat => {
+            const catItems = los.filter(lo => (lo.category || 'outcome') === cat.key);
+            const hasItems = catItems.length > 0;
+            return (
+              <div key={cat.key} style={{ marginBottom: 12 }}>
+                {hasItems && (
+                  <>
+                    <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 600, fontSize: 14, color: CA_COLORS.navy, marginBottom: 8, marginTop: 4 }}>{cat.label}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {catItems.map((lo, i) => (
+                        <LORow key={`${lo.id}-v${importVersion}`} lo={lo} index={i} total={catItems.length}
+                          onSave={handleLOSave} onMove={(idx, dir) => handleLOMove(idx, dir, cat.key)} onDelete={handleLODelete}
+                          placeholder={cat.placeholder} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: hasItems ? 4 : 0 }}>
+                  <button onClick={() => handleAddItem(cat.key)} style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 600, color: CA_COLORS.teal, background: "none", border: "none", cursor: "pointer", padding: "8px 0", textAlign: "left" }}>{cat.addLabel}</button>
+                  <button onClick={() => handleSuggest(cat.key)} disabled={suggestLoading && suggestCategory === cat.key}
+                    style={{ fontFamily: CA_FONTS.body, fontSize: 12, fontWeight: 600, color: CA_COLORS.navy, background: CA_COLORS.tealSoft, border: "none", borderRadius: 8, cursor: suggestLoading && suggestCategory === cat.key ? "wait" : "pointer", padding: "5px 12px", opacity: suggestLoading && suggestCategory === cat.key ? 0.6 : 1 }}>
+                    {suggestLoading && suggestCategory === cat.key ? "Thinking…" : `✨ ${cat.suggestLabel}`}
+                  </button>
+                </div>
+                {/* Inline suggestion review */}
+                {suggestCategory === cat.key && !suggestLoading && suggestions.length > 0 && (
+                  <div style={{ marginTop: 10, padding: "14px 16px", background: CA_COLORS.tealSoft, borderRadius: 10, border: `1px solid ${CA_COLORS.teal}22` }}>
+                    <div style={{ fontFamily: CA_FONTS.heading, fontSize: 13, fontWeight: 700, color: CA_COLORS.navy, marginBottom: 10 }}>AI Suggestions</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {suggestions.map((s, si) => (
+                        <label key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: CA_COLORS.navy, cursor: "pointer" }}>
+                          <input type="checkbox" checked={s.accepted} onChange={() => setSuggestions(prev => prev.map((x, xi) => xi === si ? { ...x, accepted: !x.accepted } : x))} style={{ accentColor: CA_COLORS.teal, marginTop: 3 }} />
+                          <div style={{ flex: 1 }}>
+                            <input value={s.label} onChange={e => setSuggestions(prev => prev.map((x, xi) => xi === si ? { ...x, label: e.target.value } : x))}
+                              style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 600, padding: "4px 8px", borderRadius: 6, border: `1px solid ${CA_COLORS.border}`, outline: "none", color: CA_COLORS.navy, background: "#fff", width: "100%" }} />
+                            {s.full_text && <div style={{ fontSize: 12, color: CA_COLORS.textSoft, marginTop: 2, lineHeight: 1.4 }}>{s.full_text}</div>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      <button onClick={() => handleAcceptSuggestions(cat.key)} disabled={!suggestions.some(s => s.accepted)}
+                        style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 700, background: CA_COLORS.teal, color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", cursor: "pointer", opacity: suggestions.some(s => s.accepted) ? 1 : 0.5 }}>
+                        Accept selected
+                      </button>
+                      <button onClick={() => { setSuggestCategory(null); setSuggestions([]); }}
+                        style={{ fontFamily: CA_FONTS.body, fontSize: 13, fontWeight: 600, background: "transparent", color: CA_COLORS.textSoft, border: `1px solid ${CA_COLORS.border}`, borderRadius: 8, padding: "7px 16px", cursor: "pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* ── Weeks section (live) ── */}

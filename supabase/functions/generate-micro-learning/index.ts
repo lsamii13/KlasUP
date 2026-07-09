@@ -569,6 +569,63 @@ ${instruction}
 
 Apply this change and return the complete updated slide array.`
 
+    } else if (type === 'suggest-outcomes') {
+      const { category, courseName, courseCode, assignments, existingItems } = body
+
+      if (!category || !['outcome', 'competency', 'skill'].includes(category)) {
+        return new Response(JSON.stringify({ error: 'category must be outcome, competency, or skill' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const categoryGuide: Record<string, string> = {
+        outcome: `Learning Outcomes — what students will be able to DO by the end of the course.
+Use Bloom's taxonomy action verbs (analyze, evaluate, create, apply, etc.).
+Each outcome should be measurable and course-level (not lesson-level).
+Example: "Evaluate the effectiveness of digital marketing campaigns using analytics data"`,
+        competency: `Professional Competencies — broader professional abilities the course develops.
+These are industry-aligned, transferable, and demonstrable over time.
+Example: "Critical Thinking", "Data Literacy", "Cross-cultural Communication"`,
+        skill: `Skills — specific, concrete, demonstrable capabilities students will gain.
+These are observable and often technical or applied.
+Example: "Build a pivot table in Excel", "Write a research abstract following APA format"`,
+      }
+
+      const existingList = (existingItems || []).map((item: { code: string; label: string }) => `${item.code}: ${item.label}`).join('\n') || '(none yet)'
+      const assignmentList = (assignments || []).map((a: { title: string; assignment_type: string; description?: string }) =>
+        `- ${a.title} (${a.assignment_type})${a.description ? ': ' + a.description.slice(0, 200) : ''}`
+      ).join('\n') || '(no assignments yet)'
+
+      systemPrompt = `You are KlasUp's Outcomes & Skills Advisor — an expert in curriculum alignment for higher education.
+
+Given a course's assignments and existing items, suggest 3-5 new ${category === 'outcome' ? 'learning outcomes' : category === 'competency' ? 'competencies' : 'skills'} that are clearly supported by the assignments but not yet listed.
+
+CATEGORY DEFINITION:
+${categoryGuide[category]}
+
+RULES:
+- Ground every suggestion in the actual assignments provided — do not invent generic items
+- Do not duplicate items already listed under "EXISTING"
+- Each suggestion must have a concise "label" (2-8 words) and a "full_text" (one complete sentence)
+- Return ONLY valid JSON — no markdown fences, no commentary
+
+Return a JSON array:
+[
+  { "label": "short label", "full_text": "complete statement" }
+]`
+      maxTokens = 1500
+
+      userMessage = `Course: ${courseName || '(unnamed)'}${courseCode ? ` (${courseCode})` : ''}
+
+EXISTING ${category === 'outcome' ? 'LEARNING OUTCOMES' : category === 'competency' ? 'COMPETENCIES' : 'SKILLS'}:
+${existingList}
+
+COURSE ASSIGNMENTS:
+${assignmentList}
+
+Suggest 3-5 new ${category === 'outcome' ? 'learning outcomes' : category === 'competency' ? 'competencies' : 'skills'} grounded in these assignments.`
+
     } else if (type === 'sage-chat') {
       const { messages, currentPage, courseName } = body
 
@@ -680,6 +737,11 @@ Analyze the assignment text above. For each of your 4 recommendations, identify 
     } else if (type === 'ppt-plan' || type === 'ppt-plan-update') {
       const slides = parseClaudeJSON(text)
       return new Response(JSON.stringify({ slides }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    } else if (type === 'suggest-outcomes') {
+      const suggestions = parseClaudeJSON(text)
+      return new Response(JSON.stringify({ suggestions }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } else {
