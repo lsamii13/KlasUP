@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PageHeader from "../components/PageHeader";
-import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback, addLoTag, removeLoTag, downloadDocument, updateAssignment } from "../supabase";
+import { insertCourse, fetchCourseWeeks, fetchAssignments, fetchLoTags, fetchLearningOutcomes, fetchUploads, fetchAssignmentFeedback, addLoTag, removeLoTag, downloadDocument, updateAssignment, supabase } from "../supabase";
+import { generateSyllabus } from "../anthropic";
+import { exportSyllabusDocx, printSyllabusPdf } from "../syllabusExport";
 import LoTagger from "../components/LoTagger";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from "docx";
 
@@ -1025,17 +1027,20 @@ async function exportCourseDocx(weeks, assignments, los, loTags, activeCourse) {
   anchor.click();
 }
 
-function ExportBar({ weeks, assignments, los, loTags, activeCourse }) {
+function ExportBar({ weeks, assignments, los, loTags, activeCourse, onGenerateSyllabus, syllabusLoading, syllabusError }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${CA_COLORS.border}`, borderRadius: 14, padding: "1.5rem", marginTop: "2.5rem" }}>
       <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 18, color: CA_COLORS.navy, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
         📤 Take it with you
       </div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <ExportButton label="📝 Generate Syllabus" featured onClick={onGenerateSyllabus} disabled={syllabusLoading} />
         <ExportButton label="⬇ CSV" onClick={() => exportCourseCSV(weeks, assignments, los, loTags, activeCourse)} />
         <ExportButton label="⬇ Word" onClick={() => exportCourseDocx(weeks, assignments, los, loTags, activeCourse)} />
         <ExportButton label="⬇ PDF" disabled />
         <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured disabled />
+        {syllabusLoading && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body }}>Generating syllabus…</span>}
+        {syllabusError && <span style={{ fontSize: 12, color: "#c53030", fontFamily: CA_FONTS.body }}>{syllabusError}</span>}
       </div>
     </div>
   );
@@ -1194,6 +1199,27 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
     });
     return () => { cancelled = true; };
   }, [activeCourse?.id, fetchKey]);
+
+  // ── Generate Syllabus ──────────────────────────────
+  const [syllabusGenLoading, setSyllabusGenLoading] = useState(false);
+  const [syllabusGenError, setSyllabusGenError] = useState(null);
+
+  const handleGenerateSyllabus = async () => {
+    if (!activeCourse?.id) return;
+    setSyllabusGenLoading(true);
+    setSyllabusGenError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const sections = await generateSyllabus({ courseId: activeCourse.id, accessToken: session?.access_token });
+      await exportSyllabusDocx(sections, activeCourse.course_name, activeCourse.semester_code);
+      printSyllabusPdf(sections, activeCourse.course_name, activeCourse.semester_code);
+    } catch (err) {
+      console.error("[CourseArchitect] Generate syllabus failed:", err.message);
+      setSyllabusGenError(err.message || "Something went wrong generating the syllabus.");
+    } finally {
+      setSyllabusGenLoading(false);
+    }
+  };
 
   // Helper: get LO codes for a given taggable
   const getLoCodesFor = useCallback((taggableType, taggableId) => {
@@ -1456,7 +1482,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
         )}
       </div>
 
-      <ExportBar weeks={weeks} assignments={assignments} los={los} loTags={loTags} activeCourse={activeCourse} />
+      <ExportBar weeks={weeks} assignments={assignments} los={los} loTags={loTags} activeCourse={activeCourse} onGenerateSyllabus={handleGenerateSyllabus} syllabusLoading={syllabusGenLoading} syllabusError={syllabusGenError} />
 
       {showAddModal && (
         <AddCourseModal onClose={() => setShowAddModal(false)} userId={userId}

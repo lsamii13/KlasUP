@@ -28,7 +28,7 @@ function useWindowWidth() {
 import Terms from "./Terms";
 import Logo, { LogoMark } from "./Logo";
 import VoiceMic from "./VoiceMic";
-import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan, sendSageChat, searchResearchArticles, embedAllArticles } from "./anthropic";
+import { generateMicroLearning, generateSemesterReflection, generateAssignmentDoc, updateAssignmentDoc, generatePptPlan, updatePptPlan, generateSyllabus, sendSageChat, searchResearchArticles, embedAllArticles } from "./anthropic";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } from "docx";
 import PptxGenJS from "pptxgenjs";
 import extractFileText from "./extractFileText";

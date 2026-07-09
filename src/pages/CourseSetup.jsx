@@ -7,7 +7,8 @@ import {
   fetchAssignments, insertAssignment, updateAssignment, deleteAssignment,
   fetchLoTags, addLoTag, removeLoTag, uploadDocument,
 } from "../supabase";
-import { suggestOutcomes } from "../anthropic";
+import { suggestOutcomes, generateSyllabus } from "../anthropic";
+import { exportSyllabusDocx, printSyllabusPdf } from "../syllabusExport";
 import SyllabusImportWizard from "../SyllabusImportWizard";
 import extractFileText from "../extractFileText";
 import { supabase } from "../supabase";
@@ -339,6 +340,28 @@ export default function CourseSetup({ setPage, course, userId }) {
   const [syllabusFileMsg, setSyllabusFileMsg] = useState(null);
   const syllabusFileRef = useRef(null);
 
+  // ── Generate Syllabus state ──────────────────────────
+  const [syllabusGenLoading, setSyllabusGenLoading] = useState(false);
+  const [syllabusGenError, setSyllabusGenError] = useState(null);
+
+  const handleGenerateSyllabus = async () => {
+    if (!course?.id) return;
+    setSyllabusGenLoading(true);
+    setSyllabusGenError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const sections = await generateSyllabus({ courseId: course.id, accessToken: session?.access_token });
+      // Trigger both downloads
+      await exportSyllabusDocx(sections, course.course_name, course.semester_code);
+      printSyllabusPdf(sections, course.course_name, course.semester_code);
+    } catch (err) {
+      console.error("[CourseSetup] Generate syllabus failed:", err.message);
+      setSyllabusGenError(err.message || "Something went wrong generating the syllabus.");
+    } finally {
+      setSyllabusGenLoading(false);
+    }
+  };
+
   // ── AI Suggest state ────────────────────────────────
   const [suggestCategory, setSuggestCategory] = useState(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -582,6 +605,18 @@ export default function CourseSetup({ setPage, course, userId }) {
               onMouseEnter={e => e.currentTarget.style.borderColor = CA_COLORS.teal}
               onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
             >📄 Import from syllabus</button>
+            <button onClick={handleGenerateSyllabus} disabled={syllabusGenLoading} style={{
+              background: syllabusGenLoading ? CA_COLORS.tealSoft : "none",
+              border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+              padding: "5px 12px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
+              color: syllabusGenLoading ? CA_COLORS.textSoft : CA_COLORS.teal,
+              cursor: syllabusGenLoading ? "default" : "pointer", whiteSpace: "nowrap", transition: "border-color 0.15s",
+              opacity: syllabusGenLoading ? 0.7 : 1,
+            }}
+              onMouseEnter={e => { if (!syllabusGenLoading) e.currentTarget.style.borderColor = CA_COLORS.teal; }}
+              onMouseLeave={e => e.currentTarget.style.borderColor = CA_COLORS.border}
+            >{syllabusGenLoading ? "Generating…" : "📝 Generate Syllabus"}</button>
+            {syllabusGenError && <span style={{ fontSize: 12, color: "#c53030" }}>{syllabusGenError}</span>}
             <input ref={syllabusFileRef} type="file" accept=".docx,.txt,.pptx,.pdf" style={{ display: "none" }} onChange={async (e) => {
               const file = e.target.files?.[0];
               e.target.value = "";

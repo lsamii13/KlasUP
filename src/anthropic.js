@@ -67,6 +67,28 @@ export async function sendSageChat({ messages, currentPage, courseName }) {
   return data.reply
 }
 
+// ── Generate Syllabus ───────────────────────────────────────
+
+export async function generateSyllabus({ courseId, accessToken }) {
+  const url = `${SUPABASE_URL}/functions/v1/generate-syllabus`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ course_id: courseId }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    throw new Error(err.error || `Edge Function error (${res.status})`)
+  }
+
+  const data = await res.json()
+  return data.sections
+}
+
 // ── RAG Knowledge Base ──────────────────────────────────────
 
 async function callRagFunction(body) {
