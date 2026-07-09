@@ -4150,8 +4150,9 @@ export default function KlasUp() {
                       if (!wellnessReflection.trim()) return;
                       setWellnessReflectionLoading(true);
                       try {
+                        const { data: { session: wellnessSession } } = await supabase.auth.getSession();
                         const data = await (await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-micro-learning`, {
-                          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+                          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${wellnessSession?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}` },
                           body: JSON.stringify({ type: "sage-chat", messages: [{ role: "user", content: `A faculty member reflected on supporting the whole student this week: "${wellnessReflection}"\n\nRespond with: (1) A warm, genuine 1-2 sentence acknowledgment of what they shared. (2) One specific, research-backed suggestion for next week. Keep it concise and encouraging. Use 🌿 sparingly.` }], currentPage: "Wellness" }),
                         })).json();
                         setWellnessReflectionResult(data.reply);

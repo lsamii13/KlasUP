@@ -1,15 +1,19 @@
+import { supabase } from "./supabase";
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 async function callEdgeFunction(body) {
   const url = `${SUPABASE_URL}/functions/v1/generate-micro-learning`
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Authorization': `Bearer ${token ?? SUPABASE_ANON_KEY}`,
   }
 
   console.log('[KlasUp] Edge Function URL:', url)
-  console.log('[KlasUp] Authorization header:', headers.Authorization ? `Bearer ${SUPABASE_ANON_KEY.slice(0, 10)}...` : 'MISSING')
+  console.log('[KlasUp] Authorization header:', headers.Authorization ? `Bearer ${(token ?? SUPABASE_ANON_KEY).slice(0, 10)}...` : 'MISSING')
   console.log('[KlasUp] VITE_SUPABASE_URL defined:', !!SUPABASE_URL)
   console.log('[KlasUp] VITE_SUPABASE_ANON_KEY defined:', !!SUPABASE_ANON_KEY)
 
