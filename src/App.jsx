@@ -821,14 +821,15 @@ export default function KlasUp() {
   const [historyExpanded, setHistoryExpanded] = useState({});
   const [lastSubmittedText, setLastSubmittedText] = useState(null);
   const [lastUploadId, setLastUploadId] = useState(null);
-  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyLoadingId, setApplyLoadingId] = useState(null);
   const [applyPreview, setApplyPreview] = useState(null);
   const [applyError, setApplyError] = useState(null);
-  const [applySaved, setApplySaved] = useState(false);
-  const [applySavedRevision, setApplySavedRevision] = useState(null);
+  const [appliedSet, setAppliedSet] = useState(new Set());
+  const [appliedRevisions, setAppliedRevisions] = useState(new Map());
+  const [appliedRecContext, setAppliedRecContext] = useState(null);
 
   async function handleApplyRecommendation(rec, originalText, uploadId) {
-    setApplyLoading(true);
+    setApplyLoadingId(rec.id ?? null);
     setApplyError(null);
     try {
       const revised = await updateAssignmentDoc({ currentDoc: originalText, instruction: rec.action });
@@ -842,7 +843,7 @@ export default function KlasUp() {
     } catch (err) {
       setApplyError("Couldn't generate the revision — try again or apply manually.");
     }
-    setApplyLoading(false);
+    setApplyLoadingId(null);
   }
 
   const [revisionCache, setRevisionCache] = useState({});
@@ -2705,7 +2706,9 @@ export default function KlasUp() {
             setLastSubmittedText(text);
             setApplyPreview(null);
             setApplyError(null);
-            setApplySaved(false);
+            setAppliedSet(new Set());
+            setAppliedRevisions(new Map());
+            setAppliedRecContext(null);
 
             // Persist upload to DB (with file metadata when a file was uploaded)
             const courseObj = dbCourses.find(c => c.course_code === course);
@@ -2728,6 +2731,7 @@ export default function KlasUp() {
                   const article = await fetchArticleById(rec.research_article_id);
                   return article ? { ...rec, article_title: article.title, article_url: article.url } : rec;
                 }));
+                // Show recommendations immediately (without DB ids)
                 setAiMicro(enriched);
                 setMyCourseFeedbackLoading(false);
                 if (typeof gtag === "function") gtag("event", "micro_learning_generated", { category: myCourseCategory });
@@ -2740,11 +2744,16 @@ export default function KlasUp() {
                     ...(prev[myCourseCategory] || []),
                   ],
                 }));
-                // Persist micro-learnings to DB
+                // Persist micro-learnings to DB and write real IDs back
                 if (session?.user && uploadRow) {
-                  enriched.forEach(rec => {
-                    insertMicroLearning(session.user.id, uploadRow.id, rec).catch(e => console.warn("Micro-learning DB insert failed:", e));
-                  });
+                  const rows = await Promise.all(
+                    enriched.map(rec =>
+                      insertMicroLearning(session.user.id, uploadRow.id, rec)
+                        .catch(e => { console.warn("Micro-learning DB insert failed:", e); return null; })
+                    )
+                  );
+                  const withIds = enriched.map((rec, i) => ({ ...rec, id: rows[i]?.id ?? null }));
+                  setAiMicro(withIds);
                 }
               })
               .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
@@ -2933,12 +2942,43 @@ export default function KlasUp() {
                           <span style={{ color: C.text }}>{m.action}</span>
                         </div>
                         <CopyBtn text={m.action} label="Copy" />
-                        {lastSubmittedText && (
-                          <button onClick={() => handleApplyRecommendation(m, lastSubmittedText, lastUploadId)}
-                            disabled={applyLoading}
-                            style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 12, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "6px 14px", cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.6 : 1 }}>
-                            {applyLoading ? "Applying..." : "Apply"}
-                          </button>
+                        {lastSubmittedText && !appliedSet.has(m.id) && (
+                          m.id ? (
+                            <button onClick={() => handleApplyRecommendation(m, lastSubmittedText, lastUploadId)}
+                              disabled={applyLoadingId === m.id}
+                              style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 12, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "6px 14px", cursor: applyLoadingId === m.id ? "default" : "pointer", opacity: applyLoadingId === m.id ? 0.6 : 1 }}>
+                              {applyLoadingId === m.id ? "Applying..." : "Apply"}
+                            </button>
+                          ) : (
+                            <button disabled
+                              style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 12, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "6px 14px", cursor: "default", opacity: 0.4 }}>
+                              Preparing…
+                            </button>
+                          )
+                        )}
+                        {appliedSet.has(m.id) && (
+                          <>
+                            <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>✓ Saved</span>
+                            <button onClick={() => {
+                              const rev = appliedRevisions.get(m.id);
+                              if (rev) {
+                                setAssignDocResult(rev.revisedContent);
+                                setAssignDocDesc(rev.changeSummary || "Revised assignment");
+                                setAppliedRecContext({ recIds: [m.id], source: "applied_recommendation" });
+                                setSageBuilderOpen(true);
+                              }
+                            }}
+                              style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 11, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+                              Open in Assignment Builder
+                            </button>
+                            {lastSubmittedText && (
+                              <button onClick={() => handleApplyRecommendation(m, lastSubmittedText, lastUploadId)}
+                                disabled={applyLoadingId === m.id}
+                                style={{ fontFamily: F.accent, fontWeight: 600, fontSize: 11, color: C.muted, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: applyLoadingId === m.id ? "default" : "pointer", opacity: applyLoadingId === m.id ? 0.6 : 1 }}>
+                                {applyLoadingId === m.id ? "Retrying..." : "Retry"}
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                       {applyError && (
@@ -2971,9 +3011,12 @@ export default function KlasUp() {
                             appliedRecommendationIds: appliedRecIds,
                             changeSummary,
                           });
-                          setApplySavedRevision({ revisedContent, changeSummary });
+                          const recId = appliedRecIds?.[0];
+                          if (recId) {
+                            setAppliedSet(prev => new Set(prev).add(recId));
+                            setAppliedRevisions(prev => new Map(prev).set(recId, { revisedContent, changeSummary }));
+                          }
                           setApplyPreview(null);
-                          setApplySaved(true);
                         } catch (err) {
                           alert("Save failed: " + err.message);
                         }
@@ -2984,6 +3027,7 @@ export default function KlasUp() {
                       <button onClick={() => {
                         setAssignDocResult(revisedContent);
                         setAssignDocDesc(changeSummary || "Revised assignment");
+                        setAppliedRecContext({ recIds: appliedRecIds || [], source: "applied_recommendation" });
                         setApplyPreview(null);
                         setSageBuilderOpen(true);
                       }}
@@ -6094,7 +6138,7 @@ export default function KlasUp() {
                 <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy }}>Assignment Builder</div>
                 <div style={{ color: C.muted, fontSize: 13 }}>Describe the assignment you have in mind and we will help you brainstorm. KlasUp will generate the full document when we are finished.</div>
               </div>
-              <button onClick={() => setSageBuilderOpen(false)}
+              <button onClick={() => { setSageBuilderOpen(false); setAppliedRecContext(null); }}
                 style={{ background: C.ivoryDark, border: "none", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: C.muted, flexShrink: 0 }}>
                 ✕
               </button>
@@ -6395,8 +6439,9 @@ export default function KlasUp() {
                                   meta: {
                                     generated_doc: assignDocResult,
                                     generated_at: new Date().toISOString(),
-                                    source: "pedagogy_studio",
+                                    source: appliedRecContext?.source || "pedagogy_studio",
                                     prompt: assignDocDesc,
+                                    ...(appliedRecContext?.recIds?.length ? { applied_recommendation_ids: appliedRecContext.recIds } : {}),
                                   },
                                 });
                                 setAssignDocSavedId(row.id);
