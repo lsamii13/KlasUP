@@ -2762,8 +2762,8 @@ export default function KlasUp() {
 
             {/* Assignment Builder entry point */}
             <button onClick={() => setSageBuilderOpen(true)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.sage, color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 16 }}>
-              Open Assignment Builder
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg, #1B2B4B 0%, #2A9D8F 100%)", color: C.white, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 16 }}>
+              Let's Brainstorm
             </button>
 
             {/* ── 1. FOCUSED INPUT AREA ── */}
