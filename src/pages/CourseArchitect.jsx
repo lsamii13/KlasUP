@@ -638,7 +638,7 @@ function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodes
     if (w.wellness_note) sections.push({ label: "🌿 Wellness note", text: w.wellness_note });
     const weekAssignments = assignments.filter(a => a.week_id === w.id);
     if (weekAssignments.length) sections.push({ label: "📝 Assignments", assignmentsList: weekAssignments });
-    const weekMaterials = uploads.filter(u => u.week === w.week_number);
+    const weekMaterials = uploads.filter(u => u.week === w.week_number && u.storage_path);
     if (weekMaterials.length) sections.push({ label: "📂 Materials", materials: weekMaterials });
     return { ...w, loCodes, sections };
   });
@@ -755,7 +755,7 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
   const [downloading, setDownloading] = useState(null);
   const [dlError, setDlError] = useState(null);
 
-  const courseUploads = uploads.filter(u => u.course_id === courseId);
+  const courseUploads = uploads.filter(u => u.course_id === courseId && u.storage_path);
   const decks = courseUploads.filter(u => u.category === "Slide Deck" || u.material_type === "slide_deck");
   const docs = courseUploads.filter(u => u.category !== "Slide Deck" && u.material_type !== "slide_deck");
 
