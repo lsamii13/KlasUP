@@ -826,6 +826,25 @@ export default function KlasUp() {
   const [applyError, setApplyError] = useState(null);
   const [applySaved, setApplySaved] = useState(false);
   const [applySavedRevision, setApplySavedRevision] = useState(null);
+
+  async function handleApplyRecommendation(rec, originalText, uploadId) {
+    setApplyLoading(true);
+    setApplyError(null);
+    try {
+      const revised = await updateAssignmentDoc({ currentDoc: originalText, instruction: rec.action });
+      setApplyPreview({
+        revisedContent: revised,
+        changeSummary: rec.title,
+        uploadId: uploadId,
+        originalContent: originalText,
+        appliedRecIds: rec.id ? [rec.id] : [],
+      });
+    } catch (err) {
+      setApplyError("Couldn't generate the revision — try again or apply manually.");
+    }
+    setApplyLoading(false);
+  }
+
   const [revisionCache, setRevisionCache] = useState({});
   const [revisionExpanded, setRevisionExpanded] = useState({});
   const [revisionViewOpen, setRevisionViewOpen] = useState({});
@@ -2886,73 +2905,51 @@ export default function KlasUp() {
               </Card>
             )}
 
-            {myCourseFeedback && !myCourseFeedbackLoading && (() => {
-              const m = myCourseFeedback;
-              const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
-              return (
-                <Card style={{ marginBottom: 20, borderLeft: `4px solid ${C.tealBright}`, animation: "slideIn 0.4s ease-out" }}>
-                  <style>{`@keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <Tag label={m.tag} color={tc.color} bg={tc.bg} />
-                    <span style={{ fontSize: 10, fontFamily: F.accent, color: C.muted }}>Just now · {myCourseCategory}</span>
-                  </div>
-                  <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 6 }}>{m.title}</div>
-                  <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.summary}</div>
-                  {(m.article_title || m.article) && (
-                  <div style={{ background: C.ivoryDark, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
-                    <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 3 }}>RESEARCH</div>
-                    <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>
-                      {m.article_url ? <a href={m.article_url} target="_blank" rel="noopener noreferrer" style={{ color: C.teal, textDecoration: "underline" }}>{m.article_title}</a> : (m.article_title || m.article)}
-                    </div>
-                  </div>
-                  )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 4, height: 28, background: C.tealBright, borderRadius: 2 }} />
-                    <div style={{ fontSize: 13, flex: 1 }}>
-                      <span style={{ color: C.tealBright, fontWeight: 700 }}>Try this: </span>
-                      <span style={{ color: C.text }}>{m.action}</span>
-                    </div>
-                    <CopyBtn text={m.action} label="Copy" />
-                    {lastSubmittedText && !applySaved && (
-                      <button onClick={async () => {
-                        setApplyLoading(true);
-                        setApplyError(null);
-                        try {
-                          const revised = await updateAssignmentDoc({ currentDoc: lastSubmittedText, instruction: m.action });
-                          setApplyPreview({ revisedContent: revised, changeSummary: m.title, uploadId: lastUploadId, originalContent: lastSubmittedText, appliedRecIds: m.id ? [m.id] : [] });
-                        } catch (err) {
-                          setApplyError("Couldn't generate the revision — try again or apply manually.");
-                        }
-                        setApplyLoading(false);
-                      }}
-                        disabled={applyLoading}
-                        style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 12, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "6px 14px", cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.6 : 1 }}>
-                        {applyLoading ? "Applying..." : "Apply"}
-                      </button>
-                    )}
-                    {applySaved && (
-                      <>
-                        <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>Saved</span>
-                        {applySavedRevision && (
-                          <button onClick={() => {
-                            setAssignDocResult(applySavedRevision.revisedContent);
-                            setAssignDocDesc(applySavedRevision.changeSummary || "Revised assignment");
-                            setSageBuilderOpen(true);
-                          }}
-                            style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 11, color: C.navy, background: C.ivoryDark, border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
-                            Open in Assignment Builder
+            {aiMicro.length > 0 && !myCourseFeedbackLoading && (
+              <>
+                <style>{`@keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                {aiMicro.map((m, idx) => {
+                  const tc = TAG_COLORS[m.tag] || { color: C.teal, bg: C.tealLight };
+                  return (
+                    <Card key={idx} style={{ marginBottom: 14, borderLeft: `4px solid ${C.tealBright}`, animation: "slideIn 0.4s ease-out", animationDelay: `${idx * 0.08}s`, animationFillMode: "backwards" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <Tag label={m.tag} color={tc.color} bg={tc.bg} />
+                        <span style={{ fontSize: 10, fontFamily: F.accent, color: C.muted }}>Just now · {myCourseCategory}</span>
+                      </div>
+                      <div style={{ fontFamily: F.display, fontSize: 18, color: C.navy, marginBottom: 6 }}>{m.title}</div>
+                      <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>{m.summary}</div>
+                      {(m.article_title || m.article) && (
+                      <div style={{ background: C.ivoryDark, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+                        <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginBottom: 3 }}>RESEARCH</div>
+                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>
+                          {m.article_url ? <a href={m.article_url} target="_blank" rel="noopener noreferrer" style={{ color: C.teal, textDecoration: "underline" }}>{m.article_title}</a> : (m.article_title || m.article)}
+                        </div>
+                      </div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 4, height: 28, background: C.tealBright, borderRadius: 2 }} />
+                        <div style={{ fontSize: 13, flex: 1 }}>
+                          <span style={{ color: C.tealBright, fontWeight: 700 }}>Try this: </span>
+                          <span style={{ color: C.text }}>{m.action}</span>
+                        </div>
+                        <CopyBtn text={m.action} label="Copy" />
+                        {lastSubmittedText && (
+                          <button onClick={() => handleApplyRecommendation(m, lastSubmittedText, lastUploadId)}
+                            disabled={applyLoading}
+                            style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 12, color: C.white, background: C.tealBright, border: "none", borderRadius: 8, padding: "6px 14px", cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.6 : 1 }}>
+                            {applyLoading ? "Applying..." : "Apply"}
                           </button>
                         )}
-                      </>
-                    )}
-                  </div>
-                  {applyError && (
-                    <div style={{ fontSize: 12, color: C.rose, marginTop: 8 }}>{applyError}</div>
-                  )}
-                  <StarRating ratingKey={`feedback-${Date.now()}`} />
-                </Card>
-              );
-            })()}
+                      </div>
+                      {applyError && (
+                        <div style={{ fontSize: 12, color: C.rose, marginTop: 8 }}>{applyError}</div>
+                      )}
+                      <StarRating ratingKey={`feedback-${idx}`} />
+                    </Card>
+                  );
+                })}
+              </>
+            )}
 
             {/* ── Apply Recommendation Preview Modal ── */}
             {applyPreview && (() => {
