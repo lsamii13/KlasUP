@@ -5,6 +5,7 @@ import { generateSyllabus } from "../anthropic";
 import { exportSyllabusDocx, printSyllabusPdf } from "../syllabusExport";
 import LoTagger from "../components/LoTagger";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from "docx";
+import JSZip from "jszip";
 
 const CA_COLORS = {
   navy: "#1B2B4B",
@@ -829,7 +830,7 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
   );
 }
 
-function ExportButton({ label, featured = false, onClick, disabled = false, comingSoon = false }) {
+function ExportButton({ label, featured = false, onClick, disabled = false, comingSoon = false, beta = false }) {
   const [hovered, setHovered] = useState(false);
   const isInactive = disabled || comingSoon;
   const base = featured
@@ -852,7 +853,7 @@ function ExportButton({ label, featured = false, onClick, disabled = false, comi
         cursor: isInactive ? "default" : "pointer", transition: "all 0.15s ease",
         opacity: isInactive ? 0.7 : 1,
       }}>
-      {label}{comingSoon && <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4, color: "#bbb" }}>(soon)</span>}
+      {label}{comingSoon && <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4, color: "#bbb" }}>(soon)</span>}{beta && <span style={{ fontSize: 9, fontWeight: 700, marginLeft: 6, letterSpacing: "0.5px", color: "#E89B7E" }}>BETA</span>}
     </button>
   );
 }
@@ -1028,6 +1029,197 @@ async function exportCourseDocx(weeks, assignments, los, loTags, activeCourse) {
   anchor.click();
 }
 
+// ── Common Cartridge 1.1 export (.imscc) ─────────────────
+function escapeXml(str) {
+  if (str == null) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function escapeHtml(str) {
+  if (str == null) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function wrapHtml(title, bodyHtml) {
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>
+<body>
+${bodyHtml}
+</body></html>`;
+}
+
+async function exportCourseImscc(weeks, assignments, los, loTags, activeCourse) {
+  const zip = new JSZip();
+  const safeWeeks = weeks || [];
+  const safeAssignments = assignments || [];
+  const safeLos = los || [];
+
+  const courseCode = activeCourse?.course_code || "course";
+  const courseName = activeCourse?.course_name || courseCode;
+  const termCode = activeCourse?.term_code || "";
+
+  // Build lookup maps
+  const weekMap = {};
+  for (const w of safeWeeks) weekMap[w.id] = w;
+  const asnByWeek = {};
+  for (const a of safeAssignments) {
+    const key = a.week_id || "__unassigned";
+    if (!asnByWeek[key]) asnByWeek[key] = [];
+    asnByWeek[key].push(a);
+  }
+
+  // Resource tracking for manifest
+  const resources = []; // { id, type, href }
+  const orgItems = [];  // top-level <item> XML strings
+  let resCounter = 0;
+  const rid = () => `i${String(++resCounter).padStart(4, "0")}`;
+
+  // ── 1. Learning Outcomes page ──────────────────────────
+  const loResId = rid();
+  const loPath = "pages/learning-outcomes.html";
+  const sortedLos = [...safeLos].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  let loBody = `<h1>Learning Outcomes</h1>\n`;
+  if (sortedLos.length === 0) {
+    loBody += `<p><em>No learning outcomes defined.</em></p>\n`;
+  } else {
+    loBody += `<table border="1" cellpadding="6" cellspacing="0">\n`;
+    loBody += `<tr><th>Code</th><th>Label</th><th>Description</th></tr>\n`;
+    for (const lo of sortedLos) {
+      loBody += `<tr><td>${escapeHtml(lo.code)}</td><td>${escapeHtml(lo.label)}</td><td>${escapeHtml(lo.full_text)}</td></tr>\n`;
+    }
+    loBody += `</table>\n`;
+  }
+  zip.file(loPath, wrapHtml("Learning Outcomes", loBody));
+  resources.push({ id: loResId, type: "webcontent", href: loPath });
+  orgItems.push(`      <item identifier="${loResId}_item" identifierref="${loResId}"><title>Learning Outcomes</title></item>`);
+
+  // ── 2. Week pages + Assignment pages ───────────────────
+  const sortedWeeks = [...safeWeeks].sort((a, b) => a.week_number - b.week_number);
+  for (const w of sortedWeeks) {
+    const weekResId = rid();
+    const weekPath = `pages/week-${w.week_number}.html`;
+    const weekAssignments = asnByWeek[w.id] || [];
+
+    // Build week HTML
+    let body = `<h1>Week ${w.week_number}${w.topic ? ": " + escapeHtml(w.topic) : ""}</h1>\n`;
+    if (w.is_milestone) body += `<p><strong>★ Milestone Week</strong></p>\n`;
+    if (w.detail) body += `<p>${escapeHtml(w.detail)}</p>\n`;
+    if (w.lecture_topic) body += `<h2>Lecture Topic</h2>\n<p>${escapeHtml(w.lecture_topic)}</p>\n`;
+    if (w.readings?.length) {
+      body += `<h2>Readings</h2>\n<ul>\n`;
+      for (const r of w.readings) body += `<li>${escapeHtml(r)}</li>\n`;
+      body += `</ul>\n`;
+    }
+    if (w.activities?.length) {
+      body += `<h2>In-Class Activities</h2>\n<ul>\n`;
+      for (const a of w.activities) body += `<li>${escapeHtml(a)}</li>\n`;
+      body += `</ul>\n`;
+    }
+    if (w.discussion_board) body += `<h2>Discussion Board</h2>\n<p>${escapeHtml(w.discussion_board)}</p>\n`;
+    if (w.wellness_note) body += `<h2>Wellness Note</h2>\n<p>${escapeHtml(w.wellness_note)}</p>\n`;
+
+    // Assignment links on week page
+    if (weekAssignments.length) {
+      body += `<h2>Assignments</h2>\n<ul>\n`;
+      for (const a of weekAssignments) {
+        body += `<li><a href="assignment-${a.id}.html">${escapeHtml(a.title || "Untitled")}</a>${a.assignment_type ? " (" + escapeHtml(a.assignment_type) + ")" : ""}${a.due_date ? " — Due: " + escapeHtml(a.due_date) : ""}</li>\n`;
+      }
+      body += `</ul>\n`;
+    }
+
+    zip.file(weekPath, wrapHtml(`Week ${w.week_number}`, body));
+    resources.push({ id: weekResId, type: "webcontent", href: weekPath });
+
+    // Build child items for this week's folder
+    const childItems = [];
+    childItems.push(`          <item identifier="${weekResId}_item" identifierref="${weekResId}"><title>Week ${w.week_number} Overview</title></item>`);
+
+    // Individual assignment pages
+    for (const a of weekAssignments) {
+      const asnResId = rid();
+      const asnPath = `pages/assignment-${a.id}.html`;
+      let aBody = `<h1>${escapeHtml(a.title || "Untitled")}</h1>\n`;
+      if (a.assignment_type) aBody += `<p><strong>Type:</strong> ${escapeHtml(a.assignment_type)}</p>\n`;
+      if (a.due_date) aBody += `<p><strong>Due:</strong> ${escapeHtml(a.due_date)}</p>\n`;
+      if (a.parent_assignment_id) {
+        const parent = safeAssignments.find(p => p.id === a.parent_assignment_id);
+        aBody += `<p><em>Scaffolded step of: ${escapeHtml(parent?.title || "Parent assignment")}</em></p>\n`;
+      }
+      if (a.description) aBody += `<h2>Description</h2>\n<p>${escapeHtml(a.description)}</p>\n`;
+      zip.file(asnPath, wrapHtml(a.title || "Assignment", aBody));
+      resources.push({ id: asnResId, type: "webcontent", href: asnPath });
+      childItems.push(`          <item identifier="${asnResId}_item" identifierref="${asnResId}"><title>${escapeXml(a.title || "Untitled")}</title></item>`);
+    }
+
+    const weekTitle = `Week ${w.week_number}${w.topic ? ": " + escapeXml(w.topic) : ""}`;
+    orgItems.push(`      <item identifier="week_${w.week_number}_folder">\n        <title>${weekTitle}</title>\n${childItems.join("\n")}\n      </item>`);
+  }
+
+  // ── 3. Unassigned assignments ──────────────────────────
+  const unassigned = asnByWeek["__unassigned"] || [];
+  if (unassigned.length) {
+    const unChildItems = [];
+    for (const a of unassigned) {
+      const asnResId = rid();
+      const asnPath = `pages/assignment-${a.id}.html`;
+      let aBody = `<h1>${escapeHtml(a.title || "Untitled")}</h1>\n`;
+      if (a.assignment_type) aBody += `<p><strong>Type:</strong> ${escapeHtml(a.assignment_type)}</p>\n`;
+      if (a.due_date) aBody += `<p><strong>Due:</strong> ${escapeHtml(a.due_date)}</p>\n`;
+      if (a.parent_assignment_id) {
+        const parent = safeAssignments.find(p => p.id === a.parent_assignment_id);
+        aBody += `<p><em>Scaffolded step of: ${escapeHtml(parent?.title || "Parent assignment")}</em></p>\n`;
+      }
+      if (a.description) aBody += `<h2>Description</h2>\n<p>${escapeHtml(a.description)}</p>\n`;
+      zip.file(asnPath, wrapHtml(a.title || "Assignment", aBody));
+      resources.push({ id: asnResId, type: "webcontent", href: asnPath });
+      unChildItems.push(`          <item identifier="${asnResId}_item" identifierref="${asnResId}"><title>${escapeXml(a.title || "Untitled")}</title></item>`);
+    }
+    orgItems.push(`      <item identifier="unassigned_folder">\n        <title>Unassigned</title>\n${unChildItems.join("\n")}\n      </item>`);
+  }
+
+  // ── 4. Build imsmanifest.xml ───────────────────────────
+  const resourcesXml = resources.map(r =>
+    `    <resource identifier="${r.id}" type="webcontent" href="${r.href}">\n      <file href="${r.href}" />\n    </resource>`
+  ).join("\n");
+
+  const manifest = `<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="klasup_${escapeXml(courseCode)}"
+  xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1"
+  xmlns:lom="http://ltsc.ieee.org/xsd/imsccv1p1/LOM/resource"
+  xmlns:lomimscc="http://ltsc.ieee.org/xsd/imsccv1p1/LOM/manifest"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1 http://www.imsglobal.org/profile/cc/ccv1p1/ccv1p1_imscp_v1p2_v1p0.xsd http://ltsc.ieee.org/xsd/imsccv1p1/LOM/resource http://www.imsglobal.org/profile/cc/ccv1p1/LOM/ccv1p1_lomresource_v1p0.xsd http://ltsc.ieee.org/xsd/imsccv1p1/LOM/manifest http://www.imsglobal.org/profile/cc/ccv1p1/LOM/ccv1p1_lommanifest_v1p0.xsd">
+  <metadata>
+    <schema>IMS Common Cartridge</schema>
+    <schemaversion>1.1.0</schemaversion>
+    <lomimscc:lom>
+      <lomimscc:general>
+        <lomimscc:title><lomimscc:string language="en-US">${escapeXml(courseName)}${termCode ? " — " + escapeXml(termCode) : ""}</lomimscc:string></lomimscc:title>
+      </lomimscc:general>
+    </lomimscc:lom>
+  </metadata>
+  <organizations>
+    <organization identifier="org_1" structure="rooted-hierarchy">
+      <item identifier="root">
+${orgItems.join("\n")}
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+${resourcesXml}
+  </resources>
+</manifest>`;
+
+  zip.file("imsmanifest.xml", manifest);
+
+  // ── 5. Download ────────────────────────────────────────
+  const blob = await zip.generateAsync({ type: "blob", mimeType: "application/zip" });
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = `${courseCode.replace(/\s+/g, "-")}-klasup.imscc`;
+  anchor.click();
+}
+
 function ExportBar({ weeks, assignments, los, loTags, activeCourse, onGenerateSyllabus, syllabusLoading, syllabusError }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${CA_COLORS.border}`, borderRadius: 14, padding: "1.5rem", marginTop: "2.5rem" }}>
@@ -1036,12 +1228,15 @@ function ExportBar({ weeks, assignments, los, loTags, activeCourse, onGenerateSy
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <ExportButton label="📝 Generate Syllabus" featured onClick={onGenerateSyllabus} disabled={syllabusLoading} />
-        <ExportButton label="⬇ CSV" onClick={() => exportCourseCSV(weeks, assignments, los, loTags, activeCourse)} />
-        <ExportButton label="⬇ Word" onClick={() => exportCourseDocx(weeks, assignments, los, loTags, activeCourse)} />
+        <ExportButton label="⬇ CSV" featured onClick={() => exportCourseCSV(weeks, assignments, los, loTags, activeCourse)} />
+        <ExportButton label="⬇ Word" featured onClick={() => exportCourseDocx(weeks, assignments, los, loTags, activeCourse)} />
         <ExportButton label="⬇ PDF" comingSoon />
-        <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured comingSoon />
+        <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured beta onClick={() => exportCourseImscc(weeks, assignments, los, loTags, activeCourse)} />
         {syllabusLoading && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body }}>Generating syllabus…</span>}
         {syllabusError && <span style={{ fontSize: 12, color: "#c53030", fontFamily: CA_FONTS.body }}>{syllabusError}</span>}
+      </div>
+      <div style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body, marginTop: 10, lineHeight: 1.5 }}>
+        Fresh out of the oven. This downloads a universal course file for Canvas, Brightspace, Moodle, or Blackboard. We'd love to hear how the import goes.
       </div>
     </div>
   );
