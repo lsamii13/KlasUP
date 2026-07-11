@@ -1223,20 +1223,19 @@ ${resourcesXml}
 function ExportBar({ weeks, assignments, los, loTags, activeCourse, onGenerateSyllabus, syllabusLoading, syllabusError }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${CA_COLORS.border}`, borderRadius: 14, padding: "1.5rem", marginTop: "2.5rem" }}>
-      <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 18, color: CA_COLORS.navy, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
+      <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 18, color: CA_COLORS.navy, letterSpacing: "-0.01em", marginBottom: 6 }}>
         📤 Take it with you
+      </div>
+      <div style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body, lineHeight: 1.5, marginBottom: 14 }}>
+        New: <span style={{ color: CA_COLORS.navy, fontWeight: 600 }}>Export to LMS</span> is fresh out of the oven. It downloads a universal course file for Canvas, Brightspace, Moodle, or Blackboard. We'd love to hear how the import goes.
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <ExportButton label="📝 Generate Syllabus" featured onClick={onGenerateSyllabus} disabled={syllabusLoading} />
         <ExportButton label="⬇ CSV" featured onClick={() => exportCourseCSV(weeks, assignments, los, loTags, activeCourse)} />
         <ExportButton label="⬇ Word" featured onClick={() => exportCourseDocx(weeks, assignments, los, loTags, activeCourse)} />
-        <ExportButton label="⬇ PDF" comingSoon />
         <ExportButton label="🚀 Export to LMS (Common Cartridge)" featured beta onClick={() => exportCourseImscc(weeks, assignments, los, loTags, activeCourse)} />
         {syllabusLoading && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body }}>Generating syllabus…</span>}
         {syllabusError && <span style={{ fontSize: 12, color: "#c53030", fontFamily: CA_FONTS.body }}>{syllabusError}</span>}
-      </div>
-      <div style={{ fontSize: 12, color: CA_COLORS.textSoft, fontFamily: CA_FONTS.body, marginTop: 10, lineHeight: 1.5 }}>
-        Fresh out of the oven. This downloads a universal course file for Canvas, Brightspace, Moodle, or Blackboard. We'd love to hear how the import goes.
       </div>
     </div>
   );
