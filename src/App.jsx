@@ -46,7 +46,7 @@ import {
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension, fetchArticleById,
   insertUpload, fetchUploads, uploadDocument,
-  insertAssignment, fetchCourseWeeks,
+  insertAssignment, updateAssignment, fetchCourseWeeks,
   fetchLearningOutcomes,
   insertMicroLearning, fetchMicroLearnings, insertRevision, getRevisions,
   upsertReflection, fetchReflection,
@@ -6314,19 +6314,21 @@ export default function KlasUp() {
                           </button>
                           <button
                             onClick={() => {
-                              let guessTitle = "";
-                              if (assignDocResult) {
-                                const lines = assignDocResult.split("\n");
-                                let foundHeader = false;
-                                for (const line of lines) {
-                                  const t = line.trim();
-                                  if (/^ASSIGNMENT\s+TITLE/i.test(t)) { foundHeader = true; continue; }
-                                  if (foundHeader && t && !/^[A-Z][A-Z &/\-:()]{4,}$/.test(t)) { guessTitle = t; break; }
+                              if (!assignDocSavedId) {
+                                let guessTitle = "";
+                                if (assignDocResult) {
+                                  const lines = assignDocResult.split("\n");
+                                  let foundHeader = false;
+                                  for (const line of lines) {
+                                    const t = line.trim();
+                                    if (/^ASSIGNMENT\s+TITLE/i.test(t)) { foundHeader = true; continue; }
+                                    if (foundHeader && t && !/^[A-Z][A-Z &/\-:()]{4,}$/.test(t)) { guessTitle = t; break; }
+                                  }
                                 }
+                                if (!guessTitle) guessTitle = (assignDocDesc || "").slice(0, 80);
+                                setAssignDocSaveTitle(guessTitle);
+                                setAssignDocSaveWeekId(null);
                               }
-                              if (!guessTitle) guessTitle = (assignDocDesc || "").slice(0, 80);
-                              setAssignDocSaveTitle(guessTitle);
-                              setAssignDocSaveWeekId(null);
                               setAssignDocSaveError(null);
                               const courseObj = dbCourses.find(c => c.course_code === course);
                               if (courseObj) {
@@ -6336,16 +6338,16 @@ export default function KlasUp() {
                               }
                               setAssignDocSaveOpen(true);
                             }}
-                            disabled={!!assignDocSavedId}
+                            disabled={assignDocSaving}
                             style={{
                               fontSize: 12, fontFamily: F.accent, fontWeight: 700,
                               color: assignDocSavedId ? C.sage : C.white,
                               background: assignDocSavedId ? C.sageLight : C.sage,
                               border: assignDocSavedId ? `1px solid ${C.sage}44` : "none",
                               borderRadius: 8, padding: "4px 12px",
-                              cursor: assignDocSavedId ? "default" : "pointer",
+                              cursor: assignDocSaving ? "default" : "pointer",
                             }}>
-                            {assignDocSavedId ? "Saved ✓" : "Save to Course"}
+                            {assignDocSavedId ? "Update Saved Copy" : "Save to Course"}
                           </button>
                         </div>
                       </div>
@@ -6431,20 +6433,31 @@ export default function KlasUp() {
                               setAssignDocSaving(true);
                               setAssignDocSaveError(null);
                               try {
-                                const row = await insertAssignment(courseObj.id, {
-                                  title: assignDocSaveTitle.trim(),
-                                  assignmentType: assignType.length ? assignType.join(" / ") : "Other",
-                                  description: assignDocDesc || null,
-                                  weekId: assignDocSaveWeekId || null,
-                                  meta: {
-                                    generated_doc: assignDocResult,
-                                    generated_at: new Date().toISOString(),
-                                    source: appliedRecContext?.source || "pedagogy_studio",
-                                    prompt: assignDocDesc,
-                                    ...(appliedRecContext?.recIds?.length ? { applied_recommendation_ids: appliedRecContext.recIds } : {}),
-                                  },
-                                });
-                                setAssignDocSavedId(row.id);
+                                const metaObj = {
+                                  generated_doc: assignDocResult,
+                                  generated_at: new Date().toISOString(),
+                                  source: appliedRecContext?.source || "pedagogy_studio",
+                                  prompt: assignDocDesc,
+                                  ...(appliedRecContext?.recIds?.length ? { applied_recommendation_ids: appliedRecContext.recIds } : {}),
+                                };
+                                if (assignDocSavedId) {
+                                  await updateAssignment(assignDocSavedId, {
+                                    title: assignDocSaveTitle.trim(),
+                                    assignment_type: assignType.length ? assignType.join(" / ") : "Other",
+                                    description: assignDocDesc || null,
+                                    week_id: assignDocSaveWeekId || null,
+                                    meta: metaObj,
+                                  });
+                                } else {
+                                  const row = await insertAssignment(courseObj.id, {
+                                    title: assignDocSaveTitle.trim(),
+                                    assignmentType: assignType.length ? assignType.join(" / ") : "Other",
+                                    description: assignDocDesc || null,
+                                    weekId: assignDocSaveWeekId || null,
+                                    meta: metaObj,
+                                  });
+                                  setAssignDocSavedId(row.id);
+                                }
                                 setAssignDocSaveOpen(false);
                                 setArchitectRefreshKey(k => k + 1);
                               } catch (err) {
