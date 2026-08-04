@@ -266,6 +266,96 @@ function exportAssignmentPdf(item, weekLabel) {
   w.print();
 }
 
+// ── AssignmentEditPanel (reusable edit form) ────────────
+function AssignmentEditPanel({ item, weeks, onSaved, onCancel, showBorderBottom = true }) {
+  const [editForm, setEditForm] = useState({
+    title: item.title || "", assignment_type: item.assignment_type || "",
+    description: item.description || "", due_date: item.due_date || "",
+    week_id: item.week_id || "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMsg, setEditMsg] = useState(null);
+
+  return (
+    <div style={{
+      padding: "0.75rem 1.5rem 1rem 1.5rem",
+      background: CA_COLORS.ivory,
+      borderBottom: showBorderBottom ? "1px solid #f5f1ea" : "none",
+    }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>TITLE</div>
+          <input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+            style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 14, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }} />
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>TYPE</div>
+            <input value={editForm.assignment_type} onChange={e => setEditForm(f => ({ ...f, assignment_type: e.target.value }))}
+              style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>DUE DATE</div>
+            <input value={editForm.due_date} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+              style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>WEEK</div>
+            <select value={editForm.week_id} onChange={e => setEditForm(f => ({ ...f, week_id: e.target.value || null }))}
+              style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }}>
+              <option value="">No week</option>
+              {weeks.map(w => <option key={w.id} value={w.id}>Week {w.week_number}{w.topic ? ` - ${w.topic}` : ""}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>DESCRIPTION</div>
+          <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={5}
+            style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 14, padding: "8px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }} />
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button disabled={editSaving} onClick={async (e) => {
+            e.stopPropagation(); setEditSaving(true); setEditMsg(null);
+            try {
+              await updateAssignment(item.id, {
+                title: editForm.title,
+                assignment_type: editForm.assignment_type,
+                description: editForm.description,
+                due_date: editForm.due_date,
+                week_id: editForm.week_id || null,
+              });
+              setEditMsg({ ok: true, text: "Saved" });
+              setTimeout(() => { if (onSaved) onSaved(); }, 1000);
+            } catch (err) {
+              console.error("Edit assignment failed:", err);
+              setEditMsg({ ok: false, text: err.message || "Save failed. Please try again." });
+            } finally { setEditSaving(false); }
+          }}
+            style={{
+              background: editSaving ? CA_COLORS.textSoft : CA_COLORS.teal, color: "#fff", border: "none", borderRadius: 8,
+              padding: "6px 16px", fontSize: 12, fontWeight: 700, fontFamily: CA_FONTS.body,
+              cursor: editSaving ? "default" : "pointer", opacity: editSaving ? 0.6 : 1,
+            }}>
+            {editSaving ? "Saving..." : "Save"}
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); if (onCancel) onCancel(); }}
+            style={{
+              background: "transparent", color: CA_COLORS.textSoft, border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+              padding: "6px 12px", fontSize: 12, fontWeight: 700, fontFamily: CA_FONTS.body, cursor: "pointer",
+            }}>
+            Cancel
+          </button>
+          {editMsg && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: editMsg.ok ? CA_COLORS.teal : "#C0392B" }}>
+              {editMsg.ok ? "✓" : "✗"} {editMsg.text}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── AssignmentsView (real data) ─────────────────────────
 function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPedagogy, feedbackByAssignment = {}, los, loTags, onTagAdd, onTagRemove, onRefresh }) {
   const [hoveredKey, setHoveredKey] = useState(null);
@@ -273,9 +363,6 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
   const [expandedView, setExpandedView] = useState({});
   const [copiedId, setCopiedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
-  const [editSaving, setEditSaving] = useState(false);
-  const [editMsg, setEditMsg] = useState(null);
   const [exportOpenId, setExportOpenId] = useState(null);
 
   if (assignments.length === 0) return <EmptyDataState text="No assignments yet — open Course Setup to add them." />;
@@ -377,11 +464,9 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (editingId === item.id) { setEditingId(null); setEditMsg(null); }
+                      if (editingId === item.id) { setEditingId(null); }
                       else {
                         setEditingId(item.id);
-                        setEditForm({ title: item.title || "", assignment_type: item.assignment_type || "", description: item.description || "", due_date: item.due_date || "", week_id: item.week_id || "" });
-                        setEditMsg(null);
                         setExpandedView(prev => ({ ...prev, [item.id]: false }));
                       }
                     }}
@@ -483,82 +568,13 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                 )}
                 {/* Edit expand panel */}
                 {editingId === item.id && (
-                  <div style={{
-                    padding: "0.75rem 1.5rem 1rem 1.5rem",
-                    background: CA_COLORS.ivory,
-                    borderBottom: j < group.items.length - 1 ? "1px solid #f5f1ea" : "none",
-                  }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div>
-                        <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>TITLE</div>
-                        <input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-                          style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 14, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }} />
-                      </div>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <div style={{ flex: 1, minWidth: 140 }}>
-                          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>TYPE</div>
-                          <input value={editForm.assignment_type} onChange={e => setEditForm(f => ({ ...f, assignment_type: e.target.value }))}
-                            style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 140 }}>
-                          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>DUE DATE</div>
-                          <input value={editForm.due_date} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
-                            style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 140 }}>
-                          <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>WEEK</div>
-                          <select value={editForm.week_id} onChange={e => setEditForm(f => ({ ...f, week_id: e.target.value || null }))}
-                            style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", boxSizing: "border-box" }}>
-                            <option value="">No week</option>
-                            {weeks.map(w => <option key={w.id} value={w.id}>Week {w.week_number}{w.topic ? ` - ${w.topic}` : ""}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 9, fontFamily: CA_FONTS.heading, color: CA_COLORS.textSoft, fontWeight: 700, letterSpacing: "0.5px", marginBottom: 3 }}>DESCRIPTION</div>
-                        <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={5}
-                          style={{ width: "100%", fontFamily: CA_FONTS.body, fontSize: 14, padding: "8px 10px", borderRadius: 8, border: `1px solid ${CA_COLORS.border}`, background: "#fff", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }} />
-                      </div>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <button disabled={editSaving} onClick={async (e) => {
-                          e.stopPropagation(); setEditSaving(true); setEditMsg(null);
-                          try {
-                            await updateAssignment(item.id, {
-                              title: editForm.title,
-                              assignment_type: editForm.assignment_type,
-                              description: editForm.description,
-                              due_date: editForm.due_date,
-                              week_id: editForm.week_id || null,
-                            });
-                            setEditMsg({ ok: true, text: "Saved" });
-                            setTimeout(() => { setEditingId(null); setEditMsg(null); if (onRefresh) onRefresh(); }, 1000);
-                          } catch (err) {
-                            console.error("Edit assignment failed:", err);
-                            setEditMsg({ ok: false, text: err.message || "Save failed. Please try again." });
-                          } finally { setEditSaving(false); }
-                        }}
-                          style={{
-                            background: editSaving ? CA_COLORS.textSoft : CA_COLORS.teal, color: "#fff", border: "none", borderRadius: 8,
-                            padding: "6px 16px", fontSize: 12, fontWeight: 700, fontFamily: CA_FONTS.body,
-                            cursor: editSaving ? "default" : "pointer", opacity: editSaving ? 0.6 : 1,
-                          }}>
-                          {editSaving ? "Saving..." : "Save"}
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); setEditingId(null); setEditMsg(null); }}
-                          style={{
-                            background: "transparent", color: CA_COLORS.textSoft, border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
-                            padding: "6px 12px", fontSize: 12, fontWeight: 700, fontFamily: CA_FONTS.body, cursor: "pointer",
-                          }}>
-                          Cancel
-                        </button>
-                        {editMsg && (
-                          <span style={{ fontSize: 12, fontWeight: 600, color: editMsg.ok ? CA_COLORS.teal : "#C0392B" }}>
-                            {editMsg.ok ? "✓" : "✗"} {editMsg.text}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <AssignmentEditPanel
+                    item={item}
+                    weeks={weeks}
+                    onSaved={() => { setEditingId(null); if (onRefresh) onRefresh(); }}
+                    onCancel={() => { setEditingId(null); }}
+                    showBorderBottom={j < group.items.length - 1}
+                  />
                 )}
                 {isExpanded && recs.length > 0 && (
                   <div style={{
