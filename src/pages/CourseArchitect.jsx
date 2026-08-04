@@ -625,9 +625,10 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
 }
 
 // ── DetailsView (real data — deep layer) ────────────────
-function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodesFor, onOpenInSlideStudio }) {
+function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodesFor, onOpenInSlideStudio, onRefresh }) {
   const [dlLoading, setDlLoading] = useState(null);
   const [dlError, setDlError] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
   const handleDownload = async (item) => {
     if (!item.storage_path) return;
@@ -735,8 +736,33 @@ function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodes
                       const meta = [a.assignment_type, a.due_date ? `Due: ${a.due_date}` : null].filter(Boolean).join(" · ");
                       return (
                         <li key={a.id} style={{ fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.navy, lineHeight: 1.6, marginBottom: 4 }}>
-                          <span style={{ fontWeight: 700 }}>{a.title || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Untitled</span>}</span>
-                          {meta && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, marginLeft: 8 }}>{meta}</span>}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ flex: 1 }}>
+                              <span style={{ fontWeight: 700 }}>{a.title || <span style={{ color: CA_COLORS.textSoft, fontWeight: 400, fontStyle: "italic" }}>Untitled</span>}</span>
+                              {meta && <span style={{ fontSize: 12, color: CA_COLORS.textSoft, marginLeft: 8 }}>{meta}</span>}
+                            </span>
+                            <button
+                              onClick={() => setEditingId(editingId === a.id ? null : a.id)}
+                              style={{
+                                display: "inline-flex", alignItems: "center", gap: 4,
+                                background: editingId === a.id ? CA_COLORS.tealSoft : "none",
+                                border: `1px solid ${editingId === a.id ? CA_COLORS.teal : CA_COLORS.border}`, borderRadius: 8,
+                                padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: CA_FONTS.body,
+                                color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap",
+                                transition: "all 0.15s",
+                              }}>
+                              ✏️ Edit
+                            </button>
+                          </div>
+                          {editingId === a.id && (
+                            <AssignmentEditPanel
+                              item={a}
+                              weeks={weeks}
+                              onSaved={() => { setEditingId(null); if (onRefresh) onRefresh(); }}
+                              onCancel={() => { setEditingId(null); }}
+                              showBorderBottom={false}
+                            />
+                          )}
                         </li>
                       );
                     })}
@@ -1687,7 +1713,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
           <>
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} onRefresh={() => setFetchKey(k => k + 1)} />}
-            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onOpenInSlideStudio={onOpenInSlideStudio} />}
+            {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onOpenInSlideStudio={onOpenInSlideStudio} onRefresh={() => setFetchKey(k => k + 1)} />}
             {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} onOpenInSlideStudio={onOpenInSlideStudio} />}
           </>
         )}
