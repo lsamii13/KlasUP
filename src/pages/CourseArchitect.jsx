@@ -804,7 +804,7 @@ function KlasUpBadge() {
   );
 }
 
-function MaterialsView({ uploads, courseId, onOpenInSlideStudio, assignments, weeks }) {
+function MaterialsView({ uploads, courseId, onOpenInSlideStudio, assignments, weeks, onOpenAssignmentBuilder }) {
   const [downloading, setDownloading] = useState(null);
   const [dlError, setDlError] = useState(null);
   const [viewItem, setViewItem] = useState(null);
@@ -906,6 +906,17 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio, assignments, we
               cursor: "pointer",
             }}>
             View
+          </button>
+        )}
+        {item.kind === "generated" && !item.content && onOpenAssignmentBuilder && (
+          <button onClick={() => onOpenAssignmentBuilder(item.raw)}
+            style={{
+              fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
+              color: CA_COLORS.teal, background: "transparent",
+              border: `1px solid ${CA_COLORS.teal}`, borderRadius: 8, padding: "6px 14px",
+              cursor: "pointer",
+            }}>
+            Build this
           </button>
         )}
         {dlError === item.id && <span style={{ fontSize: 11, color: "#C0392B", fontWeight: 600 }}>Failed</span>}
@@ -1811,7 +1822,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} onRefresh={() => setFetchKey(k => k + 1)} />}
             {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onOpenInSlideStudio={onOpenInSlideStudio} onRefresh={() => setFetchKey(k => k + 1)} />}
-            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} onOpenInSlideStudio={onOpenInSlideStudio} assignments={assignments} weeks={weeks} />}
+            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} onOpenInSlideStudio={onOpenInSlideStudio} assignments={assignments} weeks={weeks} onOpenAssignmentBuilder={onOpenAssignmentBuilder} />}
           </>
         )}
       </div>

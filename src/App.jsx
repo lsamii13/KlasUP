@@ -866,6 +866,7 @@ export default function KlasUp() {
   const [assignDocSaving, setAssignDocSaving] = useState(false);
   const [architectRefreshKey, setArchitectRefreshKey] = useState(0);
   const [assignDocSaveError, setAssignDocSaveError] = useState(null);
+  const [assignDocBoundToExisting, setAssignDocBoundToExisting] = useState(false);
 
   // --- PowerPoint Planner state ---
   const [pptDesc, setPptDesc] = useState("");
@@ -915,6 +916,10 @@ export default function KlasUp() {
       .then(los => { setBuilderLos(los || []); setSelectedOutcomes([]); })
       .catch(() => { setBuilderLos([]); setSelectedOutcomes([]); });
   }, [sageBuilderOpen, course]);
+
+  useEffect(() => {
+    if (!sageBuilderOpen) setAssignDocBoundToExisting(false);
+  }, [sageBuilderOpen]);
 
   // --- Supabase courses ---
   const [dbCourses, setDbCourses] = useState([]);
@@ -4037,7 +4042,7 @@ export default function KlasUp() {
 
         {/* ── COURSE ARCHITECT ── */}
         {page === "Course Architect" && (
-          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenInSlideStudio={handleOpenInSlideStudio} onOpenAssignmentBuilder={() => setSageBuilderOpen(true)} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} refreshKey={architectRefreshKey} />
+          <CourseArchitect setPage={setPage} courses={dbCourses} activeCourseId={activeCourseId} onSetActiveCourse={handleSetActiveCourse} userId={session?.user?.id} onCourseCreated={(row) => { setDbCourses(prev => [...prev, row]); handleSetActiveCourse(row.id); }} onSendToPedagogy={handleSendToPedagogy} onOpenInSlideStudio={handleOpenInSlideStudio} onOpenAssignmentBuilder={(assignment) => { if (assignment) { setAssignDocSavedId(assignment.id); setAssignDocDesc(assignment.description || ""); setAssignDocSaveTitle(assignment.title || ""); setAssignDocSaveWeekId(assignment.week_id || null); setAssignDocResult(null); setAppliedRecContext(null); setAssignDocBoundToExisting(true); } else { setAssignDocSavedId(null); setAssignDocDesc(""); setAssignDocSaveTitle(""); setAssignDocSaveWeekId(null); setAssignDocResult(null); setAppliedRecContext(null); setAssignDocBoundToExisting(false); } setSageBuilderOpen(true); }} featureInfo={<FeatureInfo sectionId="course-architect" />} profileInstitutions={profile?.institutions || []} homeInstitution={profile?.institution || ""} refreshKey={architectRefreshKey} />
         )}
 
         {/* ── COURSE SETUP ── */}
@@ -6138,7 +6143,7 @@ export default function KlasUp() {
                 <div style={{ fontFamily: F.display, fontSize: 24, color: C.navy }}>Assignment Builder</div>
                 <div style={{ color: C.muted, fontSize: 13 }}>Describe the assignment you have in mind and we will help you brainstorm. KlasUp will generate the full document when we are finished.</div>
               </div>
-              <button onClick={() => { setSageBuilderOpen(false); setAppliedRecContext(null); }}
+              <button onClick={() => { setSageBuilderOpen(false); setAppliedRecContext(null); setAssignDocBoundToExisting(false); }}
                 style={{ background: C.ivoryDark, border: "none", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: C.muted, flexShrink: 0 }}>
                 ✕
               </button>
@@ -6151,7 +6156,7 @@ export default function KlasUp() {
                   <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
                   <div style={{ fontFamily: F.display, fontSize: 22, color: C.navy, marginBottom: 8 }}>Assignment Builder is a Pro feature</div>
                   <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>Generate complete, beautifully formatted assignments with real dates from your calendar.</div>
-                  <button onClick={() => { setSageBuilderOpen(false); upgrade(); }} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Upgrade to Pro ↗</button>
+                  <button onClick={() => { setSageBuilderOpen(false); setAssignDocBoundToExisting(false); upgrade(); }} style={{ background: C.teal, color: C.white, border: "none", borderRadius: 10, padding: "10px 28px", fontFamily: F.accent, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Upgrade to Pro ↗</button>
                 </div>
               ) : (
                 <div>
@@ -6238,7 +6243,7 @@ export default function KlasUp() {
                       setAssignDocLoading(true);
                       setAssignDocError(null);
                       setAssignDocResult(null);
-                      setAssignDocSavedId(null);
+                      if (!assignDocBoundToExisting) setAssignDocSavedId(null);
                       generateAssignmentDoc({
                         description: assignDocDesc + (assignType.length ? `\nAssignment type: ${assignType.join("; ")}` : "") + (selectedOutcomes.length ? `\nLearning outcomes to address: ${selectedOutcomes.join("; ")}` : "") + (milestones.filter(Boolean).length ? `\nMilestones/checkpoints: ${milestones.filter(Boolean).join(", ")}` : ""),
                         course,
