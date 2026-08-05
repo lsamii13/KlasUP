@@ -793,20 +793,66 @@ function DetailsView({ weeks, uploads = [], assignments = [], filter, getLoCodes
   );
 }
 
-// ── MaterialsView (uploads for this course) ─────────────
-function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
+// ── MaterialsView (uploads + generated assignments for this course) ─────────────
+function KlasUpBadge() {
+  return (
+    <span style={{
+      background: CA_COLORS.tealSoft, color: CA_COLORS.teal,
+      padding: "3px 9px", borderRadius: 10, fontSize: 10, fontWeight: 700,
+      fontFamily: CA_FONTS.heading, letterSpacing: "0.3px",
+    }}>Created in KlasUp</span>
+  );
+}
+
+function MaterialsView({ uploads, courseId, onOpenInSlideStudio, assignments, weeks }) {
   const [downloading, setDownloading] = useState(null);
   const [dlError, setDlError] = useState(null);
+  const [viewItem, setViewItem] = useState(null);
+  const [copiedView, setCopiedView] = useState(false);
 
-  const courseUploads = uploads.filter(u => u.course_id === courseId && u.storage_path);
-  const decks = courseUploads.filter(u => u.category === "Slide Deck" || u.material_type === "slide_deck");
-  const docs = courseUploads.filter(u => u.category !== "Slide Deck" && u.material_type !== "slide_deck");
+  const weekMap = {};
+  (weeks || []).forEach(w => { weekMap[w.id] = w; });
+
+  const uploadItems = (uploads || [])
+    .filter(u => u.course_id === courseId && u.storage_path)
+    .map(u => {
+      const isDeck = u.category === "Slide Deck" || u.material_type === "slide_deck";
+      return {
+        id: u.id,
+        kind: "upload",
+        label: u.title || u.filename || "Untitled",
+        section: isDeck ? "decks" : "docs",
+        week: u.week ? `Week ${u.week}` : null,
+        typeLabel: u.file_type ? u.file_type.toUpperCase() : "",
+        storagePath: u.storage_path,
+        content: u.content,
+        raw: u,
+      };
+    });
+
+  const assignmentItems = (assignments || [])
+    .filter(a => a.course_id === courseId)
+    .map(a => ({
+      id: a.id,
+      kind: "generated",
+      label: a.title,
+      section: "docs",
+      week: a.week_id && weekMap[a.week_id] ? `Week ${weekMap[a.week_id].week_number}` : null,
+      typeLabel: a.assignment_type || "",
+      storagePath: null,
+      content: a.meta?.generated_doc || null,
+      raw: a,
+    }));
+
+  const allItems = [...uploadItems, ...assignmentItems];
+  const decks = allItems.filter(i => i.section === "decks");
+  const docs = allItems.filter(i => i.section === "docs");
 
   const handleDownload = async (item) => {
-    if (!item.storage_path) return;
+    if (!item.storagePath) return;
     setDownloading(item.id); setDlError(null);
     try {
-      const url = await downloadDocument(item.storage_path);
+      const url = await downloadDocument(item.storagePath);
       window.open(url, "_blank");
     } catch (err) {
       console.error("Download failed:", err);
@@ -816,30 +862,31 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
   };
 
   const renderItem = (item) => {
-    const label = item.title || item.filename || "Untitled";
-    const weekLabel = item.week ? `Week ${item.week}` : "";
-    const typeLabel = item.file_type ? item.file_type.toUpperCase() : "";
-    const noFile = !item.storage_path;
     return (
       <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: `1px solid ${CA_COLORS.border}` }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 14, color: CA_COLORS.navy }}>{label}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 14, color: CA_COLORS.navy }}>{item.label}</span>
+            {item.kind === "generated" && item.content && <KlasUpBadge />}
+          </div>
           <div style={{ fontFamily: CA_FONTS.body, fontSize: 12, color: CA_COLORS.textSoft, marginTop: 2 }}>
-            {[weekLabel, typeLabel].filter(Boolean).join(" · ")}
+            {[item.week, item.typeLabel].filter(Boolean).join(" · ")}
           </div>
         </div>
-        <button disabled={noFile || downloading === item.id} onClick={() => handleDownload(item)}
-          style={{
-            fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
-            color: noFile ? CA_COLORS.textSoft : "#fff",
-            background: noFile ? CA_COLORS.border : downloading === item.id ? CA_COLORS.textSoft : CA_COLORS.teal,
-            border: "none", borderRadius: 8, padding: "6px 14px",
-            cursor: noFile ? "default" : "pointer", opacity: noFile ? 0.5 : 1,
-          }}>
-          {downloading === item.id ? "Opening..." : noFile ? "No file" : "Download"}
-        </button>
-        {(item.category === "Slide Deck" || item.material_type === "slide_deck") && onOpenInSlideStudio && (
-          <button disabled={!item.content} onClick={() => onOpenInSlideStudio(item.content)}
+        {item.kind === "upload" && (
+          <button disabled={!item.storagePath || downloading === item.id} onClick={() => handleDownload(item)}
+            style={{
+              fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
+              color: !item.storagePath ? CA_COLORS.textSoft : "#fff",
+              background: !item.storagePath ? CA_COLORS.border : downloading === item.id ? CA_COLORS.textSoft : CA_COLORS.teal,
+              border: "none", borderRadius: 8, padding: "6px 14px",
+              cursor: !item.storagePath ? "default" : "pointer", opacity: !item.storagePath ? 0.5 : 1,
+            }}>
+            {downloading === item.id ? "Opening..." : !item.storagePath ? "No file" : "Download"}
+          </button>
+        )}
+        {item.kind === "upload" && item.section === "decks" && onOpenInSlideStudio && (
+          <button disabled={!item.content} onClick={() => onOpenInSlideStudio(item.raw.content)}
             style={{
               fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
               color: !item.content ? CA_COLORS.textSoft : "#fff",
@@ -848,6 +895,17 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
               cursor: !item.content ? "default" : "pointer", opacity: !item.content ? 0.5 : 1,
             }}>
             Open in Slide Studio
+          </button>
+        )}
+        {item.kind === "generated" && item.content && (
+          <button onClick={() => { setViewItem(item); setCopiedView(false); }}
+            style={{
+              fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 12,
+              color: "#fff", background: CA_COLORS.teal,
+              border: "none", borderRadius: 8, padding: "6px 14px",
+              cursor: "pointer",
+            }}>
+            View
           </button>
         )}
         {dlError === item.id && <span style={{ fontSize: 11, color: "#C0392B", fontWeight: 600 }}>Failed</span>}
@@ -865,10 +923,49 @@ function MaterialsView({ uploads, courseId, onOpenInSlideStudio }) {
   );
 
   return (
-    <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}>
-      {renderSection("Slide Decks", decks, "No slide decks yet")}
-      {renderSection("Documents", docs, "No documents yet")}
-    </div>
+    <>
+      <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${CA_COLORS.border}`, overflow: "hidden" }}>
+        {renderSection("Slide Decks", decks, "No slide decks yet")}
+        {renderSection("Documents", docs, "No documents yet")}
+      </div>
+
+      {viewItem && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(15,31,61,0.45)",
+                   display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+          onClick={() => setViewItem(null)}
+        >
+          <div onClick={e => e.stopPropagation()} style={{
+            background: CA_COLORS.ivory, borderRadius: 18, padding: "28px 28px 24px",
+            width: "100%", maxWidth: 640, maxHeight: "80vh", display: "flex", flexDirection: "column",
+            boxShadow: "0 16px 48px rgba(27,43,75,0.18)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 20, color: CA_COLORS.navy }}>{viewItem.label}</div>
+              <button onClick={() => setViewItem(null)} style={{ background: "none", border: "none", fontSize: 20, color: CA_COLORS.textSoft, cursor: "pointer", padding: "2px 6px" }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", fontFamily: CA_FONTS.body, fontSize: 14, color: CA_COLORS.navy, lineHeight: 1.7, whiteSpace: "pre-wrap", marginBottom: 16 }}>
+              {viewItem.content}
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(viewItem.content).then(() => {
+                  setCopiedView(true);
+                  setTimeout(() => setCopiedView(false), 1500);
+                });
+              }}
+              style={{
+                background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
+                padding: "6px 14px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
+                color: copiedView ? CA_COLORS.teal : CA_COLORS.textSoft,
+                cursor: "pointer", alignSelf: "flex-start", transition: "color 0.15s",
+              }}>
+              {copiedView ? "✓ Copied" : "📋 Copy"}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1714,7 +1811,7 @@ export default function CourseArchitect({ setPage, courses = [], activeCourseId,
             {semesterView === "list" && <SemesterListView weeks={weeks} assignments={assignments} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} />}
             {semesterView === "assignments" && <AssignmentsView assignments={assignments} weeks={weeks} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onSendToPedagogy={onSendToPedagogy} feedbackByAssignment={feedbackByAssignment} los={los} loTags={loTags} onTagAdd={handleTagAdd} onTagRemove={handleTagRemove} onRefresh={() => setFetchKey(k => k + 1)} />}
             {semesterView === "details" && <DetailsView weeks={weeks} uploads={uploads.filter(u => u.course_id === activeCourse?.id)} assignments={assignments} filter={activeLOFilter} getLoCodesFor={getLoCodesFor} onOpenInSlideStudio={onOpenInSlideStudio} onRefresh={() => setFetchKey(k => k + 1)} />}
-            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} onOpenInSlideStudio={onOpenInSlideStudio} />}
+            {semesterView === "materials" && <MaterialsView uploads={uploads} courseId={activeCourse?.id} onOpenInSlideStudio={onOpenInSlideStudio} assignments={assignments} weeks={weeks} />}
           </>
         )}
       </div>
