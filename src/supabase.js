@@ -448,6 +448,40 @@ export async function updateAssignment(assignmentId, fields) {
   return data
 }
 
+export async function insertAssignmentVersion(assignmentId, { generatedDoc, metaSnapshot }) {
+  const { data, error } = await supabase
+    .from('assignment_versions')
+    .insert({
+      assignment_id: assignmentId,
+      generated_doc: generatedDoc,
+      meta_snapshot: metaSnapshot,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchAssignmentVersions(assignmentId) {
+  const { data, error } = await supabase
+    .from('assignment_versions')
+    .select('*')
+    .eq('assignment_id', assignmentId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAssignmentById(assignmentId) {
+  const { data, error } = await supabase
+    .from('assignments')
+    .select('*')
+    .eq('id', assignmentId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export async function deleteAssignment(assignmentId) {
   const { error } = await supabase
     .from('assignments')

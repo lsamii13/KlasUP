@@ -46,7 +46,7 @@ import {
   requestDataDeletion,
   keywordSearchArticles, fetchArticlesByDimension, fetchArticleById,
   insertUpload, fetchUploads, uploadDocument,
-  insertAssignment, updateAssignment, fetchCourseWeeks,
+  insertAssignment, updateAssignment, fetchCourseWeeks, insertAssignmentVersion, fetchAssignmentById,
   fetchLearningOutcomes,
   insertMicroLearning, fetchMicroLearnings, insertRevision, getRevisions,
   upsertReflection, fetchReflection,
@@ -6441,6 +6441,18 @@ export default function KlasUp() {
                                   ...(appliedRecContext?.recIds?.length ? { applied_recommendation_ids: appliedRecContext.recIds } : {}),
                                 };
                                 if (assignDocSavedId) {
+                                  try {
+                                    const existing = await fetchAssignmentById(assignDocSavedId);
+                                    const oldDoc = existing?.meta?.generated_doc;
+                                    if (oldDoc && oldDoc !== assignDocResult) {
+                                      await insertAssignmentVersion(assignDocSavedId, {
+                                        generatedDoc: oldDoc,
+                                        metaSnapshot: existing.meta,
+                                      });
+                                    }
+                                  } catch (vErr) {
+                                    console.warn("Version snapshot failed:", vErr);
+                                  }
                                   await updateAssignment(assignDocSavedId, {
                                     title: assignDocSaveTitle.trim(),
                                     assignment_type: assignType.length ? assignType.join(" / ") : "Other",
