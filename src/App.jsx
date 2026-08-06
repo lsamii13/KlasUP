@@ -73,6 +73,14 @@ const F = {
   accent: "'Manrope', sans-serif",
 };
 
+// Stripe TEST mode price IDs. Must match VALID_PRICE_IDS in
+// supabase/functions/create-checkout-session/index.ts — if they drift,
+// checkout returns "Invalid price ID".
+const PRICE_IDS = {
+  monthly: 'price_1TtYtBCs9eEroaz8zM7OaBKt',
+  annual:  'price_1TtZ5CCs9eEroaz8PqpGixG0',
+};
+
 const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
 const NAV = [
   // Top-level
@@ -740,6 +748,10 @@ export default function KlasUp() {
   const [subStatus, setSubStatus] = useState({ tier: "free", trialActive: false, trialExpiringSoon: false, trialExpired: false, daysLeft: 0 });
   const [dismissedTrialBanner, setDismissedTrialBanner] = useState(false);
 
+  const [billingPeriod, setBillingPeriod] = useState("monthly");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+
   // --- Announcements ---
   const [announcements, setAnnouncements] = useState([]);
 
@@ -827,6 +839,56 @@ export default function KlasUp() {
   const [appliedSet, setAppliedSet] = useState(new Set());
   const [appliedRevisions, setAppliedRevisions] = useState(new Map());
   const [appliedRecContext, setAppliedRecContext] = useState(null);
+
+  async function startProCheckout() {
+    setCheckoutError("");
+    setCheckoutLoading(true);
+
+    try {
+      // The Edge Function verifies this token server-side and derives the
+      // user ID from it. We never send a user ID from the browser.
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        setCheckoutError("Please sign in again before upgrading.");
+        setCheckoutLoading(false);
+        return;
+      }
+
+      const priceId = billingPeriod === "annual" ? PRICE_IDS.annual : PRICE_IDS.monthly;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ priceId }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        setCheckoutError(data.error || "Could not start checkout. Please try again.");
+        setCheckoutLoading(false);
+        return;
+      }
+
+      // Redirect to Stripe Checkout. No publishable key needed — the Edge
+      // Function returns a complete hosted checkout URL.
+      // Deliberately NOT clearing checkoutLoading here: the page is navigating
+      // away, and clearing it would flash the button back to normal first.
+      window.location.href = data.url;
+
+    } catch (err) {
+      setCheckoutError(err.message || "Something went wrong. Please try again.");
+      setCheckoutLoading(false);
+    }
+  }
 
   async function handleApplyRecommendation(rec, originalText, uploadId) {
     setApplyLoadingId(rec.id ?? null);
@@ -5138,55 +5200,93 @@ export default function KlasUp() {
               <div style={{ fontFamily: F.display, fontSize: 32, marginBottom: 6 }}>Simple, transparent pricing.</div>
               <div style={{ color: C.muted, fontSize: 15 }}>Start free. Grow with your practice. Scale with your institution.</div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 14, marginBottom: 20 }}>
+          {/* ── Billing period toggle ── */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+            <div style={{ display: "inline-flex", background: C.ivoryDark, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: 4, gap: 4 }}>
               {[
-                {
-                  key: "free", name: "Free", sub: "The Signal", price: "$0", period: "forever", color: C.muted,
-                  features: ["1 course", "Health scores (coming soon)", "2 micro-learnings/month", "Post-class notes & announcements", "Career Connections (1 role preview)"],
-                  locked: ["Think Tank (read only)", "Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite", "Accreditation reports ⸱ Coming Soon"],
-                  cta: "Get Started Free",
-                },
-                {
-                  key: "pro", name: "Pro", sub: "The Practice", price: "$15", period: "/month per faculty", color: C.tealBright, featured: true,
-                  features: ["All courses", "Assignment Builder with AI feedback", "Slide Studio", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Wellbeing & Student Voice signals"],
-                  locked: ["Think Tank — full participation", "Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics", "NECHE/HLC/SACSCOC export templates"],
-                  cta: "Start Free Trial",
-                },
-                {
-                  key: "institutional", name: "Institutional", sub: "The Standard", price: "Custom", period: "per-seat licensing", color: C.navy,
-                  features: ["Everything in Pro for all faculty", "Aggregated institutional dashboard", "Anonymized cross-faculty analytics", "Full accreditation report export (NECHE, HLC, SACSCOC) ⸱ Coming Soon", "Career Connections workforce alignment doc", "New faculty onboarding track", "Peer institution benchmarking", "LMS integration support", "Custom branding", "Dedicated success manager"],
-                  locked: [],
-                  cta: "Contact Us",
-                },
-              ].map((p, i) => (
-                <div key={i} style={{ background: C.white, border: p.featured ? `2px solid ${C.tealBright}` : `0.5px solid ${C.border}`, borderRadius: 16, padding: "1.5rem", display: "flex", flexDirection: "column", position: "relative" }}>
-                  {p.featured && (
-                    <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.tealBright, padding: "3px 16px", borderRadius: 20, whiteSpace: "nowrap" }}>Most Popular</div>
-                  )}
-                  <div style={{ fontFamily: F.display, fontSize: 22, color: p.color, marginBottom: 2, marginTop: p.featured ? 8 : 0 }}>{p.name}</div>
-                  <div style={{ fontSize: 12, fontStyle: "italic", color: C.muted, marginBottom: 14 }}>{p.sub}</div>
-                  <div style={{ fontFamily: F.display, fontSize: 32, color: C.navy, marginBottom: 2 }}>{p.price}</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 18 }}>{p.period}</div>
-                  <div style={{ flex: 1, marginBottom: 18 }}>
-                    {p.features.map((f, j) => <div key={j} style={{ fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 8 }}><span style={{ color: C.sage, fontWeight: 700, flexShrink: 0 }}>✓</span>{f}</div>)}
-                    {p.locked.map((f, j) => <div key={j} style={{ fontSize: 12, color: C.lock, padding: "3px 0", display: "flex", gap: 8 }}><span style={{ flexShrink: 0 }}>🔒</span>{f}</div>)}
-                  </div>
-                  <button onClick={() => { setTier(p.key); setPage("Dashboard"); }}
-                    style={{ background: p.featured ? C.tealBright : p.key === "institutional" ? C.navy : C.ivoryDark, color: p.key === "free" ? C.navy : C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                    {p.cta}
-                  </button>
-                </div>
+                { key: "monthly", label: "Monthly" },
+                { key: "annual", label: "Annual — save 21%" },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setBillingPeriod(opt.key)}
+                  style={{
+                    background: billingPeriod === opt.key ? C.white : "transparent",
+                    color: billingPeriod === opt.key ? C.navy : C.muted,
+                    border: billingPeriod === opt.key ? `0.5px solid ${C.border}` : "0.5px solid transparent",
+                    borderRadius: 9,
+                    padding: "8px 18px",
+                    fontFamily: F.accent,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {opt.label}
+                </button>
               ))}
             </div>
-            <div style={{ background: C.ivoryDark, border: `0.5px solid ${C.border}`, borderRadius: 14, padding: "1.5rem" }}>
-              <div style={{ fontFamily: F.display, fontSize: 16, fontWeight: 700, color: C.navy, marginBottom: 4 }}>Institutional accreditation reporting — coming Winter 2026–2027</div>
-              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>Built for provosts, deans, and academic affairs leadership. Be first to know when it launches.</div>
-              <NotifyMeForm
-                headline="Join the institutional waitlist."
-                subhead="We'll email you the moment accreditation reports launch."
-                source="accreditation_waitlist"
-              />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 14, marginBottom: 20 }}>
+            {[
+              {
+                key: "free", name: "Free", sub: "The Signal", price: "$0", period: "forever", color: C.muted,
+                features: ["1 course", "Health scores (coming soon)", "2 micro-learnings/month", "Post-class notes & announcements", "Career Connections (1 role preview)"],
+                locked: ["Think Tank (read only)", "Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite"],
+                cta: "Get Started Free",
+              },
+              {
+                key: "pro", name: "Pro", sub: "The Practice",
+                price: billingPeriod === "annual" ? "$15" : "$19.99",
+                period: billingPeriod === "annual" ? "/month · billed annually at $190" : "/month per faculty",
+                color: C.tealBright, featured: true,
+                features: ["All courses", "Assignment Builder with AI feedback", "Slide Studio", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Wellbeing & Student Voice signals"],
+                locked: ["Think Tank — full participation", "Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics"],
+                cta: "Upgrade to Pro",
+              },
+              {
+                key: "institutional", name: "Institutional", sub: "The Standard", price: "Custom", period: "per-seat licensing", color: C.navy,
+                features: ["Everything in Pro for all faculty", "Aggregated institutional dashboard", "Anonymized cross-faculty analytics", "Career Connections workforce alignment doc", "New faculty onboarding track", "Peer institution benchmarking", "LMS integration support", "Custom branding", "Dedicated success manager"],
+                locked: [],
+                cta: "Contact Us",
+              },
+            ].map((p, i) => (
+              <div key={i} style={{ background: C.white, border: p.featured ? `2px solid ${C.tealBright}` : `0.5px solid ${C.border}`, borderRadius: 16, padding: "1.5rem", display: "flex", flexDirection: "column", position: "relative" }}>
+                {p.featured && (
+                  <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", fontSize: 11, fontFamily: F.accent, fontWeight: 700, color: C.white, background: C.tealBright, padding: "3px 16px", borderRadius: 20, whiteSpace: "nowrap" }}>Most Popular</div>
+                )}
+                <div style={{ fontFamily: F.display, fontSize: 22, color: p.color, marginBottom: 2, marginTop: p.featured ? 8 : 0 }}>{p.name}</div>
+                <div style={{ fontSize: 12, fontStyle: "italic", color: C.muted, marginBottom: 14 }}>{p.sub}</div>
+                <div style={{ fontFamily: F.display, fontSize: 32, color: C.navy, marginBottom: 2 }}>{p.price}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 18 }}>{p.period}</div>
+                <div style={{ flex: 1, marginBottom: 18 }}>
+                  {p.features.map((f, j) => <div key={j} style={{ fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 8 }}><span style={{ color: C.sage, fontWeight: 700, flexShrink: 0 }}>✓</span>{f}</div>)}
+                  {p.locked.map((f, j) => <div key={j} style={{ fontSize: 12, color: C.lock, padding: "3px 0", display: "flex", gap: 8 }}><span style={{ flexShrink: 0 }}>🔒</span>{f}</div>)}
+                </div>
+                <button
+                  onClick={() => {
+                    if (p.key === "pro") {
+                      startProCheckout();
+                    } else {
+                      setTier(p.key);
+                      setPage("Dashboard");
+                    }
+                  }}
+                  disabled={p.key === "pro" && checkoutLoading}
+                  style={{ background: p.featured ? C.tealBright : p.key === "institutional" ? C.navy : C.ivoryDark, color: p.key === "free" ? C.navy : C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: (p.key === "pro" && checkoutLoading) ? "wait" : "pointer", opacity: (p.key === "pro" && checkoutLoading) ? 0.6 : 1 }}>
+                  {p.key === "pro" && checkoutLoading ? "Opening checkout…" : p.cta}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {checkoutError && (
+            <div style={{ background: "#FDECEA", border: `0.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: C.navy, textAlign: "center" }}>
+              {checkoutError}
             </div>
+          )}
           </div>
         )}
 
