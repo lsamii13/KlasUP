@@ -497,7 +497,7 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
             cta: "Start Free", featured: false,
           },
           {
-            name: "Pro", price: "$15", period: "/month", desc: "For faculty ready to level up.",
+            name: "Pro", price: "$15", period: "/month billed annually · $19 month-to-month", desc: "For faculty ready to level up.",
             features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics (coming soon)", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports ⸱ Coming Soon", "Term Reflection", "Course Portfolio"],
             cta: "Start Free Trial", featured: true,
           },

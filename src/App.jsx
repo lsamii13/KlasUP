@@ -1104,6 +1104,29 @@ export default function KlasUp() {
     }
   }, [session]);
 
+  // --- Checkout success toast ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      // Clear the param so a refresh doesn't re-show
+      const url = new URL(window.location);
+      url.searchParams.delete("checkout");
+      window.history.replaceState({}, "", url.pathname + url.hash);
+      // Show toast using the app's existing pattern
+      const t = document.createElement("div");
+      Object.assign(t.style, {
+        position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
+        background: "#0B8A8A", color: "#fff", padding: "12px 24px", borderRadius: "10px",
+        fontFamily: "'Manrope',sans-serif", fontSize: "14px", fontWeight: "700",
+        zIndex: "99999", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+        transition: "opacity 0.3s", opacity: "1",
+      });
+      t.textContent = "Payment successful \u2014 welcome to Pro! \uD83C\uDF89";
+      document.body.appendChild(t);
+      setTimeout(() => { t.style.opacity = "0"; setTimeout(() => { if (t.parentNode) document.body.removeChild(t); }, 300); }, 4000);
+    }
+  }, []);
+
   // --- Session timeout (24h inactivity) ---
   useEffect(() => {
     if (!session) return;
@@ -5239,8 +5262,8 @@ export default function KlasUp() {
               },
               {
                 key: "pro", name: "Pro", sub: "The Practice",
-                price: billingPeriod === "annual" ? "$15" : "$19.99",
-                period: billingPeriod === "annual" ? "/month · billed annually at $190" : "/month per faculty",
+                price: billingPeriod === "annual" ? "$15" : "$19",
+                period: billingPeriod === "annual" ? "/month · billed annually at $180 — save $48" : "/month per faculty",
                 color: C.tealBright, featured: true,
                 features: ["All courses", "Assignment Builder with AI feedback", "Slide Studio", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Wellbeing & Student Voice signals"],
                 locked: ["Think Tank — full participation", "Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics"],
@@ -5269,6 +5292,8 @@ export default function KlasUp() {
                   onClick={() => {
                     if (p.key === "pro") {
                       startProCheckout();
+                    } else if (p.key === "institutional") {
+                      window.location.href = "mailto:hello@klasup.com?subject=Institutional%20Inquiry";
                     } else {
                       setTier(p.key);
                       setPage("Dashboard");
