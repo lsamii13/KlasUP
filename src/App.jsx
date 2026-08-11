@@ -78,7 +78,7 @@ const F = {
 // checkout returns "Invalid price ID".
 const PRICE_IDS = {
   monthly: 'price_1TtYtBCs9eEroaz8zM7OaBKt',
-  annual:  'price_1TtZ5CCs9eEroaz8PqpGixG0',
+  annual:  'price_1U3HW0Cs9eEroaz8kBcs1EOj',
 };
 
 const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
@@ -5262,8 +5262,8 @@ export default function KlasUp() {
               },
               {
                 key: "pro", name: "Pro", sub: "The Practice",
-                price: billingPeriod === "annual" ? "$15" : "$19",
-                period: billingPeriod === "annual" ? "/month · billed annually at $180 — save $48" : "/month per faculty",
+                price: billingPeriod === "annual" ? "$15" : "$19.99",
+                period: billingPeriod === "annual" ? "/month · billed annually at $179.99 — save $59.89" : "/month per faculty",
                 color: C.tealBright, featured: true,
                 features: ["All courses", "Assignment Builder with AI feedback", "Slide Studio", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Wellbeing & Student Voice signals"],
                 locked: ["Think Tank — full participation", "Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics"],

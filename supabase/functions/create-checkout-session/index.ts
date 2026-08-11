@@ -11,6 +11,7 @@ const corsHeaders = {
 const VALID_PRICE_IDS = [
   'price_1TtYtBCs9eEroaz8zM7OaBKt', // Monthly
   'price_1TtZ5CCs9eEroaz8PqpGixG0', // Yearly
+  'price_1U3HW0Cs9eEroaz8kBcs1EOj', // Yearly $179.99
 ]
 
 /**

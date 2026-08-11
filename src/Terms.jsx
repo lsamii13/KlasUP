@@ -202,7 +202,7 @@ function TermsContent() {
 
       <SubHeading>5.2 Pro Tier</SubHeading>
       <P>
-        The Pro subscription is available at $19.00 USD per month, or $180.00 USD per year ($15.00/month
+        The Pro subscription is available at $19.99 USD per month, or $179.99 USD per year ($15.00/month
         billed annually). By subscribing, you authorize us to charge your payment method on a recurring
         basis until you cancel. Pro subscriptions may include a free trial period; if you do not cancel
         before the trial ends, you will be charged for the first billing cycle.

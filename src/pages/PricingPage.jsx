@@ -50,7 +50,7 @@ export default function PricingPage() {
           <div style={{ ...styles.switchThumb, transform: annual ? "translateX(22px)" : "translateX(0)" }} />
         </div>
         <span style={{ ...styles.toggleLabel, color: annual ? "#1B2B4B" : "#8a9ab5" }}>
-          Annual <span style={styles.saveBadge}>Save $48</span>
+          Annual <span style={styles.saveBadge}>Save $59.89</span>
         </span>
       </div>
       <div style={styles.trialBanner}>✦ Every new account includes a 14-day Pro trial — no credit card required</div>
@@ -75,8 +75,8 @@ export default function PricingPage() {
           <div style={styles.popularBadge}>Most Popular</div>
           <p style={styles.planName}>Pro</p>
           <p style={styles.planDesc}>Everything you need to teach at your best</p>
-          <div style={styles.priceRow}><span style={styles.priceAmount}>{annual ? "$15" : "$19"}</span><span style={styles.pricePeriod}>/month</span></div>
-          <p style={styles.billedNote}>{annual ? "Billed $180/year — you save $48" : "\u00a0"}</p>
+          <div style={styles.priceRow}><span style={styles.priceAmount}>{annual ? "$15" : "$19.99"}</span><span style={styles.pricePeriod}>/month</span></div>
+          <p style={styles.billedNote}>{annual ? "Billed $179.99/year — you save $59.89" : "\u00a0"}</p>
           <button style={styles.btnPro}>Start 14-day free trial</button>
           <hr style={styles.divider} />
           <ul style={styles.featureList}>
