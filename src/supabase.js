@@ -172,12 +172,10 @@ export function checkSubscriptionStatus(profile) {
   return { tier: 'free', trialActive: false, trialExpiringSoon: false, trialExpired: expires != null, daysLeft: 0 }
 }
 
-export async function downgradeExpiredUser(userId) {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role: 'free' })
-    .eq('id', userId)
+export async function syncOwnRole() {
+  const { data, error } = await supabase.rpc('sync_own_role')
   if (error) throw error
+  return data
 }
 
 // ── Course helpers ────────────────────────────────────────

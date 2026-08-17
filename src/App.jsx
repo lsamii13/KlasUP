@@ -35,7 +35,7 @@ import extractFileText from "./extractFileText";
 import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
-  checkSubscriptionStatus, downgradeExpiredUser,
+  checkSubscriptionStatus, syncOwnRole,
   fetchCourses, insertCourse, updateCourse as updateCourseDB, deleteCourse as deleteCourseDB,
   resetPassword, updatePassword,
   trackEvent, logSecurityEvent,
@@ -1176,12 +1176,16 @@ export default function KlasUp() {
         // Profile exists — safe to update last_active
         updateLastActive(userId).catch(() => {});
 
-        // Check subscription and auto-downgrade
-        const status = checkSubscriptionStatus(p);
-        if (status.tier === "free" && status.trialExpired && p.role !== "free") {
-          await downgradeExpiredUser(userId);
-          p.role = "free";
+        // Server is the sole authority on role expiry.
+        // Called unconditionally so the browser never decides whether to downgrade.
+        try {
+          const syncedRole = await syncOwnRole();
+          if (syncedRole) p.role = syncedRole;
+        } catch (err) {
+          console.warn("sync_own_role failed, falling back to cached profile role", err);
         }
+
+        const status = checkSubscriptionStatus(p);
         setSubStatus(status);
 
         // Fetch courses
