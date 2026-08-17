@@ -7,15 +7,11 @@ async function callEdgeFunction(body) {
   const url = `${SUPABASE_URL}/functions/v1/generate-micro-learning`
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
+  if (!token) throw new Error('You must be signed in to use this feature');
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token ?? SUPABASE_ANON_KEY}`,
+    'Authorization': `Bearer ${token}`,
   }
-
-  console.log('[KlasUp] Edge Function URL:', url)
-  console.log('[KlasUp] Authorization header:', headers.Authorization ? `Bearer ${(token ?? SUPABASE_ANON_KEY).slice(0, 10)}...` : 'MISSING')
-  console.log('[KlasUp] VITE_SUPABASE_URL defined:', !!SUPABASE_URL)
-  console.log('[KlasUp] VITE_SUPABASE_ANON_KEY defined:', !!SUPABASE_ANON_KEY)
 
   const res = await fetch(url, {
     method: 'POST',

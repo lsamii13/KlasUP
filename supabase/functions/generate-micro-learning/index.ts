@@ -452,6 +452,27 @@ Deno.serve(async (req: Request) => {
     })
   }
 
+  // ── Auth: reject unauthenticated callers ──────────────────
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseKey = Deno.env.get('KLASUP_SECRET_KEY')!
+  const authClient = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: authHeader } },
+  })
+  const { data: { user }, error: authError } = await authClient.auth.getUser()
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'Anthropic API key not configured' }), {
