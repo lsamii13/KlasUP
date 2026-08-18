@@ -122,6 +122,9 @@ export async function upsertProfile(userId, profile) {
     tos_accepted_at: profile.tos_accepted_at || null,
     tos_version: profile.tos_version || null,
   }
+  if (profile.onboarding_complete !== undefined) {
+    cleaned.onboarding_complete = profile.onboarding_complete
+  }
   const { data, error } = await supabase
     .from('profiles')
     .upsert(cleaned)
