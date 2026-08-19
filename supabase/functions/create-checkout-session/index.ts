@@ -69,6 +69,44 @@ Deno.serve(async (req: Request) => {
     }
     const userId = user.id
 
+    // ── Guard: reject if user already has an active Stripe subscription ──
+    const { data: activeSubs, error: subLookupError } = await authClient
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .limit(1)
+
+    if (subLookupError) {
+      return new Response(JSON.stringify({ error: 'Unable to verify subscription status. Please try again.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (activeSubs && activeSubs.length > 0) {
+      return new Response(JSON.stringify({ error: 'You already have an active subscription. Contact hello@klasup.com if you need to make changes.' }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // ── Look up existing Stripe customer to avoid creating duplicates ──
+    const { data: profileRow, error: profileLookupError } = await authClient
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (profileLookupError) {
+      return new Response(JSON.stringify({ error: 'Unable to verify account status. Please try again.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const existingCustomerId = profileRow?.stripe_customer_id || null
+
     const { priceId } = await req.json()
 
     if (!priceId) {
@@ -88,7 +126,7 @@ Deno.serve(async (req: Request) => {
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' })
     const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:3000'
 
-    const session = await stripe.checkout.sessions.create({
+    const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
@@ -98,7 +136,13 @@ Deno.serve(async (req: Request) => {
       success_url: `${siteUrl}/dashboard?checkout=success`,
       cancel_url: `${siteUrl}/pricing`,
       client_reference_id: userId,
-    })
+    }
+
+    if (existingCustomerId) {
+      checkoutParams.customer = existingCustomerId
+    }
+
+    const session = await stripe.checkout.sessions.create(checkoutParams)
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
