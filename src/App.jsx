@@ -746,6 +746,7 @@ export default function KlasUp() {
 
   // --- Subscription state ---
   const [subStatus, setSubStatus] = useState({ tier: "free", trialActive: false, trialExpiringSoon: false, trialExpired: false, daysLeft: 0 });
+  const [paidSub, setPaidSub] = useState(null);
   const [dismissedTrialBanner, setDismissedTrialBanner] = useState(false);
 
   const [billingPeriod, setBillingPeriod] = useState("monthly");
@@ -839,6 +840,24 @@ export default function KlasUp() {
   const [appliedSet, setAppliedSet] = useState(new Set());
   const [appliedRevisions, setAppliedRevisions] = useState(new Map());
   const [appliedRecContext, setAppliedRecContext] = useState(null);
+
+  async function refreshPaidSubscription(userId) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('id, status, current_period_end, cancel_at_period_end, stripe_subscription_id')
+      .eq('user_id', userId)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .order('current_period_end', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.warn('refreshPaidSubscription failed:', error);
+      setPaidSub(null);
+      return null;
+    }
+    setPaidSub(data ?? null);
+    return data ?? null;
+  }
 
   async function startProCheckout() {
     setCheckoutError("");
@@ -1105,27 +1124,45 @@ export default function KlasUp() {
   }, [session]);
 
   // --- Checkout success toast ---
+  const checkoutToastFired = useRef(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") === "success") {
-      // Clear the param so a refresh doesn't re-show
-      const url = new URL(window.location);
-      url.searchParams.delete("checkout");
-      window.history.replaceState({}, "", url.pathname + url.hash);
-      // Show toast using the app's existing pattern
-      const t = document.createElement("div");
-      Object.assign(t.style, {
-        position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
-        background: "#0B8A8A", color: "#fff", padding: "12px 24px", borderRadius: "10px",
-        fontFamily: "'Manrope',sans-serif", fontSize: "14px", fontWeight: "700",
-        zIndex: "99999", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-        transition: "opacity 0.3s", opacity: "1",
-      });
-      t.textContent = "Payment successful \u2014 welcome to Pro! \uD83C\uDF89";
-      document.body.appendChild(t);
-      setTimeout(() => { t.style.opacity = "0"; setTimeout(() => { if (t.parentNode) document.body.removeChild(t); }, 300); }, 4000);
-    }
-  }, []);
+    if (params.get("checkout") !== "success") return;
+    if (!session?.user?.id) return;
+    if (checkoutToastFired.current) return;
+    checkoutToastFired.current = true;
+
+    const userId = session.user.id;
+
+    // Clear the param so a refresh doesn't re-show
+    const url = new URL(window.location);
+    url.searchParams.delete("checkout");
+    window.history.replaceState({}, "", url.pathname + url.hash);
+    // Show toast using the app's existing pattern
+    const t = document.createElement("div");
+    Object.assign(t.style, {
+      position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
+      background: "#0B8A8A", color: "#fff", padding: "12px 24px", borderRadius: "10px",
+      fontFamily: "'Manrope',sans-serif", fontSize: "14px", fontWeight: "700",
+      zIndex: "99999", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+      transition: "opacity 0.3s", opacity: "1",
+    });
+    t.textContent = "Payment successful \u2014 welcome to Pro! \uD83C\uDF89";
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = "0"; setTimeout(() => { if (t.parentNode) document.body.removeChild(t); }, 300); }, 4000);
+
+    // Retry fetching the subscription row — the webhook may not have written it yet
+    let attempt = 0;
+    const tryFetch = async () => {
+      while (attempt < 3) {
+        const row = await refreshPaidSubscription(userId);
+        if (row) return;
+        attempt++;
+        if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+      }
+    };
+    tryFetch().catch(() => {});
+  }, [session]);
 
   // --- Session timeout (24h inactivity) ---
   useEffect(() => {
@@ -1187,6 +1224,7 @@ export default function KlasUp() {
 
         const status = checkSubscriptionStatus(p);
         setSubStatus(status);
+        refreshPaidSubscription(userId).catch(() => {});
 
         // Fetch courses
         const rows = await fetchCourses(userId);
