@@ -5295,6 +5295,13 @@ export default function KlasUp() {
             </div>
           </div>
 
+          {checkoutError && (
+            <div style={{ background: "#FDECEA", border: `0.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: C.navy, textAlign: "center" }}>
+              {checkoutError}
+            </div>
+          )}
+
+          {(() => { const hasActiveStripeSub = !!paidSub; return (
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 14, marginBottom: 20 }}>
             {[
               {
@@ -5342,19 +5349,14 @@ export default function KlasUp() {
                       setPage("Dashboard");
                     }
                   }}
-                  disabled={p.key === "pro" && checkoutLoading}
-                  style={{ background: p.featured ? C.tealBright : p.key === "institutional" ? C.navy : C.ivoryDark, color: p.key === "free" ? C.navy : C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: (p.key === "pro" && checkoutLoading) ? "wait" : "pointer", opacity: (p.key === "pro" && checkoutLoading) ? 0.6 : 1 }}>
-                  {p.key === "pro" && checkoutLoading ? "Opening checkout…" : p.cta}
+                  disabled={p.key === "pro" && (checkoutLoading || hasActiveStripeSub)}
+                  style={{ background: p.featured ? C.tealBright : p.key === "institutional" ? C.navy : C.ivoryDark, color: p.key === "free" ? C.navy : C.white, border: "none", borderRadius: 10, padding: "11px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: p.key === "pro" && checkoutLoading ? "wait" : p.key === "pro" && hasActiveStripeSub ? "default" : "pointer", opacity: (p.key === "pro" && (checkoutLoading || hasActiveStripeSub)) ? 0.6 : 1 }}>
+                  {p.key === "pro" && hasActiveStripeSub ? "Your current plan" : p.key === "pro" && checkoutLoading ? "Opening checkout…" : p.cta}
                 </button>
               </div>
             ))}
           </div>
-
-          {checkoutError && (
-            <div style={{ background: "#FDECEA", border: `0.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: C.navy, textAlign: "center" }}>
-              {checkoutError}
-            </div>
-          )}
+          ); })()}
           </div>
         )}
 
