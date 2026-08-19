@@ -130,6 +130,30 @@ Deno.serve(async (req: Request) => {
     })
   }
 
+  // ── Auth: shared-secret check (callers are Postgres functions only) ──
+  const expectedSecret = Deno.env.get('EMAIL_FUNCTION_SECRET')
+  if (!expectedSecret) {
+    return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const incomingSecret = req.headers.get('x-email-secret') || ''
+  const encoder = new TextEncoder()
+  const a = encoder.encode(expectedSecret)
+  const b = encoder.encode(incomingSecret)
+  let diff = a.length ^ b.length
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    diff |= (a[i] ?? 0) ^ (b[i] ?? 0)
+  }
+  const match = diff === 0
+  if (!match) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   const apiKey = Deno.env.get('RESEND_API_KEY')
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'Resend API key not configured' }), {
