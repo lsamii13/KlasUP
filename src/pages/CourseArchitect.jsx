@@ -21,6 +21,12 @@ const CA_FONTS = {
   body: "'Manrope', sans-serif",
 };
 
+const AI_DISCLAIMER = (
+  <div style={{ fontSize: 11, fontStyle: "italic", color: "#999", marginTop: 8 }}>
+    AI-generated — please review before sharing with students.
+  </div>
+);
+
 const LAUNCHPAD_BASE = [
   {
     id: "setup",
@@ -613,6 +619,7 @@ function AssignmentsView({ assignments, weeks, filter, getLoCodesFor, onSendToPe
                         </div>
                       );
                     })}
+                    {AI_DISCLAIMER}
                   </div>
                 )}
               </div>

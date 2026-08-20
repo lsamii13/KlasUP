@@ -73,6 +73,12 @@ const F = {
   accent: "'Manrope', sans-serif",
 };
 
+const AI_DISCLAIMER = (
+  <div style={{ fontSize: 11, fontStyle: "italic", color: "#999", marginTop: 8 }}>
+    AI-generated — please review before sharing with students.
+  </div>
+);
+
 // Stripe TEST mode price IDs. Must match VALID_PRICE_IDS in
 // supabase/functions/create-checkout-session/index.ts — if they drift,
 // checkout returns "Invalid price ID".
@@ -2708,6 +2714,7 @@ export default function KlasUp() {
                                       <span style={{ fontSize: 15 }}>📋</span> {copiedId === ccId ? "Copied!" : "Share with students"}
                                     </button>
                                     <div style={{ fontFamily: F.accent, fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 12 }}>Copies everything above — ready to paste into an announcement or slide.</div>
+                                    {AI_DISCLAIMER}
 
                                     {!topicOpen && (
                                       <div onClick={() => setTopicInput(prev => ({ ...prev, [ccId]: "" }))} style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 600, color: "#2A9D8F", cursor: "pointer" }}>+ connect a different topic</div>
@@ -2780,6 +2787,7 @@ export default function KlasUp() {
                                   <div style={{ fontSize: 11, color: C.navy, fontWeight: 600 }}>→ {m.action.length > 60 ? m.action.slice(0, 60) + "…" : m.action}</div>
                                 </div>
                                 <StarRating ratingKey={`dash-${i}`} />
+                                {AI_DISCLAIMER}
                               </Card>
                             );
                           })}
@@ -3160,6 +3168,7 @@ export default function KlasUp() {
                         <div style={{ fontSize: 12, color: C.rose, marginTop: 8 }}>{applyError}</div>
                       )}
                       <StarRating ratingKey={`feedback-${idx}`} />
+                      {AI_DISCLAIMER}
                     </Card>
                   );
                 })}
@@ -3728,6 +3737,7 @@ export default function KlasUp() {
                         <CopyBtn text={m.action} label="Copy" />
                       </div>
                       <StarRating ratingKey={`ai-${i}`} />
+                      {AI_DISCLAIMER}
                     </div>
                   );
                 })}
@@ -6587,6 +6597,7 @@ export default function KlasUp() {
                           {assignDocResult}
                         </div>
                       )}
+                      {AI_DISCLAIMER}
 
                       {/* Plain English update bar */}
                       <div style={{ marginTop: 20, padding: 16, background: C.ivoryDark, borderRadius: 12 }}>
