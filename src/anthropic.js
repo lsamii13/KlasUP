@@ -93,11 +93,15 @@ export async function generateSyllabus({ courseId, accessToken }) {
 
 async function callRagFunction(body) {
   const url = `${SUPABASE_URL}/functions/v1/rag-search`
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Please sign in to use this feature.')
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Authorization': `Bearer ${token}`,
+      'apikey': SUPABASE_ANON_KEY,
     },
     body: JSON.stringify(body),
   })
