@@ -40,12 +40,50 @@ Deno.serve(async (req: Request) => {
   const supabaseServiceKey = Deno.env.get('KLASUP_SECRET_KEY')!
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+  // ── Auth: verify JWT for all operations ──────────────────
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     const body = await req.json()
     const { type } = body
 
     // ── EMBED: Generate embeddings for articles missing them ──
     if (type === 'embed') {
+      // Admin-only gate — fail closed on lookup error
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) {
+        return new Response(JSON.stringify({ error: 'Unable to verify permissions.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (profile?.role !== 'admin') {
+        return new Response(JSON.stringify({ error: 'Admin access required.' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       const voyageKey = Deno.env.get('VOYAGE_API_KEY')
       const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
       const useVoyage = !!voyageKey
