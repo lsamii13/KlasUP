@@ -752,6 +752,8 @@ export default function KlasUp() {
   const [billingPeriod, setBillingPeriod] = useState("monthly");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState("");
 
   // --- Announcements ---
   const [announcements, setAnnouncements] = useState([]);
@@ -857,6 +859,47 @@ export default function KlasUp() {
     }
     setPaidSub(data ?? null);
     return data ?? null;
+  }
+
+  async function openBillingPortal() {
+    setPortalError("");
+    setPortalLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        setPortalError("Please sign in again.");
+        setPortalLoading(false);
+        return;
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-billing-portal-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        setPortalError(data.error || "Could not open the billing portal. Please try again.");
+        setPortalLoading(false);
+        return;
+      }
+
+      window.location.href = data.url;
+
+    } catch (err) {
+      setPortalError(err.message || "Something went wrong. Please try again.");
+      setPortalLoading(false);
+    }
   }
 
   async function startProCheckout() {
@@ -4584,10 +4627,17 @@ export default function KlasUp() {
                   Upgrade to Pro
                 </button>
               )}
-              {tier === "pro" && !subStatus.trialActive && (
-                <button style={{ background: C.ivoryDark, color: C.muted, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                  Cancel Subscription
-                </button>
+              {paidSub && (
+                <>
+                  <button onClick={openBillingPortal} disabled={portalLoading} style={{ background: C.ivoryDark, color: C.muted, border: "none", borderRadius: 10, padding: "10px 24px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: portalLoading ? "wait" : "pointer" }}>
+                    {portalLoading ? "Opening…" : "Manage Subscription"}
+                  </button>
+                  {portalError && (
+                    <div style={{ background: "#FDECEA", border: `0.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginTop: 10, fontSize: 13, color: C.navy, textAlign: "center" }}>
+                      {portalError}
+                    </div>
+                  )}
+                </>
               )}
             </Card>
 
