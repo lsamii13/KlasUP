@@ -1038,6 +1038,8 @@ export default function KlasUp() {
   const klasConversationIdRef = useRef(null);
   const klasCreatingRef = useRef(false);
   const klasBridgeFiredRef = useRef(false);
+  const [klasCourseId, setKlasCourseId] = useState(null);
+  const klasCourseIdRef = useRef(null);
   const sageTextareaRef = useRef(null);
   const klasMode2TextareaRef = useRef(null);
 
@@ -1707,6 +1709,9 @@ export default function KlasUp() {
       setKlasConversationId(null);
       klasConversationIdRef.current = null;
       klasBridgeFiredRef.current = false;
+      const initCourse = dbCourses.length === 1 ? dbCourses[0].id : (activeCourseId || null);
+      setKlasCourseId(initCourse);
+      klasCourseIdRef.current = initCourse;
     }
     setSageOpen(true);
   };
@@ -1725,6 +1730,7 @@ export default function KlasUp() {
         current_mode: currentMode,
         message_count: messagesArray.length,
         reached_mode_2: false,
+        course_id: klasCourseIdRef.current || null,
       }).select("id").single();
       if (error) { console.warn("[Klas] Create conversation failed:", error.message); return null; }
       return data.id;
@@ -1820,12 +1826,12 @@ export default function KlasUp() {
         const bridgeTitle = (labelForTitle && updatedCore4.subject)
           ? `${labelForTitle} — ${updatedCore4.subject}${updatedCore4.level ? ` (${updatedCore4.level})` : ""}`
           : "Untitled brainstorm";
-        updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReply, message_count: withReply.length, core_4_context: updatedCore4 });
+        updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReply, message_count: withReply.length, core_4_context: updatedCore4, course_id: klasCourseIdRef.current || null });
       }
 
       if (expandStepTriggered) {
         // SAVE TRIGGER 2: Mode 2 starts
-        if (klasConversationIdRef.current) updateKlasConversation(klasConversationIdRef.current, { current_mode: 'brainstorming', reached_mode_2: true, messages: withReply, message_count: withReply.length });
+        if (klasConversationIdRef.current) updateKlasConversation(klasConversationIdRef.current, { current_mode: 'brainstorming', reached_mode_2: true, messages: withReply, message_count: withReply.length, course_id: klasCourseIdRef.current || null });
         setSageOpen(false);
         setKlasMode2Open(true);
         if (typeof gtag === "function") gtag("event", "klas_mode2_opened", { trigger: "expand_step" });
@@ -1835,7 +1841,7 @@ export default function KlasUp() {
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       } else if (klasConversationIdRef.current) {
         // SAVE TRIGGER 3: Update after any other message when conversation exists
-        updateKlasConversation(klasConversationIdRef.current, { messages: withReply, message_count: withReply.length, core_4_context: updatedCore4 });
+        updateKlasConversation(klasConversationIdRef.current, { messages: withReply, message_count: withReply.length, core_4_context: updatedCore4, course_id: klasCourseIdRef.current || null });
       }
     } catch (err) {
       console.error("[Klas] Chat error:", err);
@@ -1930,10 +1936,10 @@ export default function KlasUp() {
         const bridgeTitle = (labelForTitle && updatedCore4H.subject)
           ? `${labelForTitle} — ${updatedCore4H.subject}${updatedCore4H.level ? ` (${updatedCore4H.level})` : ""}`
           : "Untitled brainstorm";
-        updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H });
+        updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H, course_id: klasCourseIdRef.current || null });
       } else if (klasConversationIdRef.current) {
         // SAVE TRIGGER 3: Update after any message when conversation exists
-        updateKlasConversation(klasConversationIdRef.current, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H });
+        updateKlasConversation(klasConversationIdRef.current, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H, course_id: klasCourseIdRef.current || null });
       }
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
@@ -6033,10 +6039,20 @@ export default function KlasUp() {
           transition: "width 0.3s ease, height 0.3s ease, max-height 0.3s ease",
         }}>
           {/* Header */}
-          <div style={{ background: C.sage, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ background: C.sage, padding: "14px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0 }}>
             <div>
               <div style={{ fontFamily: F.display, fontSize: 18, color: C.white }}>Klas</div>
               <div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.75)" }}>Your instructional design partner</div>
+              {dbCourses.length > 1 && (
+                <select
+                  value={klasCourseId || ""}
+                  onChange={e => { const v = e.target.value || null; setKlasCourseId(v); klasCourseIdRef.current = v; }}
+                  style={{ fontFamily: F.accent, fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", color: "#FAF7F2", background: "rgba(255,255,255,0.12)", outline: "none", cursor: "pointer", marginTop: 7 }}
+                >
+                  <option value="">Select a course</option>
+                  {dbCourses.map(cx => <option key={cx.id} value={cx.id}>{formatCourseLabel(cx)}</option>)}
+                </select>
+              )}
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <button onClick={() => setKlasExpanded(e => !e)}
@@ -6204,6 +6220,9 @@ export default function KlasUp() {
                     setKlasConversationId(null);
                     klasConversationIdRef.current = null;
                     klasBridgeFiredRef.current = false;
+                    const resetCourse = dbCourses.length === 1 ? dbCourses[0].id : (activeCourseId || null);
+                    setKlasCourseId(resetCourse);
+                    klasCourseIdRef.current = resetCourse;
                     setSageClearConfirm(false);
                   }}
                     style={{ background: C.sage, color: C.white, border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -6226,23 +6245,33 @@ export default function KlasUp() {
           }}>
             {/* SECTION A — Header */}
             <div style={{
-              background: "#2A9D8F", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "#2A9D8F", padding: "16px 24px", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
               flexShrink: 0, minHeight: 64, boxSizing: "border-box",
             }}>
               <div>
                 <div style={{ fontFamily: F.body, fontWeight: 700, fontSize: 18, color: C.white }}>Klas</div>
                 <div style={{ fontFamily: F.body, fontSize: 12, color: "rgba(255,255,255,0.9)" }}>Focused brainstorming</div>
+                {dbCourses.length > 1 && (
+                  <select
+                    value={klasCourseId || ""}
+                    onChange={e => { const v = e.target.value || null; setKlasCourseId(v); klasCourseIdRef.current = v; }}
+                    style={{ fontFamily: F.accent, fontSize: 12, padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", color: "#FAF7F2", background: "rgba(255,255,255,0.12)", outline: "none", cursor: "pointer", marginTop: 7 }}
+                  >
+                    <option value="">Select a course</option>
+                    {dbCourses.map(cx => <option key={cx.id} value={cx.id}>{formatCourseLabel(cx)}</option>)}
+                  </select>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setSageClearConfirm(true)} title="Clear chat"
                   style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ↻
                 </button>
-                <button title="Minimize" onClick={() => { if (klasConversationId) updateKlasConversation(klasConversationId, { messages: sageMessages, message_count: sageMessages.length, core_4_context: klasCore4Ref.current }); setKlasMode2Open(false); setSageOpen(true); }}
+                <button title="Minimize" onClick={() => { if (klasConversationId) updateKlasConversation(klasConversationId, { messages: sageMessages, message_count: sageMessages.length, core_4_context: klasCore4Ref.current, course_id: klasCourseIdRef.current || null }); setKlasMode2Open(false); setSageOpen(true); }}
                   style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ↘
                 </button>
-                <button onClick={() => { if (klasConversationId) updateKlasConversation(klasConversationId, { messages: sageMessages, message_count: sageMessages.length, core_4_context: klasCore4Ref.current }); setKlasMode2Open(false); setSageOpen(true); }} title="Close"
+                <button onClick={() => { if (klasConversationId) updateKlasConversation(klasConversationId, { messages: sageMessages, message_count: sageMessages.length, core_4_context: klasCore4Ref.current, course_id: klasCourseIdRef.current || null }); setKlasMode2Open(false); setSageOpen(true); }} title="Close"
                   style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.18)", border: "none", color: C.white, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ✕
                 </button>
