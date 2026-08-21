@@ -991,6 +991,23 @@ export async function fetchArticleById(id) {
   return data
 }
 
+// ── Klas Conversations ───────────────────────────────────────
+
+export async function fetchKlasConversations(userId, courseId) {
+  let query = supabase
+    .from('klas_conversations')
+    .select('id, title, core_4_context, messages, current_mode, message_count, reached_mode_2, course_id, created_at, updated_at')
+    .eq('user_id', userId)
+    .eq('archived', false)
+    .order('updated_at', { ascending: false })
+  if (courseId) {
+    query = query.eq('course_id', courseId)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
 export async function fetchArticlesByDimension(dimension, limit = 20) {
   const { data, error } = await supabase
     .from('research_articles')

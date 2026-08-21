@@ -52,6 +52,7 @@ import {
   upsertReflection, fetchReflection,
   insertWellnessCheckin, updateWellnessCheckin, fetchRecentCheckins, fetchTodayCheckin,
   upsertKlasOtherResponse, getPromotedKlasOptions,
+  fetchKlasConversations,
 } from "./supabase";
 
 const C = {
@@ -1040,6 +1041,8 @@ export default function KlasUp() {
   const klasBridgeFiredRef = useRef(false);
   const [klasCourseId, setKlasCourseId] = useState(null);
   const klasCourseIdRef = useRef(null);
+  const [klasConversations, setKlasConversations] = useState([]);
+  const [klasConversationsLoading, setKlasConversationsLoading] = useState(false);
   const sageTextareaRef = useRef(null);
   const klasMode2TextareaRef = useRef(null);
 
