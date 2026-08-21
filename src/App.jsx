@@ -1035,6 +1035,9 @@ export default function KlasUp() {
   const [sageClearConfirm, setSageClearConfirm] = useState(false);
   const [klasMode2Open, setKlasMode2Open] = useState(false);
   const [klasConversationId, setKlasConversationId] = useState(null);
+  const klasConversationIdRef = useRef(null);
+  const klasCreatingRef = useRef(false);
+  const klasBridgeFiredRef = useRef(false);
   const sageTextareaRef = useRef(null);
   const klasMode2TextareaRef = useRef(null);
 
@@ -1702,6 +1705,8 @@ export default function KlasUp() {
       setSageMessages([{ role: "assistant", content: sageGreeting() }]);
       setKlasCore4({ subject: "", level: "", building: "", format: "", goal: "" });
       setKlasConversationId(null);
+      klasConversationIdRef.current = null;
+      klasBridgeFiredRef.current = false;
     }
     setSageOpen(true);
   };
@@ -1800,15 +1805,27 @@ export default function KlasUp() {
       const updatedCore4 = core4 ? { subject: core4.subject || previousCore4.subject, level: core4.level || previousCore4.level, building: core4.building || previousCore4.building, format: core4.format || previousCore4.format, goal: core4.goal || previousCore4.goal } : previousCore4;
       if (core4) { klasCore4Ref.current = updatedCore4; setKlasCore4(updatedCore4); }
 
-      // SAVE TRIGGER 1: Create conversation at Bridge (all 4 Core items filled, no conversation yet)
-      if (!klasConversationId && updatedCore4.subject && updatedCore4.level && updatedCore4.building && updatedCore4.goal) {
-        const newId = await createKlasConversation(updatedCore4, withReply, 'confirming');
-        if (newId) setKlasConversationId(newId);
+      // SAVE: Create conversation on first exchange
+      if (!klasConversationIdRef.current && !klasCreatingRef.current) {
+        klasCreatingRef.current = true;
+        const newId = await createKlasConversation(updatedCore4, withReply, 'gathering');
+        klasCreatingRef.current = false;
+        if (newId) { klasConversationIdRef.current = newId; setKlasConversationId(newId); }
+      }
+
+      // BRIDGE: Update title + mode when Core 4 first becomes complete
+      if (klasConversationIdRef.current && !klasBridgeFiredRef.current && updatedCore4.subject && updatedCore4.level && updatedCore4.building && updatedCore4.goal) {
+        klasBridgeFiredRef.current = true;
+        const labelForTitle = updatedCore4.format || updatedCore4.building;
+        const bridgeTitle = (labelForTitle && updatedCore4.subject)
+          ? `${labelForTitle} — ${updatedCore4.subject}${updatedCore4.level ? ` (${updatedCore4.level})` : ""}`
+          : "Untitled brainstorm";
+        updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReply, message_count: withReply.length, core_4_context: updatedCore4 });
       }
 
       if (expandStepTriggered) {
         // SAVE TRIGGER 2: Mode 2 starts
-        if (klasConversationId) updateKlasConversation(klasConversationId, { current_mode: 'brainstorming', reached_mode_2: true, messages: withReply, message_count: withReply.length });
+        if (klasConversationIdRef.current) updateKlasConversation(klasConversationIdRef.current, { current_mode: 'brainstorming', reached_mode_2: true, messages: withReply, message_count: withReply.length });
         setSageOpen(false);
         setKlasMode2Open(true);
         if (typeof gtag === "function") gtag("event", "klas_mode2_opened", { trigger: "expand_step" });
@@ -1816,9 +1833,9 @@ export default function KlasUp() {
           /open(ing)? the assignment builder/i.test(cleanedReply)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
-      } else if (klasConversationId) {
+      } else if (klasConversationIdRef.current) {
         // SAVE TRIGGER 3: Update after any other message when conversation exists
-        updateKlasConversation(klasConversationId, { messages: withReply, message_count: withReply.length, core_4_context: updatedCore4 });
+        updateKlasConversation(klasConversationIdRef.current, { messages: withReply, message_count: withReply.length, core_4_context: updatedCore4 });
       }
     } catch (err) {
       console.error("[Klas] Chat error:", err);
@@ -1898,13 +1915,25 @@ export default function KlasUp() {
       const updatedCore4H = core4 ? { subject: core4.subject || previousCore4H.subject, level: core4.level || previousCore4H.level, building: core4.building || previousCore4H.building, format: core4.format || previousCore4H.format, goal: core4.goal || previousCore4H.goal } : previousCore4H;
       if (core4) { klasCore4Ref.current = updatedCore4H; setKlasCore4(updatedCore4H); }
 
-      // SAVE TRIGGER 1: Create conversation at Bridge (all 4 filled, no conversation yet)
-      if (!klasConversationId && updatedCore4H.subject && updatedCore4H.level && updatedCore4H.building && updatedCore4H.goal) {
-        const newId = await createKlasConversation(updatedCore4H, withReplyH, 'confirming');
-        if (newId) setKlasConversationId(newId);
-      } else if (klasConversationId) {
+      // SAVE: Create conversation on first exchange
+      if (!klasConversationIdRef.current && !klasCreatingRef.current) {
+        klasCreatingRef.current = true;
+        const newId = await createKlasConversation(updatedCore4H, withReplyH, 'gathering');
+        klasCreatingRef.current = false;
+        if (newId) { klasConversationIdRef.current = newId; setKlasConversationId(newId); }
+      }
+
+      // BRIDGE: Update title + mode when Core 4 first becomes complete
+      if (klasConversationIdRef.current && !klasBridgeFiredRef.current && updatedCore4H.subject && updatedCore4H.level && updatedCore4H.building && updatedCore4H.goal) {
+        klasBridgeFiredRef.current = true;
+        const labelForTitle = updatedCore4H.format || updatedCore4H.building;
+        const bridgeTitle = (labelForTitle && updatedCore4H.subject)
+          ? `${labelForTitle} — ${updatedCore4H.subject}${updatedCore4H.level ? ` (${updatedCore4H.level})` : ""}`
+          : "Untitled brainstorm";
+        updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H });
+      } else if (klasConversationIdRef.current) {
         // SAVE TRIGGER 3: Update after any message when conversation exists
-        updateKlasConversation(klasConversationId, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H });
+        updateKlasConversation(klasConversationIdRef.current, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H });
       }
 
       // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
@@ -6173,6 +6202,8 @@ export default function KlasUp() {
                     setSageInput("");
                     setKlasCore4({ subject: "", level: "", building: "", format: "", goal: "" });
                     setKlasConversationId(null);
+                    klasConversationIdRef.current = null;
+                    klasBridgeFiredRef.current = false;
                     setSageClearConfirm(false);
                   }}
                     style={{ background: C.sage, color: C.white, border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: F.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
