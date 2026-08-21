@@ -820,6 +820,7 @@ export default function KlasUp() {
   const [aiMicro, setAiMicro] = useState([]);
   const [aiMicroLoading, setAiMicroLoading] = useState(false);
   const [aiMicroError, setAiMicroError] = useState(null);
+  const [uploadSaveStatus, setUploadSaveStatus] = useState(null); // null | "saved" | "upload_failed" | "micro_failed"
   const [microHistory, setMicroHistory] = useState({});
   const [panelSections, setPanelSections] = useState({});
   const [uploadLog, setUploadLog] = useState([]);
@@ -2884,7 +2885,6 @@ export default function KlasUp() {
             setUploaded(p => ({ ...p, [myCourseCategory]: (p[myCourseCategory] || 0) + 1 }));
             setUploadLog(prev => [{ content: text, category: myCourseCategory, course, week, timestamp: Date.now() }, ...prev]);
             const fileMeta = uploadFileMeta;
-            setUploadText("");
             setUploadFileMeta(null);
             setLastSubmittedText(text);
             setApplyPreview(null);
@@ -2892,13 +2892,23 @@ export default function KlasUp() {
             setAppliedSet(new Set());
             setAppliedRevisions(new Map());
             setAppliedRecContext(null);
+            setUploadSaveStatus(null);
 
             // Persist upload to DB (with file metadata when a file was uploaded)
             const courseObj = dbCourses.find(c => c.course_code === course);
             let uploadRow = null;
             if (session?.user && courseObj) {
-              try { uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}, pendingAssignmentId); }
-              catch (e) { console.warn("Upload DB insert failed:", e); }
+              try {
+                uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}, pendingAssignmentId);
+                setUploadText("");
+                setUploadSaveStatus("saved");
+                setTimeout(() => setUploadSaveStatus(prev => prev === "saved" ? null : prev), 3000);
+              } catch (e) {
+                console.warn("Upload DB insert failed:", e);
+                setUploadSaveStatus("upload_failed");
+              }
+            } else {
+              setUploadSaveStatus("upload_failed");
             }
             setLastUploadId(uploadRow?.id || null);
             setPendingAssignmentId(null);
@@ -2929,14 +2939,18 @@ export default function KlasUp() {
                 }));
                 // Persist micro-learnings to DB and write real IDs back
                 if (session?.user && uploadRow) {
+                  let microFailed = false;
                   const rows = await Promise.all(
                     enriched.map(rec =>
                       insertMicroLearning(session.user.id, uploadRow.id, rec)
-                        .catch(e => { console.warn("Micro-learning DB insert failed:", e); return null; })
+                        .catch(e => { console.warn("Micro-learning DB insert failed:", e); microFailed = true; return null; })
                     )
                   );
                   const withIds = enriched.map((rec, i) => ({ ...rec, id: rows[i]?.id ?? null }));
                   setAiMicro(withIds);
+                  if (microFailed) {
+                    setUploadSaveStatus("micro_failed");
+                  }
                 }
               })
               .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
@@ -3054,6 +3068,23 @@ export default function KlasUp() {
                   Submit to KlasUp ↗
                 </button>
               </div>
+
+              {/* Save status */}
+              {uploadSaveStatus === "saved" && (
+                <div style={{ marginTop: 8, fontSize: 13, fontFamily: F.accent, fontWeight: 700, color: C.teal, textAlign: "right" }}>✓ Saved</div>
+              )}
+              {uploadSaveStatus === "upload_failed" && (
+                <div style={{ marginTop: 8, padding: "10px 14px", background: C.roseLight, borderRadius: 10, borderLeft: `4px solid ${C.rose}` }}>
+                  <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.rose, fontSize: 13, marginBottom: 2 }}>Couldn't save your submission</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>Your text is still in the box — try submitting again. If this keeps happening, check your connection.</div>
+                </div>
+              )}
+              {uploadSaveStatus === "micro_failed" && (
+                <div style={{ marginTop: 8, padding: "10px 14px", background: C.goldLight, borderRadius: 10, borderLeft: `4px solid ${C.gold}` }}>
+                  <div style={{ fontFamily: F.accent, fontWeight: 700, color: C.gold, fontSize: 13, marginBottom: 2 }}>Partially saved</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>Your submission was saved, but the recommendations couldn't be stored. They may not appear later.</div>
+                </div>
+              )}
 
               {/* Writing prompts */}
               {promptHelperOpen && (
