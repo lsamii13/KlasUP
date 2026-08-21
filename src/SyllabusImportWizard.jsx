@@ -217,7 +217,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 2000, background: C.ivory,
+      position: "fixed", inset: 0, zIndex: 9050, background: C.ivory,
       display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
       {/* Header */}
