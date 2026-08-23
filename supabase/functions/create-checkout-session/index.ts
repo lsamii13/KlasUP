@@ -9,9 +9,8 @@ const corsHeaders = {
 }
 
 const VALID_PRICE_IDS = [
-  'price_1TtYtBCs9eEroaz8zM7OaBKt', // Monthly
-  'price_1TtZ5CCs9eEroaz8PqpGixG0', // Yearly
-  'price_1U3HW0Cs9eEroaz8kBcs1EOj', // Yearly $179.99
+  'price_1U7fciEA4xWM73CVdZFPeDJL', // Monthly $19.99 LIVE
+  'price_1U7fchEA4xWM73CV4a2HqKxg', // Annual $179.99 LIVE
 ]
 
 /**
@@ -131,6 +130,7 @@ Deno.serve(async (req: Request) => {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
+        trial_period_days: 14,
         metadata: { supabase_user_id: userId },
       },
       success_url: `${siteUrl}/dashboard?checkout=success`,

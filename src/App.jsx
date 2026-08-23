@@ -80,12 +80,12 @@ const AI_DISCLAIMER = (
   </div>
 );
 
-// Stripe TEST mode price IDs. Must match VALID_PRICE_IDS in
+// Stripe LIVE mode price IDs. Must match VALID_PRICE_IDS in
 // supabase/functions/create-checkout-session/index.ts — if they drift,
 // checkout returns "Invalid price ID".
 const PRICE_IDS = {
-  monthly: 'price_1TtYtBCs9eEroaz8zM7OaBKt',
-  annual:  'price_1U3HW0Cs9eEroaz8kBcs1EOj',
+  monthly: 'price_1U7fciEA4xWM73CVdZFPeDJL',
+  annual:  'price_1U7fchEA4xWM73CV4a2HqKxg',
 };
 
 const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
