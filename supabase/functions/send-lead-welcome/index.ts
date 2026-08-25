@@ -49,6 +49,9 @@ function wrap(body: string): string {
 ${body}
 <div class="footer">
   <p class="tagline">Teach smarter. Not harder.</p>
+  <p style="margin-top:16px;">You're receiving this because you downloaded the KlasUp faculty prompts at klasup.com.</p>
+  <p style="margin-top:8px;"><a href="{{{ unsubscribe_url }}}" style="color:#888;">Unsubscribe</a></p>
+  <p style="margin-top:8px;">KlasUp · PO Box [NUMBER], [CITY], [STATE] [ZIP]</p>
 </div>
 </div>
 </body>

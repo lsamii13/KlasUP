@@ -188,7 +188,9 @@ export default function LeadCaptureForm({
           margin: "16px 0 0",
         }}
       >
-        We respect your privacy. No spam, ever.
+        <em>Plus a weekly research-backed teaching tip — unsubscribe anytime.</em>
+        {" "}
+        <a href="https://klasup.com/privacy" style={{ color: "#999" }}>Privacy Policy</a>
       </p>
     </section>
   );
