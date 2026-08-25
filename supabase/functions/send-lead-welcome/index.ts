@@ -51,7 +51,7 @@ ${body}
   <p class="tagline">Teach smarter. Not harder.</p>
   <p style="margin-top:16px;">You're receiving this because you downloaded the KlasUp faculty prompts at klasup.com.</p>
   <p style="margin-top:8px;"><a href="{{{ unsubscribe_url }}}" style="color:#888;">Unsubscribe</a></p>
-  <p style="margin-top:8px;">KlasUp · PO Box [NUMBER], [CITY], [STATE] [ZIP]</p>
+  <p style="margin-top:8px;">KlasUp · 25 South River Rd. #110, PO Box 10094, Bedford, NH 03110</p>
 </div>
 </div>
 </body>
