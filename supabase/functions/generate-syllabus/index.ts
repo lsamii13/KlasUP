@@ -404,6 +404,7 @@ ${sections.join('\n\n')}`
       } catch (parseErr) {
         lastParseError = (parseErr as Error).message
         console.error(`[generate-syllabus] JSON parse failed (attempt ${attempt}):`, rawText.slice(0, 500))
+        console.error(`[generate-syllabus] stop_reason=${aiData.stop_reason}, rawText.length=${rawText.length}`)
       }
 
       if (attempt < MAX_ATTEMPTS) {
