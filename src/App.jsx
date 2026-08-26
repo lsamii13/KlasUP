@@ -1401,7 +1401,7 @@ export default function KlasUp() {
         const data = await signUp(authEmail, authPassword);
         await logSecurityEvent(data.user?.id || null, "signup", { email: authEmail });
         if (typeof gtag === "function") gtag("event", "signup_completed");
-        setAuthSuccess("Check your email to verify your account before logging in.");
+        setAuthSuccess("Check your email to verify your account before logging in. If it hasn't arrived in a few minutes, check your spam or junk folder.");
         setAuthMode("login");
       } else {
         await signIn(authEmail, authPassword, { remember: rememberMe });
@@ -1421,7 +1421,11 @@ export default function KlasUp() {
           setAuthError("Account locked for 15 minutes due to too many failed attempts.");
           await logSecurityEvent(null, "account_locked", { email: authEmail });
         } else {
-          setAuthError(err.message);
+          if (err.code === "email_not_confirmed" || (err.message && err.message.toLowerCase().includes("email not confirmed"))) {
+            setAuthError("Your email isn't verified yet. Check your inbox and your spam folder for the verification link from when you signed up. Still stuck? Email hello@klasup.com.");
+          } else {
+            setAuthError(err.message);
+          }
         }
       } else {
         setAuthError(err.message);
