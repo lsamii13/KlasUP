@@ -731,7 +731,8 @@ export default function KlasUp() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
-  const [showResearch, setShowResearch] = useState(window.location.hash === "#/research");
+  const isResearchPath = window.location.pathname.replace(/\/$/, "") === "/research";
+  const [showResearch, setShowResearch] = useState(window.location.hash === "#/research" || isResearchPath);
   const [showBeta, setShowBeta] = useState(false);
   const [showTerms, setShowTerms] = useState(null); // null | "terms" | "privacy"
   const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
@@ -1978,8 +1979,8 @@ export default function KlasUp() {
   if (showResearch) {
     return (
       <ResearchLibrary
-        onBack={() => { setShowResearch(false); window.location.hash = ""; }}
-        onSignUp={() => { setShowResearch(false); window.location.hash = ""; setShowLanding(false); setAuthMode("signup"); }}
+        onBack={() => { setShowResearch(false); window.location.hash = ""; if (isResearchPath) window.history.replaceState({}, "", "/"); }}
+        onSignUp={() => { setShowResearch(false); window.location.hash = ""; if (isResearchPath) window.history.replaceState({}, "", "/"); setShowLanding(false); setAuthMode("signup"); }}
       />
     );
   }
