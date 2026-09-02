@@ -745,6 +745,10 @@ function pageForPath(pathname) {
 function pathForPage(name) {
   return PAGE_PATHS[name] ?? null;
 }
+/** True when the current URL indicates the Research Library should be open */
+function shouldShowResearch() {
+  return window.location.hash === "#/research" || normPath(window.location.pathname) === "/research";
+}
 
 export default function KlasUp() {
   // --- Auth state ---
@@ -752,7 +756,8 @@ export default function KlasUp() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
   const isResearchPath = window.location.pathname.replace(/\/$/, "") === "/research";
-  const [showResearch, setShowResearch] = useState(window.location.hash === "#/research" || isResearchPath);
+  const [showResearch, setShowResearch] = useState(shouldShowResearch);
+  const showResearchRef = useRef(showResearch);
   const [showBeta, setShowBeta] = useState(false);
   const [showTerms, setShowTerms] = useState(null); // null | "terms" | "privacy"
   const [authMode, setAuthMode] = useState("login"); // "login" | "signup" | "forgot"
@@ -1202,6 +1207,11 @@ export default function KlasUp() {
     }
   }, [session]);
 
+  // Keep ref in sync so the [] popstate listener can read current value
+  useEffect(() => {
+    showResearchRef.current = showResearch;
+  }, [showResearch]);
+
   // --- Push URL when page changes (only for mapped views, only when logged in) ---
   const hasWrittenUrlRef = useRef(false);
 
@@ -1226,6 +1236,11 @@ export default function KlasUp() {
   // --- Back / forward button support ---
   useEffect(() => {
     function onPopState() {
+      // If Research overlay is open but URL no longer indicates it, close it
+      if (showResearchRef.current && !shouldShowResearch()) {
+        setShowResearch(false);
+        return;
+      }
       const matched = pageForPath(window.location.pathname);
       if (matched) setPage(matched);
     }
