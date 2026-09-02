@@ -726,11 +726,24 @@ function ComingSoon() {
   );
 }
 
-/* ── URL ↔ page-name mapping (Step A: 3 views only) ── */
+/* ── URL ↔ page-name mapping ── */
 const PAGE_PATHS = {
   "Dashboard":        "/app/dashboard",
   "Course Architect": "/app/course-architect",
+  "Course Setup":     "/app/course-setup",
+  "Pedagogy Studio":  "/app/pedagogy-studio",
   "Slide Studio":     "/app/slide-studio",
+  "Assignment Builder": "/app/assignment-builder",
+  "Micro-Learning":   "/app/micro-learning",
+  "Think Tank":       "/app/think-tank",
+  "Reports":          "/app/reports",
+  "Course Portfolio": "/app/course-portfolio",
+  "Student Voice":    "/app/student-voice",
+  "Wellness":         "/app/wellness",
+  "Settings":         "/app/settings",
+  "Admin":            "/app/admin",
+  "Guide":            "/app/guide",
+  "Pricing":          "/app/pricing",
 };
 const PATH_TO_PAGE = Object.fromEntries(
   Object.entries(PAGE_PATHS).map(([name, path]) => [path, name])
