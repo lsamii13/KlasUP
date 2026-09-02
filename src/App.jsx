@@ -726,6 +726,26 @@ function ComingSoon() {
   );
 }
 
+/* ── URL ↔ page-name mapping (Step A: 3 views only) ── */
+const PAGE_PATHS = {
+  "Dashboard":        "/app/dashboard",
+  "Course Architect": "/app/course-architect",
+  "Slide Studio":     "/app/slide-studio",
+};
+const PATH_TO_PAGE = Object.fromEntries(
+  Object.entries(PAGE_PATHS).map(([name, path]) => [path, name])
+);
+/** Normalize pathname by stripping a single trailing slash */
+function normPath(p) { return p.endsWith("/") ? p.slice(0, -1) : p; }
+/** Given a pathname, return the matching page name or null */
+function pageForPath(pathname) {
+  return PATH_TO_PAGE[normPath(pathname)] ?? null;
+}
+/** Given a page name, return the matching /app/ path or null */
+function pathForPage(name) {
+  return PAGE_PATHS[name] ?? null;
+}
+
 export default function KlasUp() {
   // --- Auth state ---
   const [session, setSession] = useState(null);
@@ -786,7 +806,7 @@ export default function KlasUp() {
   const [adminEmbedResult, setAdminEmbedResult] = useState(null);
   const [adminFeatureFlags, setAdminFeatureFlags] = useState([]);
 
-  const [page, setPage] = useState("Dashboard");
+  const [page, setPage] = useState(() => pageForPath(window.location.pathname) ?? "Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const ww = useWindowWidth();
   const mob = ww < 768;
@@ -1181,6 +1201,37 @@ export default function KlasUp() {
       window.location.hash = "";
     }
   }, [session]);
+
+  // --- Push URL when page changes (only for mapped views, only when logged in) ---
+  const hasWrittenUrlRef = useRef(false);
+
+  // Reset the flag when session becomes falsy (logout → re-login cycle)
+  useEffect(() => {
+    if (!session) hasWrittenUrlRef.current = false;
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const targetPath = pathForPage(page);
+    if (!targetPath) return;                                        // page not in lookup table
+    if (normPath(window.location.pathname) === targetPath) return;  // loop guard
+    if (!hasWrittenUrlRef.current) {
+      window.history.replaceState({}, "", targetPath);
+      hasWrittenUrlRef.current = true;
+    } else {
+      window.history.pushState({}, "", targetPath);
+    }
+  }, [page, session]);
+
+  // --- Back / forward button support ---
+  useEffect(() => {
+    function onPopState() {
+      const matched = pageForPath(window.location.pathname);
+      if (matched) setPage(matched);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   // --- Checkout success toast ---
   const checkoutToastFired = useRef(false);
