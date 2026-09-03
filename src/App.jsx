@@ -1244,6 +1244,8 @@ export default function KlasUp() {
     } else {
       window.history.pushState({}, "", targetPath);
     }
+    if (typeof window.gtag === "function")
+      window.gtag("event", "page_view", { page_title: page, page_location: window.location.origin + targetPath });
   }, [page, session]);
 
   // --- Back / forward button support ---
@@ -1255,7 +1257,11 @@ export default function KlasUp() {
         return;
       }
       const matched = pageForPath(window.location.pathname);
-      if (matched) setPage(matched);
+      if (matched) {
+        if (typeof window.gtag === "function")
+          window.gtag("event", "page_view", { page_title: matched, page_location: window.location.origin + normPath(window.location.pathname) });
+        setPage(matched);
+      }
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
