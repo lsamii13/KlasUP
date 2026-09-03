@@ -112,9 +112,11 @@ export default function NotifyMeForm({
               alignItems: "flex-start",
             }}
           >
+            <label htmlFor="notify-email" style={{ fontSize: 12, fontFamily: F.body, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6, width: "100%" }}>What's your email?</label>
             <input
+              id="notify-email"
               type="email"
-              placeholder="you@university.edu"
+              placeholder="name@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               aria-label="Email address"

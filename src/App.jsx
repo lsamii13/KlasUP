@@ -2137,9 +2137,9 @@ export default function KlasUp() {
 
             <form onSubmit={handleAuth}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>Email</label>
-                <input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                  placeholder="you@university.edu" style={inputStyle}
+                <label htmlFor="auth-email" style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.muted, display: "block", marginBottom: 6 }}>What's your email?</label>
+                <input id="auth-email" type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                  placeholder="name@email.com" style={inputStyle}
                   onFocus={e => e.target.style.borderColor = C.teal} onBlur={e => e.target.style.borderColor = C.border} />
               </div>
 
