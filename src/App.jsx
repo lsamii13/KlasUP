@@ -36,7 +36,7 @@ import {
   supabase, signUp, signIn, signOut, getSession, onAuthStateChange,
   fetchProfile, upsertProfile, updateLastActive, uploadProfilePhoto,
   checkSubscriptionStatus, syncOwnRole,
-  fetchCourses, insertCourse, updateCourse as updateCourseDB, deleteCourse as deleteCourseDB,
+  fetchCourses, insertCourse, createDefaultCourse, updateCourse as updateCourseDB, deleteCourse as deleteCourseDB,
   resetPassword, updatePassword,
   trackEvent, logSecurityEvent,
   fetchActiveAnnouncements, dismissAnnouncement,
@@ -1080,6 +1080,7 @@ export default function KlasUp() {
   const klasBridgeFiredRef = useRef(false);
   const [klasCourseId, setKlasCourseId] = useState(null);
   const klasCourseIdRef = useRef(null);
+  const autoCreateInFlightRef = useRef(null);
   const [klasConversations, setKlasConversations] = useState([]);
   const [klasConversationsLoading, setKlasConversationsLoading] = useState(false);
   const sageTextareaRef = useRef(null);
@@ -1371,15 +1372,21 @@ export default function KlasUp() {
         refreshPaidSubscription(userId).catch(() => {});
 
         // Fetch courses
-        const rows = await fetchCourses(userId);
-        setDbCourses(rows);
+        let rows = await fetchCourses(userId);
         if (rows.length === 0) {
-          setShowOnboarding(true);
-          setOnboardingStep(2);
-        } else {
-          setCourse(rows[0].course_code);
-          setPortfolioCourse(rows[0].course_code);
+          if (autoCreateInFlightRef.current === userId) return;
+          autoCreateInFlightRef.current = userId;
+          try {
+            const defaultRow = await createDefaultCourse(userId);
+            rows = [defaultRow];
+          } catch (err) {
+            autoCreateInFlightRef.current = null;
+            throw err;
+          }
         }
+        setDbCourses(rows);
+        setCourse(rows[0].course_code);
+        setPortfolioCourse(rows[0].course_code);
 
         // Fetch uploads + micro-learnings (non-critical)
         // Fetched together so micro-learnings can be matched to uploads via upload_id FK
@@ -1604,8 +1611,23 @@ export default function KlasUp() {
       setSubStatus(status);
       await trackEvent(session.user.id, "profile_completed");
       setProfileSetup(false);
-      setShowOnboarding(true);
-      setOnboardingStep(2);
+      const userId = session.user.id;
+      let rows = await fetchCourses(userId);
+      if (rows.length === 0 && autoCreateInFlightRef.current !== userId) {
+        autoCreateInFlightRef.current = userId;
+        try {
+          const defaultRow = await createDefaultCourse(userId);
+          rows = [defaultRow];
+        } catch (createErr) {
+          autoCreateInFlightRef.current = null;
+          throw createErr;
+        }
+      }
+      if (rows.length > 0) {
+        setDbCourses(rows);
+        setCourse(rows[0].course_code);
+        setPortfolioCourse(rows[0].course_code);
+      }
     } catch (err) {
       setAuthError(err.message);
     }
@@ -1717,13 +1739,18 @@ export default function KlasUp() {
 
   const removeCourse = async (id) => {
     await deleteCourseDB(id);
-    setDbCourses(prev => {
-      const next = prev.filter(c => c.id !== id);
-      const removed = prev.find(c => c.id === id);
-      if (removed && course === removed.course_code && next.length > 0) setCourse(next[0].course_code);
-      if (removed && portfolioCourse === removed.course_code && next.length > 0) setPortfolioCourse(next[0].course_code);
-      return next;
-    });
+    const remaining = dbCourses.filter(c => c.id !== id);
+    let next;
+    if (remaining.length === 0) {
+      const defaultRow = await createDefaultCourse(session.user.id);
+      next = [defaultRow];
+    } else {
+      next = remaining;
+    }
+    setDbCourses(next);
+    const removed = dbCourses.find(c => c.id === id);
+    if (removed && (course === removed.course_code || next.length === 1)) setCourse(next[0].course_code);
+    if (removed && (portfolioCourse === removed.course_code || next.length === 1)) setPortfolioCourse(next[0].course_code);
   };
 
   const editCourse = async (id, updates) => {

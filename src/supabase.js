@@ -237,6 +237,21 @@ export async function deleteCourse(id) {
   if (error) throw error
 }
 
+export async function createDefaultCourse(userId) {
+  const { data, error } = await supabase
+    .from('courses')
+    .insert({
+      user_id: userId,
+      course_code: 'TBD',
+      course_name: 'My first course',
+      num_weeks: 16,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 // ── Course Weeks ──────────────────────────────────────────
 
 export async function fetchCourseWeeks(courseId) {
