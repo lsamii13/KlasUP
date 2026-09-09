@@ -8,7 +8,7 @@ const C = {
 const F = { heading: "'Bricolage Grotesque', sans-serif", body: "'Manrope', sans-serif" };
 
 const STEPS = ["outcomes", "weeks", "assignments", "confirm"];
-const STEP_LABELS = { outcomes: "Outcomes", weeks: "Weeks", assignments: "Assignments", confirm: "Confirm" };
+const STEP_LABELS = { course: "Course", outcomes: "Outcomes", weeks: "Weeks", assignments: "Assignments", confirm: "Confirm" };
 
 const DEEP_FIELDS = [
   { key: "weekly_outcomes", label: "Weekly outcomes" },
@@ -17,6 +17,13 @@ const DEEP_FIELDS = [
   { key: "activities", label: "Activities" },
   { key: "discussion_board", label: "Discussion board" },
   { key: "wellness_note", label: "Wellness note" },
+];
+
+const COURSE_FIELDS = [
+  { key: "course_name", label: "Course name" },
+  { key: "course_code", label: "Course code" },
+  { key: "term_code", label: "Term" },
+  { key: "term_start", label: "Start date", type: "date" },
 ];
 
 function LowBadge() {
@@ -35,10 +42,10 @@ function LoPill({ code }) {
   return <span style={{ background: C.tealSoft, color: C.teal, fontSize: 10, fontWeight: 700, fontFamily: F.heading, padding: "2px 8px", borderRadius: 8, letterSpacing: "0.3px" }}>{code}</span>;
 }
 
-function ProgressBar({ stepIndex }) {
+function ProgressBar({ stepIndex, segmentCount = 3 }) {
   return (
     <div style={{ display: "flex", gap: 4, marginBottom: 28 }}>
-      {[0, 1, 2].map(i => (
+      {Array.from({ length: segmentCount }, (_, i) => (
         <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= stepIndex ? C.teal : C.border, transition: "background 0.3s" }} />
       ))}
     </div>
@@ -87,6 +94,13 @@ function MissingSectionInterstitial({ sectionName, onSkip }) {
 }
 
 export default function SyllabusImportWizard({ proposals, currentCourse, onConfirm, onCancel, currentNumWeeks }) {
+  // ── Course step (conditional) ──
+  const courseFieldsPresent = COURSE_FIELDS.filter(f => proposals.course?.[f.key] != null);
+  const hasCourseStep = courseFieldsPresent.length > 0;
+  const steps = hasCourseStep
+    ? ["course", "outcomes", "weeks", "assignments", "confirm"]
+    : STEPS;
+
   const [step, setStep] = useState(0);
   const [writing, setWriting] = useState(false);
   const [writeResult, setWriteResult] = useState(null); // { counts, extendedTo, error }
@@ -126,6 +140,14 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
   );
   const [editingAsn, setEditingAsn] = useState(null);
 
+  // ── Course edits state ──
+  const [courseEdits, setCourseEdits] = useState(() => {
+    if (!hasCourseStep) return {};
+    const edits = {};
+    for (const f of courseFieldsPresent) edits[f.key] = proposals.course[f.key];
+    return edits;
+  });
+
   // ── Escape to cancel (disabled during write) ──
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape" && !writing) onCancel(); };
@@ -134,7 +156,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
   }, [onCancel, writing]);
 
   // ── Helpers ──
-  const currentStep = STEPS[step];
+  const currentStep = steps[step];
   const isMissing = (sectionKey) => {
     if (proposals.missing_sections.includes(sectionKey)) return true;
     if (sectionKey === "outcomes" && proposals.outcomes.length === 0) return true;
@@ -158,6 +180,21 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
 
   // ── Build payload ──
   const buildPayload = useCallback(() => {
+    // Course — collect non-empty edited fields; null if nothing remains
+    let course = null;
+    if (hasCourseStep) {
+      const c = {};
+      let any = false;
+      for (const f of courseFieldsPresent) {
+        const v = courseEdits[f.key];
+        if (v != null && String(v).trim() !== "") {
+          c[f.key] = String(v).trim();
+          any = true;
+        }
+      }
+      if (any) course = c;
+    }
+
     const outcomes = proposals.outcomes
       .map((o, i) => outcomeChecked[i] ? { ...o, ...outcomeEdits[i] } : null)
       .filter(Boolean);
@@ -188,8 +225,8 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
       .map((a, i) => asnChecked[i] ? { ...a, ...asnEdits[i] } : null)
       .filter(Boolean);
 
-    return { outcomes, weeks, assignments };
-  }, [proposals, outcomeChecked, outcomeEdits, weekChecked, conflictChoices, removedDeepFields, asnChecked, asnEdits]);
+    return { outcomes, weeks, assignments, course };
+  }, [proposals, outcomeChecked, outcomeEdits, weekChecked, conflictChoices, removedDeepFields, asnChecked, asnEdits, hasCourseStep, courseEdits]);
 
   // ── Counts ──
   const checkedOutcomes = Object.values(outcomeChecked).filter(Boolean).length;
@@ -237,16 +274,60 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
       </div>
 
       <div style={{ padding: "16px 28px 0", flexShrink: 0 }}>
-        <ProgressBar stepIndex={step} />
+        <ProgressBar stepIndex={step} segmentCount={steps.length - 1} />
       </div>
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 28px 28px" }}>
 
-        {/* ── STEP 1: OUTCOMES ── */}
+        {/* ── STEP: COURSE (conditional) ── */}
+        {currentStep === "course" && (
+          <div>
+            <div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 18, color: C.navy, marginBottom: 4 }}>Course Details</div>
+            <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 18 }}>
+              Review the course information found in the syllabus. Clear any field you don't want updated.
+            </div>
+            <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 20px", maxWidth: 700, display: "flex", flexDirection: "column", gap: 14 }}>
+              {proposals.course?.confidence === "low" && (
+                <div style={{ marginBottom: 2 }}><LowBadge /></div>
+              )}
+              {courseFieldsPresent.map(f => {
+                const cleared = courseEdits[f.key] == null;
+                return (
+                  <div key={f.key}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.teal, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>{f.label}</div>
+                    {cleared ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14, color: C.textSoft, textDecoration: "line-through", flex: 1 }}>{proposals.course[f.key]}</span>
+                        <button onClick={() => setCourseEdits(p => ({ ...p, [f.key]: proposals.course[f.key] }))}
+                          style={{ background: "none", border: "none", fontSize: 11, color: C.teal, cursor: "pointer", fontFamily: F.body, fontWeight: 600 }}>undo</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type={f.type || "text"}
+                          value={courseEdits[f.key] ?? ""}
+                          onChange={e => setCourseEdits(p => ({ ...p, [f.key]: e.target.value }))}
+                          style={{
+                            flex: 1, fontFamily: F.body, fontSize: 14, padding: "7px 10px", borderRadius: 8,
+                            border: `1px solid ${C.border}`, outline: "none", color: C.navy, background: C.ivory,
+                          }}
+                        />
+                        <button onClick={() => setCourseEdits(p => ({ ...p, [f.key]: null }))} title="Clear"
+                          style={{ background: "none", border: "none", fontSize: 12, color: C.textSoft, cursor: "pointer", padding: "0 4px" }}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: OUTCOMES ── */}
         {currentStep === "outcomes" && (
           isMissing("outcomes") ? (
-            <MissingSectionInterstitial sectionName="learning outcomes" onSkip={() => setStep(1)} />
+            <MissingSectionInterstitial sectionName="learning outcomes" onSkip={() => setStep(s => s + 1)} />
           ) : (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -298,7 +379,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
         {/* ── STEP 2: WEEKS ── */}
         {currentStep === "weeks" && (
           isMissing("weeks") ? (
-            <MissingSectionInterstitial sectionName="a weekly schedule" onSkip={() => setStep(2)} />
+            <MissingSectionInterstitial sectionName="a weekly schedule" onSkip={() => setStep(s => s + 1)} />
           ) : (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -387,7 +468,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
         {/* ── STEP 3: ASSIGNMENTS ── */}
         {currentStep === "assignments" && (
           isMissing("assignments") ? (
-            <MissingSectionInterstitial sectionName="assignments" onSkip={() => setStep(3)} />
+            <MissingSectionInterstitial sectionName="assignments" onSkip={() => setStep(s => s + 1)} />
           ) : (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -527,7 +608,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
             {navBtn("← Back", { onClick: () => setStep(s => s - 1), disabled: step === 0 })}
           </div>
           <div style={{ fontSize: 12, color: C.textSoft }}>
-            {STEP_LABELS[currentStep]} ({step + 1} of {STEPS.length})
+            {STEP_LABELS[currentStep]} ({step + 1} of {steps.length})
           </div>
           <div>
             {currentStep === "confirm"
@@ -537,7 +618,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
                   setWriting(false);
                   setWriteResult(result);
                 }})
-              : navBtn(`Next: ${STEP_LABELS[STEPS[step + 1]]} →`, { navy: true, onClick: () => setStep(s => s + 1) })
+              : navBtn(`Next: ${STEP_LABELS[steps[step + 1]]} →`, { navy: true, onClick: () => setStep(s => s + 1) })
             }
           </div>
         </div>
