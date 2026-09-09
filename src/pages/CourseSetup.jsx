@@ -339,6 +339,8 @@ export default function CourseSetup({ setPage, course, userId }) {
   const [syllabusProposals, setSyllabusProposals] = useState(null);
   const [syllabusFileMsg, setSyllabusFileMsg] = useState(null);
   const syllabusFileRef = useRef(null);
+  const [syllabusDraftPrompt, setSyllabusDraftPrompt] = useState(false);
+  const [syllabusInitialDraft, setSyllabusInitialDraft] = useState(null);
 
   // ── Generate Syllabus state ──────────────────────────
   const [syllabusGenLoading, setSyllabusGenLoading] = useState(false);
@@ -597,7 +599,22 @@ export default function CourseSetup({ setPage, course, userId }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: mob ? 24 : 30, color: CA_COLORS.navy, margin: 0 }}>⚙ Course Setup</h1>
         <>
-            <button onClick={() => syllabusFileRef.current?.click()} style={{
+            <button onClick={() => {
+              const draftKey = `klasup-syllabus-draft-${course.id}`;
+              try {
+                const raw = localStorage.getItem(draftKey);
+                if (raw) {
+                  const draft = JSON.parse(raw);
+                  const age = Date.now() - (draft.savedAt || 0);
+                  if (age < 7 * 24 * 60 * 60 * 1000 && draft.proposals && draft.decisions) {
+                    setSyllabusDraftPrompt(draft);
+                    return;
+                  }
+                  localStorage.removeItem(draftKey);
+                }
+              } catch { /* corrupt draft — ignore */ }
+              syllabusFileRef.current?.click();
+            }} style={{
               background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 8,
               padding: "5px 12px", fontSize: 12, fontWeight: 600, fontFamily: CA_FONTS.body,
               color: CA_COLORS.teal, cursor: "pointer", whiteSpace: "nowrap", transition: "border-color 0.15s",
@@ -908,10 +925,54 @@ export default function CourseSetup({ setPage, course, userId }) {
         </div>
       )}
 
+      {/* Syllabus draft resume prompt */}
+      {syllabusDraftPrompt && (() => {
+        const d = syllabusDraftPrompt;
+        const saved = new Date(d.savedAt);
+        const label = saved.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+        const oc = d.proposals.outcomes?.length || 0;
+        const wk = d.proposals.weeks?.length || 0;
+        const asn = d.proposals.assignments?.length || 0;
+        return (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 9060,
+            background: "rgba(15,31,61,0.55)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: "36px 40px", textAlign: "center", maxWidth: 400, boxShadow: "0 12px 40px rgba(0,0,0,0.2)" }}>
+              <div style={{ fontFamily: CA_FONTS.heading, fontWeight: 700, fontSize: 20, color: CA_COLORS.navy, marginBottom: 8 }}>Resume import?</div>
+              <div style={{ fontSize: 13, color: CA_COLORS.textSoft, marginBottom: 6 }}>You have saved progress from {label}.</div>
+              <div style={{ fontSize: 12, color: CA_COLORS.textSoft, marginBottom: 24 }}>{oc} outcomes · {wk} weeks · {asn} assignments</div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                <button onClick={() => {
+                  setSyllabusDraftPrompt(false);
+                  try { localStorage.removeItem(`klasup-syllabus-draft-${course.id}`); } catch {}
+                  syllabusFileRef.current?.click();
+                }} style={{
+                  background: "none", border: `1px solid ${CA_COLORS.border}`, borderRadius: 10,
+                  padding: "11px 22px", fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 14, color: CA_COLORS.textSoft, cursor: "pointer",
+                }}>Upload new</button>
+                <button onClick={() => {
+                  setSyllabusProposals(d.proposals);
+                  setSyllabusInitialDraft(d.decisions);
+                  setSyllabusDraftPrompt(false);
+                  setSyllabusOpen(true);
+                }} style={{
+                  background: CA_COLORS.teal, color: "#fff", border: "none", borderRadius: 10,
+                  padding: "11px 22px", fontFamily: CA_FONTS.body, fontWeight: 700, fontSize: 14, cursor: "pointer",
+                }}>Resume</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Syllabus import: wizard */}
       {syllabusOpen && syllabusProposals && (
         <SyllabusImportWizard
           proposals={syllabusProposals}
+          courseId={course.id}
+          initialDraft={syllabusInitialDraft}
           currentCourse={{
             outcomes: los,
             weeks: weeks.map(w => ({ week_number: w.week_number, topic: w.topic || null })),
@@ -920,11 +981,15 @@ export default function CourseSetup({ setPage, course, userId }) {
           currentNumWeeks={course.num_weeks}
           onConfirm={async (payload) => {
             const result = await writeImportPayload(course.id, payload, weeks, los);
+            if (!result.error) {
+              try { localStorage.removeItem(`klasup-syllabus-draft-${course.id}`); } catch {}
+            }
             return result;
           }}
           onCancel={() => {
             setSyllabusOpen(false);
             setSyllabusProposals(null);
+            setSyllabusInitialDraft(null);
             // Re-fetch data so any writes from a partial import are visible
             if (course?.id) {
               Promise.all([

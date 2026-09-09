@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const C = {
   navy: "#1B2B4B", teal: "#2A9D8F", tealSoft: "#EAF5F3", ivory: "#FAF7F2",
@@ -93,7 +93,9 @@ function MissingSectionInterstitial({ sectionName, onSkip }) {
   );
 }
 
-export default function SyllabusImportWizard({ proposals, currentCourse, onConfirm, onCancel, currentNumWeeks }) {
+const DRAFT_KEY_PREFIX = "klasup-syllabus-draft-";
+
+export default function SyllabusImportWizard({ proposals, courseId, initialDraft, currentCourse, onConfirm, onCancel, currentNumWeeks }) {
   // ── Course step (conditional) ──
   const courseFieldsPresent = COURSE_FIELDS.filter(f => proposals.course?.[f.key] != null);
   const hasCourseStep = courseFieldsPresent.length > 0;
@@ -101,52 +103,72 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
     ? ["course", "outcomes", "weeks", "assignments", "confirm"]
     : STEPS;
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialDraft?.step ?? 0);
   const [writing, setWriting] = useState(false);
   const [writeResult, setWriteResult] = useState(null); // { counts, extendedTo, error }
 
   // ── Outcomes state ──
   const [outcomeChecked, setOutcomeChecked] = useState(() =>
-    Object.fromEntries(proposals.outcomes.map((o, i) => [i, o.confidence === "high"]))
+    initialDraft?.outcomeChecked ?? Object.fromEntries(proposals.outcomes.map((o, i) => [i, o.confidence === "high"]))
   );
   const [outcomeEdits, setOutcomeEdits] = useState(() =>
-    Object.fromEntries(proposals.outcomes.map((o, i) => [i, { label: o.label, full_text: o.full_text }]))
+    initialDraft?.outcomeEdits ?? Object.fromEntries(proposals.outcomes.map((o, i) => [i, { label: o.label, full_text: o.full_text }]))
   );
   const [editingOutcome, setEditingOutcome] = useState(null);
 
   // ── Weeks state ──
   const [weekChecked, setWeekChecked] = useState(() =>
-    Object.fromEntries(proposals.weeks.map((w, i) => [i, w.confidence === "high"]))
+    initialDraft?.weekChecked ?? Object.fromEntries(proposals.weeks.map((w, i) => [i, w.confidence === "high"]))
   );
   const [weekExpanded, setWeekExpanded] = useState({});
-  const [removedDeepFields, setRemovedDeepFields] = useState({});
-  const [conflictChoices, setConflictChoices] = useState(() => {
-    const choices = {};
-    for (const pw of proposals.weeks) {
-      const cw = currentCourse.weeks.find(w => w.week_number === pw.week_number);
-      if (cw?.topic && pw.topic && cw.topic !== pw.topic) {
-        choices[pw.week_number] = "yours";
+  const [removedDeepFields, setRemovedDeepFields] = useState(initialDraft?.removedDeepFields ?? {});
+  const [conflictChoices, setConflictChoices] = useState(() =>
+    initialDraft?.conflictChoices ?? (() => {
+      const choices = {};
+      for (const pw of proposals.weeks) {
+        const cw = currentCourse.weeks.find(w => w.week_number === pw.week_number);
+        if (cw?.topic && pw.topic && cw.topic !== pw.topic) {
+          choices[pw.week_number] = "yours";
+        }
       }
-    }
-    return choices;
-  });
+      return choices;
+    })()
+  );
 
   // ── Assignments state ──
   const [asnChecked, setAsnChecked] = useState(() =>
-    Object.fromEntries(proposals.assignments.map((a, i) => [i, a.confidence === "high"]))
+    initialDraft?.asnChecked ?? Object.fromEntries(proposals.assignments.map((a, i) => [i, a.confidence === "high"]))
   );
   const [asnEdits, setAsnEdits] = useState(() =>
-    Object.fromEntries(proposals.assignments.map((a, i) => [i, { title: a.title, description: a.description }]))
+    initialDraft?.asnEdits ?? Object.fromEntries(proposals.assignments.map((a, i) => [i, { title: a.title, description: a.description }]))
   );
   const [editingAsn, setEditingAsn] = useState(null);
 
   // ── Course edits state ──
   const [courseEdits, setCourseEdits] = useState(() => {
+    if (initialDraft?.courseEdits !== undefined) return initialDraft.courseEdits;
     if (!hasCourseStep) return {};
     const edits = {};
     for (const f of courseFieldsPresent) edits[f.key] = proposals.course[f.key];
     return edits;
   });
+
+  // ── Draft persistence (skip initial mount to avoid phantom drafts) ──
+  const draftMounted = useRef(false);
+  useEffect(() => {
+    if (!draftMounted.current) { draftMounted.current = true; return; }
+    if (writing || writeResult) return;
+    try {
+      localStorage.setItem(DRAFT_KEY_PREFIX + courseId, JSON.stringify({
+        savedAt: Date.now(),
+        proposals,
+        decisions: {
+          step, outcomeChecked, outcomeEdits, weekChecked,
+          conflictChoices, removedDeepFields, asnChecked, asnEdits, courseEdits,
+        },
+      }));
+    } catch { /* localStorage full or unavailable — silent */ }
+  }, [courseId, proposals, step, outcomeChecked, outcomeEdits, weekChecked, conflictChoices, removedDeepFields, asnChecked, asnEdits, courseEdits, writing, writeResult]);
 
   // ── Escape to cancel (disabled during write) ──
   useEffect(() => {
@@ -615,6 +637,7 @@ export default function SyllabusImportWizard({ proposals, currentCourse, onConfi
               ? navBtn("Add to my course", { primary: true, onClick: async () => {
                   setWriting(true);
                   const result = await onConfirm(buildPayload());
+                  try { localStorage.removeItem(DRAFT_KEY_PREFIX + courseId); } catch {}
                   setWriting(false);
                   setWriteResult(result);
                 }})
