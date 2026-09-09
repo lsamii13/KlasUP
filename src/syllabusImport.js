@@ -2,7 +2,10 @@ import {
   insertLearningOutcome, getNextLoNumber,
   addCourseWeek, updateCourseWeek, updateCourseWeekDeep, updateCourseNumWeeks,
   insertAssignment, addLoTag,
+  updateCourse,
 } from "./supabase";
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const DEEP_KEYS = ["weekly_outcomes", "readings", "lecture_topic", "activities", "discussion_board", "wellness_note"];
 
@@ -16,6 +19,7 @@ function isEmpty(val) {
 export async function writeImportPayload(courseId, payload, existingWeeks, existingOutcomes) {
   const counts = { outcomes: 0, weeksUpdated: 0, weeksCreated: 0, assignments: 0, tags: 0 };
   let extendedTo = null;
+  let courseUpdateError = null;
 
   // Build week_number → existing row map
   const weekMap = {};
@@ -138,8 +142,32 @@ export async function writeImportPayload(courseId, payload, existingWeeks, exist
       }
     }
 
-    return { counts, extendedTo, error: null };
+    // ── 4. COURSE METADATA ──
+    if (payload.course && typeof payload.course === "object") {
+      const fields = {};
+      if (payload.course.course_name) fields.course_name = payload.course.course_name;
+      if (payload.course.course_code) fields.course_code = payload.course.course_code;
+      if (payload.course.term_code) fields.term_code = payload.course.term_code;
+      if (payload.course.term_start) {
+        if (ISO_DATE_RE.test(payload.course.term_start)) {
+          fields.term_start = payload.course.term_start;
+        } else {
+          courseUpdateError = "Start date was not a valid date and wasn't saved";
+        }
+      }
+
+      if (Object.keys(fields).length > 0) {
+        try {
+          await updateCourse(courseId, fields);
+          counts.courseUpdated = true;
+        } catch (err) {
+          courseUpdateError = err.message || "Failed to update course details";
+        }
+      }
+    }
+
+    return { counts, extendedTo, error: null, courseUpdateError };
   } catch (err) {
-    return { counts, extendedTo, error: err.message || "Unknown error during import" };
+    return { counts, extendedTo, error: err.message || "Unknown error during import", courseUpdateError };
   }
 }
