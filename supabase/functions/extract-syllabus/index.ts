@@ -23,6 +23,13 @@ HONESTY RULES (these override everything):
 
 OUTPUT SCHEMA:
 {
+  "course": {
+    "course_name": "full course title as printed on the syllabus" or null,
+    "course_code": "department code + number, e.g. MKT 355" or null,
+    "term_code": "term/semester and year as written, e.g. Fall 2026" or null,
+    "term_start": "YYYY-MM-DD ISO date of the first day of class" or null,
+    "confidence": "high"|"low"
+  },
   "outcomes": [
     { "code": "LO1", "label": "short 2-6 word summary", "full_text": "the outcome statement as written", "confidence": "high"|"low" }
   ],
@@ -57,6 +64,7 @@ OUTPUT SCHEMA:
 }
 
 RULES:
+- course: extract ONLY from the syllabus document text. The course_context hint below is for schedule alignment only — never copy course_name, course_code, or term from it. Every field must be null when not clearly stated in the syllabus. term_start must be an ISO date (YYYY-MM-DD) or null.
 - outcomes: number codes LO1, LO2... in document order. If the syllabus labels them differently (e.g., "Objectives"), still extract them as outcomes.
 - weeks: only create entries for weeks the document describes. Mark is_milestone true only for weeks containing major assessments (midterm, final, major project due).
 - assignment_type: map to the closest of the 8 allowed values; use "Other" if unclear and set confidence low.
@@ -142,8 +150,6 @@ Deno.serve(async (req: Request) => {
     let userMessage = ''
     if (course_context) {
       const parts = [
-        course_context.course_name ? `Course: ${course_context.course_name}` : null,
-        course_context.course_code ? `Code: ${course_context.course_code}` : null,
         course_context.num_weeks ? `Weeks: ${course_context.num_weeks}` : null,
       ].filter(Boolean)
       if (parts.length > 0) {
