@@ -24,34 +24,34 @@ interface RagArticle {
   url?: string
 }
 
+// Common English stopwords + assignment/syllabus boilerplate to skip
+const STOP = new Set([
+  'the','and','that','this','with','from','your','have','will','been','were',
+  'they','their','them','than','then','what','when','where','which','while',
+  'would','could','should','about','after','before','between','does','each',
+  'into','just','more','most','must','only','other','over','such','these',
+  'those','through','under','very','also','both','come','some','made','make',
+  'like','many','much','well','here','there','being','doing','during','every',
+  'first','last','same','next','once','back','down','even','find','give',
+  'good','great','help','keep','know','long','look','need','part','take',
+  'time','turn','upon','used','work',
+  'student','students','complete','following','assignment','submit',
+  'submitted','submission','course','class','instructor','professor','faculty',
+  'grade','grading','graded','points','percent','rubric','criteria','required',
+  'requirements','expected','expectations','learning','objective',
+  'objectives','outcome','outcomes','demonstrate','understanding','ability',
+  'describe','explain','identify','analyze','apply','evaluate','create',
+  'develop','provide','include','including','based','using','ensure',
+  'page','pages','word','words','format','late','due','date','week',
+  'semester','term','syllabus','section','discussion','board','canvas',
+  'upload','posted','post','response','responses','write','written',
+])
+
 async function fetchRagArticles(content: string, category: string): Promise<RagArticle[]> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('KLASUP_SECRET_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Common English stopwords + assignment/syllabus boilerplate to skip
-    const STOP = new Set([
-      'the','and','that','this','with','from','your','have','will','been','were',
-      'they','their','them','than','then','what','when','where','which','while',
-      'would','could','should','about','after','before','between','does','each',
-      'into','just','more','most','must','only','other','over','such','these',
-      'those','through','under','very','also','both','come','some','made','make',
-      'like','many','much','well','here','there','being','doing','during','every',
-      'first','last','same','next','once','back','down','even','find','give',
-      'good','great','help','keep','know','long','look','need','part','take',
-      'time','turn','upon','used','work',
-      'student','students','complete','following','assignment','submit',
-      'submitted','submission','course','class','instructor','professor','faculty',
-      'grade','grading','graded','points','percent','rubric','criteria','required',
-      'requirements','expected','expectations','learning','objective',
-      'objectives','outcome','outcomes','demonstrate','understanding','ability',
-      'describe','explain','identify','analyze','apply','evaluate','create',
-      'develop','provide','include','including','based','using','ensure',
-      'page','pages','word','words','format','late','due','date','week',
-      'semester','term','syllabus','section','discussion','board','canvas',
-      'upload','posted','post','response','responses','write','written',
-    ])
 
     // Extract meaningful terms from the ENTIRE content, not just the first 15 words
     const words = `${category} ${content}`
@@ -98,6 +98,26 @@ async function retrieveArticles(content: string, category: string): Promise<RagA
   }
 
   return fetchRagArticles(content, category)
+}
+
+// Pedagogy-focused query builder for slide outlines.
+// The research library is about teaching practice, not subject matter,
+// so we search on pedagogical terms rather than the lecture topic.
+function buildPptRagQuery(description: string): string {
+  const BASE_TERMS = [
+    'active learning', 'discussion', 'polling', 'exit ticket',
+    'case study', 'scaffolding', 'engagement', 'attention',
+    'retrieval practice', 'metacognition', 'think pair share',
+    'flipped classroom', 'group work', 'formative assessment',
+  ]
+  const descTerms = description
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOP.has(w))
+    .slice(0, 10)
+
+  return [...BASE_TERMS, ...descTerms].join(' OR ')
 }
 
 function formatRagContext(articles: RagArticle[]): string {
@@ -221,6 +241,16 @@ Respond with a JSON array of slide objects. Each object must have these fields:
 - "visual": a suggested visual, activity, or interaction for the slide (string) — e.g., "Chart showing market share trends", "Think-pair-share activity", "Poll: Which brand resonates most?"
 - "time": estimated time for this slide in minutes (string, e.g., "3 min")
 - "notes": speaker notes — 1-2 sentences of guidance for the presenter (string)
+- "why": a short plain-language explanation of the teaching move on this slide and why it's placed here — or null
+- "why_source_id": the id of a source from the RESEARCH CONTEXT that supports this teaching move — or null
+
+Rules for "why" and "why_source_id":
+- Set both to null on slides with no real pedagogical choice (title slides, straightforward content slides).
+- Only populate "why" when there is an actual teaching move worth explaining: an activity, a deliberate placement decision, a timing choice, a scaffolding step.
+- NEVER include author names, years, journal titles, paper titles, or any citation text in the "why" string. The frontend builds citations from the id — your job is ONLY to pick the id.
+- "why_source_id" must be an id from the RESEARCH CONTEXT list provided, or null. NEVER invent an id.
+- If no provided source genuinely supports this slide's teaching move, set BOTH "why" and "why_source_id" to null. Do not stretch an unrelated source to fit.
+- Do NOT invent reasoning just to fill the field. If there's nothing genuinely worth explaining, use null.
 
 Design principles:
 1. Open with an engaging hook or overview, close with a synthesis or exit ticket
@@ -236,6 +266,8 @@ const PPT_PLAN_UPDATE_PROMPT = `You are KlasUp's PowerPoint Editor — an AI ass
 
 You will receive an existing slide deck outline (as a JSON array) and a plain-English instruction for how to change it. Apply the requested change and return the complete updated slide array.
 
+Each slide object must have these fields: title, points, visual, time, notes, why, why_source_id.
+
 Rules:
 1. Preserve slides that are not affected by the change
 2. If asked to add a slide, insert it at the logical position and renumber
@@ -243,7 +275,15 @@ Rules:
 4. If asked to change tone, update talking points and speaker notes accordingly
 5. Return the COMPLETE slide array (all slides, not just changed ones)
 
-Respond with ONLY the JSON array — same format as the original (title, points, visual, time, notes). No markdown, no commentary.`
+Rules for "why" and "why_source_id":
+- Set both to null on slides with no real pedagogical choice (title slides, straightforward content slides).
+- Only populate "why" when there is an actual teaching move worth explaining: an activity, a deliberate placement decision, a timing choice, a scaffolding step.
+- NEVER include author names, years, journal titles, paper titles, or any citation text in the "why" string. The frontend builds citations from the id — your job is ONLY to pick the id.
+- "why_source_id" must be an id from the RESEARCH CONTEXT list provided, or null. NEVER invent an id.
+- If no provided source genuinely supports this slide's teaching move, set BOTH "why" and "why_source_id" to null. Do not stretch an unrelated source to fit.
+- Do NOT invent reasoning just to fill the field. If there's nothing genuinely worth explaining, use null.
+
+Respond with ONLY the JSON array — same format as the original (title, points, visual, time, notes, why, why_source_id). No markdown, no commentary.`
 
 const SAGE_CHAT_PROMPT = `You are Klas, an AI brainstorming partner built into KlasUp. Klas is calm, wise, and deeply creative — like a seasoned professor who has seen it all and still loves teaching. Klas does not use pronouns to refer to itself — always use the name "Klas" instead.
 
@@ -564,21 +604,39 @@ Apply this change throughout the entire document, maintaining consistency in dat
     } else if (type === 'ppt-plan') {
       const { description, course, week } = body
       systemPrompt = PPT_PLAN_PROMPT
-      maxTokens = 3000
+      maxTokens = 6000
+
+      // Retrieve pedagogy research to ground teaching-move reasoning
+      const pptQuery = buildPptRagQuery(description)
+      ragArticles = await fetchRagArticles(pptQuery, '')
+      const ragContext = formatRagContext(ragArticles)
+
+      const ragSection = ragContext
+        ? `\n\nRESEARCH CONTEXT (from KlasUp knowledge base — cite ONLY from these sources by id):\n---\n${ragContext}\n---`
+        : '\n\nRESEARCH CONTEXT: No sources available. Set why and why_source_id to null for all slides.'
 
       userMessage = `Faculty member teaching ${course}, ${week}.
 
 DECK DESCRIPTION (plain English):
 ---
 ${description}
----
+---${ragSection}
 
 Generate a complete slide-by-slide outline for this presentation.`
 
     } else if (type === 'ppt-plan-update') {
       const { currentSlides, instruction } = body
       systemPrompt = PPT_PLAN_UPDATE_PROMPT
-      maxTokens = 3000
+      maxTokens = 6000
+
+      // Retrieve pedagogy research so updated slides can cite sources
+      const updateQuery = buildPptRagQuery(instruction)
+      ragArticles = await fetchRagArticles(updateQuery, '')
+      const ragContext = formatRagContext(ragArticles)
+
+      const ragSection = ragContext
+        ? `\n\nRESEARCH CONTEXT (from KlasUp knowledge base — cite ONLY from these sources by id):\n---\n${ragContext}\n---`
+        : '\n\nRESEARCH CONTEXT: No sources available. Set why and why_source_id to null for all slides.'
 
       const slidesJson = JSON.stringify(currentSlides, null, 2)
 
@@ -586,7 +644,7 @@ Generate a complete slide-by-slide outline for this presentation.`
 ${slidesJson}
 
 REQUESTED CHANGE:
-${instruction}
+${instruction}${ragSection}
 
 Apply this change and return the complete updated slide array.`
 
@@ -746,6 +804,14 @@ Analyze the assignment text above. For each of your 4 recommendations, identify 
     const data = await anthropicRes.json()
     const text = data.content[0].text
 
+    // Detect truncated responses before attempting JSON parse
+    if (data.stop_reason === 'max_tokens') {
+      return new Response(JSON.stringify({ error: 'The AI response was cut off (max_tokens reached). Try a shorter description or fewer slides.' }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Route response by type
     if (type === 'reflection') {
       return new Response(JSON.stringify({ reflection: text }), {
@@ -756,7 +822,14 @@ Analyze the assignment text above. For each of your 4 recommendations, identify 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } else if (type === 'ppt-plan' || type === 'ppt-plan-update') {
-      const slides = parseClaudeJSON(text)
+      const slides = parseClaudeJSON(text) as Array<Record<string, unknown>>
+      // Validate why_source_id against fetched articles (same pattern as micro-learning)
+      const validIds = new Set(ragArticles.map((a: RagArticle) => a.id))
+      for (const slide of slides) {
+        if (slide.why_source_id != null && !validIds.has(slide.why_source_id as string)) {
+          slide.why_source_id = null
+        }
+      }
       return new Response(JSON.stringify({ slides }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

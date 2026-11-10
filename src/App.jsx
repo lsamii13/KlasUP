@@ -3619,7 +3619,15 @@ export default function KlasUp() {
                       if (!pptDesc.trim()) return;
                       setPptLoading(true); setPptError(null); setPptSlides(null); setPptLoadedFromSaved(false);
                       generatePptPlan({ description: pptDesc, course, week })
-                        .then(slides => { setPptSlides(slides); setPptLoading(false); })
+                        .then(async slides => {
+                          const enriched = await Promise.all(slides.map(async (s) => {
+                            if (!s.why_source_id) return s;
+                            const article = await fetchArticleById(s.why_source_id);
+                            return article ? { ...s, article_title: article.title, article_url: article.url } : s;
+                          }));
+                          setPptSlides(enriched);
+                          setPptLoading(false);
+                        })
                         .catch(err => { setPptError(err.message); setPptLoading(false); });
                     }}
                       disabled={!pptDesc.trim() || pptLoading}
@@ -3678,6 +3686,13 @@ export default function KlasUp() {
                             html += `</ul>`;
                             if (s.visual) html += `<div class="visual">📎 ${s.visual}</div>`;
                             if (s.notes) html += `<div class="notes">🗒 ${s.notes}</div>`;
+                            if (s.why) {
+                              html += `<div style="border-left:3px solid #ddd;padding-left:10px;margin:8px 0;font-size:12px;color:#4A5568;line-height:1.5">`;
+                              html += `<div style="font-size:10px;font-weight:700;color:#0FB5B5;text-transform:uppercase;margin-bottom:3px">Why this works</div>`;
+                              html += s.why;
+                              if (s.article_title) html += `<div style="margin-top:4px;font-size:10px;font-weight:700;color:#4A5568;text-transform:uppercase">Related reading: ${s.article_url ? `<a href="${s.article_url}" style="color:#0FB5B5;text-transform:none">${s.article_title}</a>` : s.article_title}</div>`;
+                              html += `</div>`;
+                            }
                             html += `</div>`;
                           });
                           html += `</body></html>`;
@@ -3696,6 +3711,10 @@ export default function KlasUp() {
                             (s.points || []).forEach(p => { text += `  • ${p}\n`; });
                             if (s.visual) text += `\nSuggested Visual/Activity: ${s.visual}\n`;
                             if (s.notes) text += `\nSpeaker Notes: ${s.notes}\n`;
+                            if (s.why) {
+                              text += `\nWHY THIS WORKS: ${s.why}\n`;
+                              if (s.article_title) text += `  Related reading: ${s.article_title}${s.article_url ? ` — ${s.article_url}` : ''}\n`;
+                            }
                             text += `\n${"—".repeat(40)}\n\n`;
                           });
                           const blob = new Blob([text], { type: "text/plain" });
@@ -3803,6 +3822,13 @@ export default function KlasUp() {
                               </ul>
                               {s.visual && <div style={{ background: C.sageLight, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.sage, marginBottom: 6 }}>📎 {s.visual}</div>}
                               {s.notes && <div style={{ background: C.ivoryDark, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.muted }}>🗒 {s.notes}</div>}
+                              {s.why && <div style={{ borderLeft: `3px solid ${C.border}`, paddingLeft: 10, marginTop: 6, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                                <div style={{ fontSize: 10, fontFamily: F.accent, color: C.teal, fontWeight: 700, marginBottom: 3, textTransform: "uppercase" }}>Why this works</div>
+                                {s.why}
+                                {s.article_title && <div style={{ fontSize: 10, fontFamily: F.accent, color: C.muted, fontWeight: 700, marginTop: 4, textTransform: "uppercase" }}>
+                                  Related reading: {s.article_url ? <a href={s.article_url} target="_blank" rel="noopener noreferrer" style={{ color: C.teal, textDecoration: "underline", textTransform: "none" }}>{s.article_title}</a> : <span style={{ textTransform: "none" }}>{s.article_title}</span>}
+                                </div>}
+                              </div>}
                             </div>
                           )}
                         </div>
@@ -3824,7 +3850,16 @@ export default function KlasUp() {
                           if (!pptUpdateText.trim()) return;
                           setPptUpdating(true);
                           updatePptPlan({ currentSlides: pptSlides, instruction: pptUpdateText })
-                            .then(slides => { setPptSlides(slides); setPptUpdateText(""); setPptUpdating(false); })
+                            .then(async slides => {
+                              const enriched = await Promise.all(slides.map(async (s) => {
+                                if (!s.why_source_id) return s;
+                                const article = await fetchArticleById(s.why_source_id);
+                                return article ? { ...s, article_title: article.title, article_url: article.url } : s;
+                              }));
+                              setPptSlides(enriched);
+                              setPptUpdateText("");
+                              setPptUpdating(false);
+                            })
                             .catch(err => { setPptError(err.message); setPptUpdating(false); });
                         }}
                           disabled={!pptUpdateText.trim() || pptUpdating}
