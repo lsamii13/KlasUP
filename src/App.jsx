@@ -1705,6 +1705,18 @@ export default function KlasUp() {
       .catch(e => console.warn("Reflection load:", e));
   }, [page, portfolioCourse, session?.user?.id]);
 
+  // Refetch uploads when returning to Dashboard so new imports/uploads are visible
+  useEffect(() => {
+    if (page !== "Dashboard" || !session?.user) return;
+    fetchUploads(session.user.id).then(uploadRows => {
+      const log = uploadRows.map(r => {
+        const c = dbCourses.find(x => x.id === r.course_id);
+        return { content: r.content, category: r.category, course: c?.course_code || "", week: `Week ${r.week}`, timestamp: new Date(r.created_at).getTime(), _dbId: r.id };
+      });
+      setUploadLog(log);
+    }).catch(() => {});
+  }, [page, session?.user?.id]);
+
   const WELLNESS_EMOJIS = ["😔", "😕", "😐", "🙂", "😊"];
   const WELLNESS_MESSAGES = [
     "It's okay to have hard days. You showed up — that matters. 🌿",
@@ -2635,6 +2647,19 @@ export default function KlasUp() {
                 </div>
               );
             })()}
+
+            {/* ── START HERE: syllabus import prompt for new users ── */}
+            {uploadLog.length === 0 && (
+              <Card style={{ textAlign: "center", padding: "2rem 1.5rem", marginBottom: 14 }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+                <div style={{ fontFamily: F.display, fontSize: 15, color: C.navy, marginBottom: 6 }}>Build your course in minutes</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>Upload your syllabus and KlasUp will draft your outcomes, weekly schedule, and assignments — you review and approve every item.</div>
+                <button onClick={() => setPage("Course Setup")}
+                  style={{ fontFamily: F.accent, fontWeight: 700, fontSize: 13, color: C.white, background: C.tealBright, border: "none", borderRadius: 10, padding: "8px 20px", cursor: "pointer" }}>
+                  Import my syllabus →
+                </button>
+              </Card>
+            )}
 
             {/* ── SECTION 2: COURSE TILE GRID ── */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>

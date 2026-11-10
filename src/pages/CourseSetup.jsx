@@ -5,7 +5,7 @@ import {
   fetchLearningOutcomes, insertLearningOutcome, updateLearningOutcome,
   deleteLearningOutcome, reorderLearningOutcomes, CATEGORY_PREFIX,
   fetchAssignments, insertAssignment, updateAssignment, deleteAssignment,
-  fetchLoTags, addLoTag, removeLoTag, uploadDocument,
+  fetchLoTags, addLoTag, removeLoTag, uploadDocument, insertUpload,
 } from "../supabase";
 import { suggestOutcomes, generateSyllabus } from "../anthropic";
 import { exportSyllabusDocx, printSyllabusPdf } from "../syllabusExport";
@@ -983,6 +983,20 @@ export default function CourseSetup({ setPage, course, userId }) {
             const result = await writeImportPayload(course.id, payload, weeks, los);
             if (!result.error) {
               try { localStorage.removeItem(`klasup-syllabus-draft-${course.id}`); } catch {}
+              // Record syllabus import as an upload so Dashboard knows content exists
+              try {
+                const { counts } = result;
+                const parts = [];
+                if (counts.outcomes > 0) parts.push(`${counts.outcomes} outcome${counts.outcomes !== 1 ? "s" : ""}`);
+                if ((counts.weeksCreated || 0) + (counts.weeksUpdated || 0) > 0) parts.push(`${(counts.weeksCreated || 0) + (counts.weeksUpdated || 0)} week${(counts.weeksCreated || 0) + (counts.weeksUpdated || 0) !== 1 ? "s" : ""}`);
+                if (counts.assignments > 0) parts.push(`${counts.assignments} assignment${counts.assignments !== 1 ? "s" : ""}`);
+                const summary = parts.length > 0
+                  ? `Syllabus imported — ${parts.join(", ")} added to course.`
+                  : "Syllabus imported.";
+                await insertUpload(userId, course.id, 0, "Syllabus Import", summary);
+              } catch (e) {
+                console.error("[CourseSetup] Failed to record syllabus upload:", e.message);
+              }
             }
             return result;
           }}
