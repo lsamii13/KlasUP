@@ -1930,16 +1930,40 @@ export default function KlasUp() {
   };
 
   const handleBuildMarker = (build) => {
-    if (!build || build.type !== "slides") return;
-    if (!course) {
-      setSageMessages(prev => [...prev, { role: "assistant", content: "Klas needs an active course before building slides. Pick a course from the selector above." }]);
-      return;
+    if (!build) return;
+
+    if (build.type === "slides") {
+      if (!course) {
+        setSageMessages(prev => [...prev, { role: "assistant", content: "Klas needs an active course before building slides. Pick a course from the selector above." }]);
+        return;
+      }
+      if (pptSlides && pptSlides.length > 0) {
+        setPendingSlideHandoff(build.description);
+        return;
+      }
+      executeSlideHandoff(build.description);
+
+    } else if (build.type === "assignment") {
+      if (!course) {
+        setSageMessages(prev => [...prev, { role: "assistant", content: "Klas needs an active course before building an assignment. Pick a course from the selector above." }]);
+        return;
+      }
+      // Clear stale generated doc so old output doesn't sit below the new description
+      setAssignDocResult(null);
+      setAssignDocLoading(false);
+      setAssignDocError(null);
+      setAssignDocEditing(false);
+      setAssignDocUpdateText("");
+      setAssignDocUpdating(false);
+      if (!assignDocBoundToExisting) setAssignDocSavedId(null);
+      setAssignDocDesc(build.description);
+      setSageBuilderOpen(true);
+      if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "klas_handoff" });
+
+    } else {
+      console.warn(`[handleBuildMarker] Unknown build type: "${build.type}"`);
+      setSageMessages(prev => [...prev, { role: "assistant", content: "Something went wrong handing off to the builder. Try telling Klas what you'd like to build." }]);
     }
-    if (pptSlides && pptSlides.length > 0) {
-      setPendingSlideHandoff(build.description);
-      return;
-    }
-    executeSlideHandoff(build.description);
   };
 
   const loadPromotedOptions = (questionType) => {
@@ -2012,10 +2036,6 @@ export default function KlasUp() {
         setSageOpen(false);
         setKlasMode2Open(true);
         if (typeof gtag === "function") gtag("event", "klas_mode2_opened", { trigger: "expand_step" });
-      } else if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
-          /open(ing)? the assignment builder/i.test(cleanedReply)) {
-        setSageBuilderOpen(true);
-        if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       } else if (klasConversationIdRef.current) {
         // SAVE TRIGGER 3: Update after any other message when conversation exists
         updateKlasConversation(klasConversationIdRef.current, { messages: withReply, message_count: withReply.length, core_4_context: updatedCore4, course_id: klasCourseIdRef.current || null });
@@ -2119,13 +2139,9 @@ export default function KlasUp() {
         updateKlasConversation(klasConversationIdRef.current, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H, course_id: klasCourseIdRef.current || null });
       }
 
-      // Handoff: BUILD marker takes priority, then assignment regex
+      // Handoff: BUILD marker routes to the right builder
       if (build) {
         handleBuildMarker(build);
-      } else if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
-          /open(ing)? the assignment builder/i.test(cleanedReply)) {
-        setSageBuilderOpen(true);
-        if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
       }
     } catch (err) {
       console.error("[Klas] Chat error:", err);
