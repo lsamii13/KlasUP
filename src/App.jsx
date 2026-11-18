@@ -3439,7 +3439,7 @@ export default function KlasUp() {
                         )}
                         {appliedSet.has(m.id) && (
                           <>
-                            <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>✓ Saved</span>
+                            <span style={{ fontSize: 12, fontFamily: F.accent, fontWeight: 700, color: C.sage }}>✓ Applied</span>
                             <button onClick={() => {
                               const rev = appliedRevisions.get(m.id);
                               if (rev) {
