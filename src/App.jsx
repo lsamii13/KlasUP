@@ -1568,6 +1568,80 @@ export default function KlasUp() {
     setPage("Pedagogy Studio");
   }, []);
 
+  const submitToPedagogyStudio = async ({ text, category, fileMeta = null, assignmentId = null }) => {
+    if (!text.trim()) return;
+    const trimmed = text.trim();
+    const prevTotal = Object.values(uploaded).reduce((a, b) => a + b, 0);
+    if (prevTotal === 0 && typeof gtag === "function") gtag("event", "first_upload_submitted", { category });
+    setUploaded(p => ({ ...p, [category]: (p[category] || 0) + 1 }));
+    setUploadLog(prev => [{ content: trimmed, category, course, week, timestamp: Date.now() }, ...prev]);
+    setUploadFileMeta(null);
+    setLastSubmittedText(trimmed);
+    setApplyPreview(null);
+    setApplyError(null);
+    setAppliedSet(new Set());
+    setAppliedRevisions(new Map());
+    setAppliedRecContext(null);
+    setUploadSaveStatus(null);
+
+    const courseObj = dbCourses.find(c => c.course_code === course);
+    let uploadRow = null;
+    if (session?.user && courseObj) {
+      try {
+        uploadRow = await insertUpload(session.user.id, courseObj.id, week, category, trimmed, fileMeta || {}, assignmentId);
+        setUploadText("");
+        setUploadSaveStatus("saved");
+        setTimeout(() => setUploadSaveStatus(prev => prev === "saved" ? null : prev), 3000);
+      } catch (e) {
+        console.warn("Upload DB insert failed:", e);
+        setUploadSaveStatus("upload_failed");
+      }
+    } else {
+      setUploadSaveStatus("upload_failed");
+    }
+    setLastUploadId(uploadRow?.id || null);
+    setPendingAssignmentId(null);
+
+    setMyCourseFeedbackLoading(true);
+    setMyCourseFeedback(null);
+    setAiMicroError(null);
+    generateMicroLearning({ content: trimmed, category, course, week })
+      .then(async recs => {
+        const enriched = await Promise.all(recs.map(async (rec) => {
+          if (!rec.research_article_id) return rec;
+          const article = await fetchArticleById(rec.research_article_id);
+          return article ? { ...rec, article_title: article.title, article_url: article.url } : rec;
+        }));
+        setAiMicro(enriched);
+        setMyCourseFeedbackLoading(false);
+        if (typeof gtag === "function") gtag("event", "micro_learning_generated", { category });
+        const fb = enriched && enriched.length > 0 ? enriched[0] : null;
+        setMyCourseFeedback(fb);
+        setMicroHistory(prev => ({
+          ...prev,
+          [category]: [
+            { recs: enriched, week, course, timestamp: Date.now(), upload_id: uploadRow?.id || null },
+            ...(prev[category] || []),
+          ],
+        }));
+        if (session?.user && uploadRow) {
+          let microFailed = false;
+          const rows = await Promise.all(
+            enriched.map(rec =>
+              insertMicroLearning(session.user.id, uploadRow.id, rec)
+                .catch(e => { console.warn("Micro-learning DB insert failed:", e); microFailed = true; return null; })
+            )
+          );
+          const withIds = enriched.map((rec, i) => ({ ...rec, id: rows[i]?.id ?? null }));
+          setAiMicro(withIds);
+          if (microFailed) {
+            setUploadSaveStatus("micro_failed");
+          }
+        }
+      })
+      .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
+  };
+
   const handleOpenInSlideStudio = useCallback((contentJson) => {
     try {
       const slides = JSON.parse(contentJson);
@@ -1959,6 +2033,31 @@ export default function KlasUp() {
       setAssignDocDesc(build.description);
       setSageBuilderOpen(true);
       if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "klas_handoff" });
+
+    } else if (build.type === "pedagogy") {
+      if (!course) {
+        setSageMessages(prev => [...prev, { role: "assistant", content: "Klas needs an active course before generating feedback. Pick a course from the selector above." }]);
+        return;
+      }
+      // Parse category from description
+      const catMatch = build.description.match(/^category=(.+)$/);
+      if (!catMatch) {
+        console.warn(`[handleBuildMarker] Malformed pedagogy description: "${build.description}"`);
+      }
+      const category = catMatch ? catMatch[1].trim() : "Assignments";
+      // Find last substantive user message (>=15 words), skipping quick-reply taps
+      const substantive = [...sageMessages].reverse().find(
+        m => m.role === "user" && m.content.trim().split(/\s+/).length >= 15
+      );
+      if (!substantive) {
+        setSageMessages(prev => [...prev, { role: "assistant", content: "Klas needs something to review. Paste the content you\u2019d like feedback on \u2014 an assignment prompt, discussion question, announcement, or anything else \u2014 and ask again." }]);
+        return;
+      }
+      const content = substantive.content;
+      setMyCourseCategory(category);
+      setPage("Pedagogy Studio");
+      submitToPedagogyStudio({ text: content, category });
+      if (typeof gtag === "function") gtag("event", "pedagogy_studio_opened", { trigger: "klas_handoff" });
 
     } else {
       console.warn(`[handleBuildMarker] Unknown build type: "${build.type}"`);
@@ -3120,83 +3219,8 @@ export default function KlasUp() {
           });
           const currentCat = UPLOADS.find(u => u.label === myCourseCategory) || UPLOADS[0];
 
-          const handleSubmit = async () => {
-            const text = uploadText.trim();
-            if (!text) return;
-            const prevTotal = Object.values(uploaded).reduce((a, b) => a + b, 0);
-            if (prevTotal === 0 && typeof gtag === "function") gtag("event", "first_upload_submitted", { category: myCourseCategory });
-            setUploaded(p => ({ ...p, [myCourseCategory]: (p[myCourseCategory] || 0) + 1 }));
-            setUploadLog(prev => [{ content: text, category: myCourseCategory, course, week, timestamp: Date.now() }, ...prev]);
-            const fileMeta = uploadFileMeta;
-            setUploadFileMeta(null);
-            setLastSubmittedText(text);
-            setApplyPreview(null);
-            setApplyError(null);
-            setAppliedSet(new Set());
-            setAppliedRevisions(new Map());
-            setAppliedRecContext(null);
-            setUploadSaveStatus(null);
-
-            // Persist upload to DB (with file metadata when a file was uploaded)
-            const courseObj = dbCourses.find(c => c.course_code === course);
-            let uploadRow = null;
-            if (session?.user && courseObj) {
-              try {
-                uploadRow = await insertUpload(session.user.id, courseObj.id, week, myCourseCategory, text, fileMeta || {}, pendingAssignmentId);
-                setUploadText("");
-                setUploadSaveStatus("saved");
-                setTimeout(() => setUploadSaveStatus(prev => prev === "saved" ? null : prev), 3000);
-              } catch (e) {
-                console.warn("Upload DB insert failed:", e);
-                setUploadSaveStatus("upload_failed");
-              }
-            } else {
-              setUploadSaveStatus("upload_failed");
-            }
-            setLastUploadId(uploadRow?.id || null);
-            setPendingAssignmentId(null);
-
-            setMyCourseFeedbackLoading(true);
-            setMyCourseFeedback(null);
-            setAiMicroError(null);
-            generateMicroLearning({ content: text, category: myCourseCategory, course, week })
-              .then(async recs => {
-                // Resolve research_article_id → article_title + article_url before rendering
-                const enriched = await Promise.all(recs.map(async (rec) => {
-                  if (!rec.research_article_id) return rec;
-                  const article = await fetchArticleById(rec.research_article_id);
-                  return article ? { ...rec, article_title: article.title, article_url: article.url } : rec;
-                }));
-                // Show recommendations immediately (without DB ids)
-                setAiMicro(enriched);
-                setMyCourseFeedbackLoading(false);
-                if (typeof gtag === "function") gtag("event", "micro_learning_generated", { category: myCourseCategory });
-                const fb = enriched && enriched.length > 0 ? enriched[0] : null;
-                setMyCourseFeedback(fb);
-                setMicroHistory(prev => ({
-                  ...prev,
-                  [myCourseCategory]: [
-                    { recs: enriched, week, course, timestamp: Date.now(), upload_id: uploadRow?.id || null },
-                    ...(prev[myCourseCategory] || []),
-                  ],
-                }));
-                // Persist micro-learnings to DB and write real IDs back
-                if (session?.user && uploadRow) {
-                  let microFailed = false;
-                  const rows = await Promise.all(
-                    enriched.map(rec =>
-                      insertMicroLearning(session.user.id, uploadRow.id, rec)
-                        .catch(e => { console.warn("Micro-learning DB insert failed:", e); microFailed = true; return null; })
-                    )
-                  );
-                  const withIds = enriched.map((rec, i) => ({ ...rec, id: rows[i]?.id ?? null }));
-                  setAiMicro(withIds);
-                  if (microFailed) {
-                    setUploadSaveStatus("micro_failed");
-                  }
-                }
-              })
-              .catch(err => { console.error(err); setAiMicroError(err.message); setMyCourseFeedbackLoading(false); });
+          const handleSubmit = () => {
+            submitToPedagogyStudio({ text: uploadText, category: myCourseCategory, fileMeta: uploadFileMeta, assignmentId: pendingAssignmentId });
           };
 
           const canSeeCourseArchitect = !gatedPageIds.has("Course Architect");
