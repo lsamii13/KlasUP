@@ -1048,6 +1048,8 @@ export default function KlasUp() {
   const [pptUpdateText, setPptUpdateText] = useState("");
   const [pptUpdating, setPptUpdating] = useState(false);
   const [pptLoadedFromSaved, setPptLoadedFromSaved] = useState(false);
+  const [pptFromKlas, setPptFromKlas] = useState(false);
+  const [pendingSlideHandoff, setPendingSlideHandoff] = useState(null);
 
   // --- Save deck to course state ---
   const [deckSaveOpen, setDeckSaveOpen] = useState(false);
@@ -1892,11 +1894,52 @@ export default function KlasUp() {
       : core4Match4 ? { subject: core4Match4[1], level: core4Match4[2], building: core4Match4[3], format: "", goal: core4Match4[4] }
       : null;
 
+    const buildMatch = reply.match(/<<BUILD:\s*type="([^"]*)",\s*description="([\s\S]*?)"\s*>>/);
+    const build = buildMatch ? { type: buildMatch[1], description: buildMatch[2] } : null;
+
     const cleanedReply = reply
       .replace(/\s*<<OPTIONS:\s*.+?>>/g, "")
       .replace(/\s*<<CORE_4:\s*.+?>>/g, "")
+      .replace(/\s*<<BUILD:\s*[\s\S]*?>>/g, "")
       .trim();
-    return { options, core4, cleanedReply };
+    return { options, core4, build, cleanedReply };
+  };
+
+  const executeSlideHandoff = (description) => {
+    setPptDesc(description);
+    setPptFromKlas(true);
+    setPptLoadedFromSaved(false);
+    setPptSlides(null);
+    setPptError(null);
+    setPptLoading(true);
+    setPendingSlideHandoff(null);
+    setPage("Slide Studio");
+    // week is a hardcoded default ("Week 8"), not computed from term start — see #week-default
+    generatePptPlan({ description, course, week })
+      .then(async slides => {
+        const enriched = await Promise.all(slides.map(async (s) => {
+          if (!s.why_source_id) return s;
+          const article = await fetchArticleById(s.why_source_id);
+          return article ? { ...s, article_title: article.title, article_url: article.url } : s;
+        }));
+        setPptSlides(enriched);
+        setPptLoading(false);
+      })
+      .catch(err => { setPptError(err.message); setPptLoading(false); });
+    if (typeof gtag === "function") gtag("event", "slide_studio_opened", { trigger: "klas_handoff" });
+  };
+
+  const handleBuildMarker = (build) => {
+    if (!build || build.type !== "slides") return;
+    if (!course) {
+      setSageMessages(prev => [...prev, { role: "assistant", content: "Klas needs an active course before building slides. Pick a course from the selector above." }]);
+      return;
+    }
+    if (pptSlides && pptSlides.length > 0) {
+      setPendingSlideHandoff(build.description);
+      return;
+    }
+    executeSlideHandoff(build.description);
   };
 
   const loadPromotedOptions = (questionType) => {
@@ -1934,7 +1977,7 @@ export default function KlasUp() {
       const reply = await sendSageChat({ messages: apiMessages, currentPage: page, courseName: course || null });
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
-      const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
+      const { options, core4, build, cleanedReply } = detectKlasQuickReplies(cleaned);
       const withReply = [...updated, { role: "assistant", content: cleanedReply }];
       sageMessagesRef.current = withReply;
       setSageMessages(withReply);
@@ -1961,7 +2004,9 @@ export default function KlasUp() {
         updateKlasConversation(klasConversationIdRef.current, { title: bridgeTitle, current_mode: 'confirming', messages: withReply, message_count: withReply.length, core_4_context: updatedCore4, course_id: klasCourseIdRef.current || null });
       }
 
-      if (expandStepTriggered) {
+      if (build) {
+        handleBuildMarker(build);
+      } else if (expandStepTriggered) {
         // SAVE TRIGGER 2: Mode 2 starts
         if (klasConversationIdRef.current) updateKlasConversation(klasConversationIdRef.current, { current_mode: 'brainstorming', reached_mode_2: true, messages: withReply, message_count: withReply.length, course_id: klasCourseIdRef.current || null });
         setSageOpen(false);
@@ -2044,7 +2089,7 @@ export default function KlasUp() {
       });
       if (!reply) throw new Error("Empty response");
       const cleaned = stripKlasFiller(reply);
-      const { options, core4, cleanedReply } = detectKlasQuickReplies(cleaned);
+      const { options, core4, build, cleanedReply } = detectKlasQuickReplies(cleaned);
       const withReplyH = [...updated, { role: "assistant", content: cleanedReply }];
       sageMessagesRef.current = withReplyH;
       setSageMessages(withReplyH);
@@ -2074,8 +2119,10 @@ export default function KlasUp() {
         updateKlasConversation(klasConversationIdRef.current, { messages: withReplyH, message_count: withReplyH.length, core_4_context: updatedCore4H, course_id: klasCourseIdRef.current || null });
       }
 
-      // Auto-open Assignment Builder modal if Sage's reply suggests building an assignment
-      if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
+      // Handoff: BUILD marker takes priority, then assignment regex
+      if (build) {
+        handleBuildMarker(build);
+      } else if (/let('s| us) (start|build|create|draft|design) (the |your |an |a )?assignment/i.test(cleanedReply) ||
           /open(ing)? the assignment builder/i.test(cleanedReply)) {
         setSageBuilderOpen(true);
         if (typeof gtag === "function") gtag("event", "assignment_builder_opened", { trigger: "sage_auto" });
@@ -3642,7 +3689,7 @@ export default function KlasUp() {
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <button onClick={() => {
                       if (!pptDesc.trim()) return;
-                      setPptLoading(true); setPptError(null); setPptSlides(null); setPptLoadedFromSaved(false);
+                      setPptLoading(true); setPptError(null); setPptSlides(null); setPptLoadedFromSaved(false); setPptFromKlas(false);
                       generatePptPlan({ description: pptDesc, course, week })
                         .then(async slides => {
                           const enriched = await Promise.all(slides.map(async (s) => {
@@ -3666,6 +3713,14 @@ export default function KlasUp() {
                     </button>
                   </div>
                 </Card>
+
+                {/* Klas handoff banner */}
+                {pptFromKlas && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: `${C.sage}11`, border: `1px solid ${C.sage}33`, borderRadius: 10, padding: "8px 14px", marginBottom: 12 }}>
+                    <span style={{ fontFamily: F.body, fontSize: 13, color: C.sage }}>Generated from your Klas conversation</span>
+                    <button onClick={() => { setSageOpen(true); }} style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, color: C.sage, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Back to Klas</button>
+                  </div>
+                )}
 
                 {/* PPT Loading */}
                 {pptLoading && (
@@ -6345,6 +6400,25 @@ export default function KlasUp() {
                   Send
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Unsaved Slide Studio work confirmation */}
+          {pendingSlideHandoff && (
+            <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 14px", flexShrink: 0, background: C.ivoryDark }}>
+              <div style={{ fontFamily: F.body, fontSize: 13, color: C.navy, marginBottom: 8, lineHeight: 1.5 }}>
+                You have an unsaved slide outline in Slide Studio. Opening this will replace it.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => executeSlideHandoff(pendingSlideHandoff)}
+                  style={{ background: C.tealBright, color: C.white, border: "none", borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                  Replace it
+                </button>
+                <button onClick={() => setPendingSlideHandoff(null)}
+                  style={{ background: C.ivoryDark, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 14px", fontFamily: F.accent, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                  Keep my current deck
+                </button>
+              </div>
             </div>
           )}
 
