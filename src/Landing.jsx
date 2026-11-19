@@ -381,7 +381,6 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
           { icon: "◉", title: "AI Micro-Learning", desc: "Bite-sized pedagogical tips generated from your actual course content — not generic advice. Delivered weekly.", color: C.tealBright, bg: C.tealLight },
           { icon: "❤", title: "Course Health Score", desc: "A living diagnostic that will evaluate alignment, engagement strategies, assessment design, and inclusivity across your course — grounded in your real materials, never a black box.", color: C.rose, bg: C.roseLight, badge: "Coming Soon" },
           { icon: "🔗", title: "Career Connections", desc: "Show students how each week's skills carry into real careers — honest connections drawn from your actual course content.", color: C.sage, bg: C.sageLight },
-          { icon: "◈", title: "Think Tank", desc: "Ask any teaching question and get research-backed, practical answers. Like office hours with a pedagogical expert.", color: "#6B4E9B", bg: "#F0EBF8" },
           { icon: "☑", title: "Accreditation Reports", desc: "Auto-generate documentation that proves continuous teaching improvement — ready for your accreditation body, whatever it may be.", color: "#B8860B", bg: "#FFF8E7", badge: "Coming Winter 2026–2027" },
           { icon: "✦", title: "Term Reflection", desc: "End each term with an AI-powered narrative that captures what changed, what improved, and what to try next.", color: C.navy, bg: C.ivoryDark },
         ].map((f, i) => (
@@ -493,12 +492,12 @@ export default function Landing({ onSignIn, onGetStarted, onTerms, onPrivacy, on
         {[
           {
             name: "Free", price: "$0", period: "forever", desc: "Get started and explore the basics.",
-            features: ["1 course", "AI Micro-Learning (1/week)", "Course Health Score (coming soon)", "Career Connections (1 role)", "Think Tank (5 questions/mo)"],
+            features: ["1 course", "AI Micro-Learning (1/week)", "Course Health Score (coming soon)", "Career Connections (1 role)"],
             cta: "Start Free", featured: false,
           },
           {
             name: "Pro", price: "$15", period: "/month billed annually · $19.99 month-to-month", desc: "For faculty ready to level up.",
-            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics (coming soon)", "All Career Connection roles", "Unlimited Think Tank", "Accreditation Reports ⸱ Coming Soon", "Term Reflection", "Course Portfolio"],
+            features: ["Unlimited courses", "Unlimited Micro-Learning", "Full Course Health diagnostics (coming soon)", "All Career Connection roles", "Accreditation Reports ⸱ Coming Soon", "Term Reflection", "Course Portfolio"],
             cta: "Start Free Trial", featured: true,
           },
           {

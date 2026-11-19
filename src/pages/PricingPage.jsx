@@ -4,7 +4,6 @@ const features = {
   free: [
     { label: "Course health scores (coming soon)", included: true },
     { label: "Micro-learning library", included: true },
-    { label: "Think Tank forum", included: true },
     { label: "Klas — AI-Powered Brainstorming (limited)", included: true },
     { label: "Assignment Builder (3/month)", included: true },
     { label: "Slide Studio", included: false },

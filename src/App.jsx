@@ -97,7 +97,7 @@ const NAV = [
   // Learning Hub
   { id: "Micro-Learning", icon: "◉", cluster: "LEARNING HUB" },
   { id: "Pedagogical Resources", icon: "⊡" },
-  { id: "Think Tank", icon: "◈" },
+  { id: "Think Tank", icon: "◈", hidden: true },
   { id: "Wellness", icon: "🌿" },
   // The Vault
   { id: "Course Portfolio", icon: "◆", cluster: "THE VAULT" },
@@ -2689,7 +2689,8 @@ export default function KlasUp() {
             const visible = NAV.filter(n =>
               (!n.adminOnly || profile?.role === "admin") &&
               !gatedPageIds.has(n.id) &&
-              !(n.hiddenViaCourseArchitect && canSeeCourseArchitect)
+              !(n.hiddenViaCourseArchitect && canSeeCourseArchitect) &&
+              !n.hidden
             );
             // Cluster labels: only show if at least one item in that cluster is visible
             const CLUSTERS = ["LEARNING HUB", "THE VAULT"];
@@ -5708,7 +5709,7 @@ export default function KlasUp() {
               {
                 key: "free", name: "Free", sub: "The Signal", price: "$0", period: "forever", color: C.muted,
                 features: ["1 course", "Health scores (coming soon)", "2 micro-learnings/month", "Post-class notes & announcements", "Career Connections (1 role preview)"],
-                locked: ["Think Tank (read only)", "Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite"],
+                locked: ["Assignment Builder", "Slide Studio", "Full Career Connections + share cards", "Historical trending", "Full upload suite"],
                 cta: "Get Started Free",
               },
               {
@@ -5717,7 +5718,7 @@ export default function KlasUp() {
                 period: billingPeriod === "annual" ? "/month · billed annually at $179.99 — save $59.89" : "/month per faculty",
                 color: C.tealBright, featured: true,
                 features: ["All courses", "Assignment Builder with AI feedback", "Slide Studio", "Full Career Connections + student share cards", "Full upload suite (6 categories)", "Full micro-learning library with citations", "Learning Outcome Alignment", "Wellbeing & Student Voice signals"],
-                locked: ["Think Tank — full participation", "Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics"],
+                locked: ["Full trending — week, class & term", "All 10 health dimensions", "Metacognitive & UDL tracking", "Self-generated reports", "Institutional dashboard", "Aggregated analytics"],
                 cta: "Upgrade to Pro",
               },
               {
