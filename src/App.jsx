@@ -88,7 +88,17 @@ const PRICE_IDS = {
   annual:  'price_1U7fchEA4xWM73CV4a2HqKxg',
 };
 
-const WEEKS = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
+// Compute which academic week it is from a course's term_start and num_weeks.
+// Returns 1-indexed week number, clamped to [1, numWeeks].
+// Falls back to 1 when term_start is missing or term hasn't started.
+function computeCurrentWeek(termStart, numWeeks) {
+  if (!termStart) return 1;
+  const start = new Date(termStart + "T00:00:00");
+  const diffMs = Date.now() - start.getTime();
+  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  if (diffWeeks < 0) return 1;
+  return Math.min(diffWeeks + 1, numWeeks || 16);
+}
 const NAV = [
   // Top-level
   { id: "Dashboard", icon: "⊞" },
@@ -219,19 +229,23 @@ function formatCourseLabel(c) {
   return label;
 }
 
-const WCS = ({ course, setCourse, week, setWeek, courses }) => (
-  <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-    <select value={course} onChange={e => setCourse(e.target.value)}
-      style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
-      {courses.map(c => <option key={c.course_code} value={c.course_code}>{formatCourseLabel(c)}</option>)}
-    </select>
-    <select value={week} onChange={e => setWeek(e.target.value)}
-      style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
-      {WEEKS.map(w => <option key={w}>{w}</option>)}
-    </select>
-    <div style={{ fontSize: 11, fontFamily: F.accent, color: C.sage, fontWeight: 700, padding: "5px 10px", background: C.sageLight, borderRadius: 8 }}>● Auto-tagged</div>
-  </div>
-);
+const WCS = ({ course, setCourse, week, setWeek, courses, activeCourse }) => {
+  const totalWeeks = activeCourse?.num_weeks || 16;
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => `Week ${i + 1}`);
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+      <select value={course} onChange={e => setCourse(e.target.value)}
+        style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.navy, cursor: "pointer" }}>
+        {courses.map(c => <option key={c.course_code} value={c.course_code}>{formatCourseLabel(c)}</option>)}
+      </select>
+      <select value={week} onChange={e => setWeek(e.target.value)}
+        style={{ fontFamily: F.accent, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${C.border}`, background: C.white, color: C.teal, cursor: "pointer" }}>
+        {weeks.map(w => <option key={w}>{w}</option>)}
+      </select>
+      <div style={{ fontSize: 11, fontFamily: F.accent, color: C.sage, fontWeight: 700, padding: "5px 10px", background: C.sageLight, borderRadius: 8 }}>● Auto-tagged</div>
+    </div>
+  );
+};
 
 // Shared file processing: upload to Storage (if userId provided), extract text client-side.
 // PDF: uploads raw file but skips extraction (shows friendly message via error path).
@@ -839,7 +853,7 @@ export default function KlasUp() {
   // tier now comes from the database — no more demo toggle
   const tier = subStatus.tier;
   const [course, setCourse] = useState("");
-  const [week, setWeek] = useState("Week 8");
+  const [week, setWeek] = useState("Week 1");
   const [uploadOpen, setUploadOpen] = useState(null);
   const [uploaded, setUploaded] = useState({});
   const [slideOpen, setSlideOpen] = useState(null);
@@ -1544,6 +1558,14 @@ export default function KlasUp() {
     if (match && match.course_code) {
       setCourse(match.course_code);
     }
+  }, [activeCourseId, dbCourses]);
+
+  // Compute current week from term_start when active course changes
+  useEffect(() => {
+    const c = dbCourses.find(c => c.id === activeCourseId);
+    if (!c) return;
+    const computed = computeCurrentWeek(c.term_start, c.num_weeks || 16);
+    setWeek(`Week ${computed}`);
   }, [activeCourseId, dbCourses]);
 
   // Wrapper: when WCS changes course, also update the app-wide activeCourseId
@@ -3232,7 +3254,7 @@ export default function KlasUp() {
                 style={{ fontFamily: F.body, fontSize: 13, color: C.muted, fontWeight: 600, cursor: "pointer", marginBottom: 8, display: "inline-block" }}>← Back to Course Architect</div>
             )}
             <PageHeader breadcrumb="🏠 Dashboard › 📝 Pedagogy Studio" title="Pedagogy Studio" subtitle="Share what's happening in your classroom. KlasUp turns it into growth." featureInfo={<FeatureInfo sectionId="pedagogy-studio" />} />
-            <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
+            <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} activeCourse={dbCourses.find(c => c.id === activeCourseId)} />
 
             {/* Assignment Builder entry point */}
             <button onClick={() => setSageBuilderOpen(true)}
@@ -3699,7 +3721,7 @@ export default function KlasUp() {
               </Card>
             ) : (
               <div>
-                <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
+                <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} activeCourse={dbCourses.find(c => c.id === activeCourseId)} />
 
                 {/* ── POWERPOINT PLANNER ── */}
                 <Card style={{ marginBottom: 20, border: `1px solid ${C.tealBright}22` }}>
@@ -6776,7 +6798,7 @@ export default function KlasUp() {
                 </div>
               ) : (
                 <div>
-                  <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} />
+                  <WCS course={course} setCourse={setCourseAndSync} week={week} setWeek={setWeek} courses={dbCourses} activeCourse={dbCourses.find(c => c.id === activeCourseId)} />
 
                   {/* Description input */}
                   <Card style={{ marginBottom: 20, border: `1px solid ${C.sage}22` }}>
